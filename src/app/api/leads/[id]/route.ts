@@ -54,7 +54,16 @@ export async function PUT(
     if (body.assignedToId !== undefined) updateData.assignedToId = body.assignedToId;
     if (body.isTarget !== undefined) updateData.isTarget = body.isTarget;
     if (body.notes !== undefined) updateData.notes = body.notes;
-    if (body.status !== undefined) updateData.status = body.status;
+    if (body.status !== undefined) {
+      updateData.status = body.status;
+      // Auto-set enrolled=true when status changes to ISCRITTO
+      if (body.status === "ISCRITTO") {
+        updateData.enrolled = true;
+        if (!body.enrolledAt) {
+          updateData.enrolledAt = new Date();
+        }
+      }
+    }
     
     // Contact tracking
     if (body.contacted !== undefined) {

@@ -10,6 +10,8 @@ import { PieChart } from "@/components/charts/PieChart";
 import { BarChart } from "@/components/charts/BarChart";
 import { Megaphone, Users, Euro, TrendingUp, TestTube } from "lucide-react";
 import { HelpIcon } from "@/components/ui/HelpIcon";
+import { OnboardingTour } from "@/components/ui/OnboardingTour";
+import { marketingTourSteps } from "@/lib/tourSteps";
 
 interface Campaign {
   id: string;
@@ -177,8 +179,11 @@ export default function MarketingDashboard() {
         )}
       </div>
 
+      {/* Onboarding Tour */}
+      <OnboardingTour steps={marketingTourSteps} tourKey="marketing-dashboard" />
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div data-tour="stats-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Campagne Attive"
           value={activeCampaigns.length}
@@ -203,7 +208,7 @@ export default function MarketingDashboard() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div data-tour="campaigns-overview" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Platform Spend Distribution */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-lg font-semibold mb-2">Distribuzione Spesa per Piattaforma</h2>
@@ -299,7 +304,7 @@ export default function MarketingDashboard() {
       </div>
 
       {/* ROI Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div data-tour="roi-section" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-semibold text-gray-900 mb-4">Ricavo vs Spesa</h3>
           <div className="space-y-3">

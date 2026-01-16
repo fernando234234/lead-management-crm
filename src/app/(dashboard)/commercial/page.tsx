@@ -8,6 +8,8 @@ import { StatCard } from "@/components/ui/StatCard";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { Users, Phone, UserCheck, Target, TestTube } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { OnboardingTour } from "@/components/ui/OnboardingTour";
+import { commercialTourSteps } from "@/lib/tourSteps";
 import Link from "next/link";
 
 interface Lead {
@@ -187,8 +189,11 @@ export default function CommercialDashboard() {
         </div>
       </div>
 
+      {/* Onboarding Tour */}
+      <OnboardingTour steps={commercialTourSteps} tourKey="commercial-dashboard" />
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div data-tour="stats-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Lead Assegnati"
           value={stats.totalLeads}
@@ -215,7 +220,7 @@ export default function CommercialDashboard() {
       </div>
 
       {/* Recent Leads Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div data-tour="tasks" className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-6 border-b border-gray-100">
           <h2 className="text-lg font-semibold">Lead Recenti da Contattare</h2>
           <p className="text-sm text-gray-500">Lead non contattati o da richiamare</p>
