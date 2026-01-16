@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
+import { CostCoverage, CostCoverageInline, calculateCostMetrics } from "@/components/ui/CostCoverage";
 
 // Export columns configuration
 const leadExportColumns = [
@@ -107,7 +108,11 @@ interface Campaign {
 interface GroupedLeads {
   campaign: Campaign;
   leads: Lead[];
-  cpl: number;
+  cpl: number;           // Estimated CPL from campaign budget
+  cplEffettivo: number;  // Actual CPL from lead costs
+  leadsWithCost: number;
+  totalCost: number;
+  costCoverage: number;
 }
 
 export default function MarketingLeadsPage() {
@@ -194,6 +199,10 @@ export default function MarketingLeadsPage() {
               campaign,
               leads: [],
               cpl: 0,
+              cplEffettivo: 0,
+              leadsWithCost: 0,
+              totalCost: 0,
+              costCoverage: 0,
             };
           }
         }
@@ -205,9 +214,17 @@ export default function MarketingLeadsPage() {
 
     // Calculate CPL for each group
     Object.values(groups).forEach((group) => {
+      // Estimated CPL from campaign budget
       const totalSpent = group.campaign.totalSpent || group.campaign.cost || 0;
       const leadCount = group.leads.length;
       group.cpl = leadCount > 0 ? totalSpent / leadCount : 0;
+      
+      // Actual CPL from individual lead costs (only divide by leads WITH cost)
+      const costMetrics = calculateCostMetrics(group.leads);
+      group.cplEffettivo = costMetrics.cplEffettivo;
+      group.leadsWithCost = costMetrics.leadsWithCost;
+      group.totalCost = costMetrics.totalCost;
+      group.costCoverage = costMetrics.coverage;
     });
 
     return Object.values(groups).sort((a, b) => b.leads.length - a.leads.length);
@@ -215,20 +232,17 @@ export default function MarketingLeadsPage() {
 
   // Stats calculations
   const stats = useMemo(() => {
-    const totalLeads = filteredLeads.length;
-    const totalCost = filteredLeads.reduce(
-      (sum, lead) => sum + (lead.acquisitionCost || 0),
-      0
-    );
-    const avgCpl = totalLeads > 0 ? totalCost / totalLeads : 0;
+    const costMetrics = calculateCostMetrics(filteredLeads);
     const uniqueCampaigns = new Set(
       filteredLeads.map((l) => l.campaign?.id).filter(Boolean)
     ).size;
 
     return {
-      totalLeads,
-      totalCost,
-      avgCpl,
+      totalLeads: costMetrics.totalLeads,
+      leadsWithCost: costMetrics.leadsWithCost,
+      totalCost: costMetrics.totalCost,
+      avgCpl: costMetrics.cplEffettivo,  // Use correct CPL (only divide by leads WITH cost)
+      costCoverage: costMetrics.coverage,
       uniqueCampaigns,
     };
   }, [filteredLeads]);
@@ -392,12 +406,20 @@ export default function MarketingLeadsPage() {
           title="Costo Totale"
           value={`€${stats.totalCost.toLocaleString("it-IT", { minimumFractionDigits: 2 })}`}
           icon={Euro}
+          subtitle={`${stats.leadsWithCost} lead con costo`}
         />
-        <StatCard
-          title="CPL Medio"
-          value={`€${stats.avgCpl.toFixed(2)}`}
-          icon={TrendingUp}
-        />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp size={18} className="text-marketing" />
+            <span className="text-sm font-medium text-gray-600">CPL Effettivo</span>
+          </div>
+          <CostCoverage
+            leadsWithCost={stats.leadsWithCost}
+            totalLeads={stats.totalLeads}
+            totalCost={stats.totalCost}
+            accentColor="marketing"
+          />
+        </div>
       </div>
 
       {/* Filters */}
@@ -482,16 +504,23 @@ export default function MarketingLeadsPage() {
                   <h3 className="font-semibold text-gray-900">
                     {group.campaign.name}
                   </h3>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-3 mt-1">
                     <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
                       {getPlatformLabel(group.campaign.platform)}
                     </span>
                     <span className="text-sm text-gray-500">
                       {group.leads.length} lead
                     </span>
-                    <span className="text-sm text-gray-500">
-                      CPL: €{group.cpl.toFixed(2)}
+                    <span className="text-sm text-gray-400">
+                      CPL Stim: €{group.cpl.toFixed(2)}
                     </span>
+                    {group.leadsWithCost > 0 && (
+                      <CostCoverageInline
+                        leadsWithCost={group.leadsWithCost}
+                        totalLeads={group.leads.length}
+                        totalCost={group.totalCost}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -543,7 +572,11 @@ export default function MarketingLeadsPage() {
                           {new Date(lead.createdAt).toLocaleDateString("it-IT")}
                         </td>
                         <td className="p-3 font-medium">
-                          €{(lead.acquisitionCost || 0).toFixed(2)}
+                          {lead.acquisitionCost && lead.acquisitionCost > 0 ? (
+                            <span className="text-marketing">€{lead.acquisitionCost.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="p-3">
                           <div className="flex gap-2">
