@@ -16,10 +16,14 @@ import {
   ChevronRight,
   Pencil,
   Eye,
+  CheckSquare,
+  Square,
+  Minus,
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import { CostCoverage, CostCoverageInline, calculateCostMetrics } from "@/components/ui/CostCoverage";
+import { BulkCostModal } from "@/components/ui/BulkCostModal";
 
 // Export columns configuration
 const leadExportColumns = [
@@ -138,6 +142,10 @@ export default function MarketingLeadsPage() {
     isTarget: false,
     acquisitionCost: "",
   });
+  
+  // Bulk selection state
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+  const [showBulkCostModal, setShowBulkCostModal] = useState(false);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -273,6 +281,106 @@ export default function MarketingLeadsPage() {
 
   const collapseAll = () => {
     setExpandedCampaigns(new Set());
+  };
+
+  // Bulk selection helpers
+  const handleSelectLead = (leadId: string) => {
+    setSelectedLeads((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(leadId)) {
+        newSet.delete(leadId);
+      } else {
+        newSet.add(leadId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectCampaignLeads = (campaignLeads: Lead[]) => {
+    const campaignLeadIds = campaignLeads.map((l) => l.id);
+    const allSelected = campaignLeadIds.every((id) => selectedLeads.has(id));
+    
+    setSelectedLeads((prev) => {
+      const newSet = new Set(prev);
+      if (allSelected) {
+        // Deselect all from this campaign
+        campaignLeadIds.forEach((id) => newSet.delete(id));
+      } else {
+        // Select all from this campaign
+        campaignLeadIds.forEach((id) => newSet.add(id));
+      }
+      return newSet;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedLeads(new Set());
+  };
+
+  // Bulk cost operations
+  const handleBulkSetCost = async (cost: number) => {
+    const leadIds = Array.from(selectedLeads);
+    
+    if (isDemoMode) {
+      setLeads(
+        leads.map((l) =>
+          selectedLeads.has(l.id) ? { ...l, acquisitionCost: cost } : l
+        )
+      );
+      clearSelection();
+      setShowBulkCostModal(false);
+      return;
+    }
+
+    try {
+      await fetch("/api/leads/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_cost",
+          leadIds,
+          data: { acquisitionCost: cost },
+        }),
+      });
+      clearSelection();
+      setShowBulkCostModal(false);
+      fetchData();
+    } catch (error) {
+      console.error("Failed to set bulk cost:", error);
+    }
+  };
+
+  const handleBulkDistributeCost = async (totalBudget: number) => {
+    const leadIds = Array.from(selectedLeads);
+    const costPerLead = totalBudget / leadIds.length;
+    
+    if (isDemoMode) {
+      setLeads(
+        leads.map((l) =>
+          selectedLeads.has(l.id) ? { ...l, acquisitionCost: costPerLead } : l
+        )
+      );
+      clearSelection();
+      setShowBulkCostModal(false);
+      return;
+    }
+
+    try {
+      await fetch("/api/leads/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "distribute_cost",
+          leadIds,
+          data: { totalBudget },
+        }),
+      });
+      clearSelection();
+      setShowBulkCostModal(false);
+      fetchData();
+    } catch (error) {
+      console.error("Failed to distribute cost:", error);
+    }
   };
 
   // Open edit modal
@@ -468,6 +576,31 @@ export default function MarketingLeadsPage() {
         </div>
       </div>
 
+      {/* Selection Info Bar */}
+      {selectedLeads.size > 0 && (
+        <div className="bg-marketing/10 border border-marketing/20 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CheckSquare size={20} className="text-marketing" />
+            <span className="font-medium text-gray-900">
+              {selectedLeads.size} lead selezionati
+            </span>
+            <button
+              onClick={clearSelection}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Deseleziona tutti
+            </button>
+          </div>
+          <button
+            onClick={() => setShowBulkCostModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-marketing text-white rounded-lg hover:opacity-90 transition"
+          >
+            <Euro size={18} />
+            Imposta Costi
+          </button>
+        </div>
+      )}
+
       {/* Expand/Collapse buttons */}
       <div className="flex gap-2">
         <button
@@ -537,6 +670,24 @@ export default function MarketingLeadsPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-sm text-gray-500 bg-gray-50 border-b">
+                      <th className="p-3 w-10">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectCampaignLeads(group.leads);
+                          }}
+                          className="p-1 hover:bg-gray-200 rounded transition"
+                          title="Seleziona tutti i lead di questa campagna"
+                        >
+                          {group.leads.every((l) => selectedLeads.has(l.id)) ? (
+                            <CheckSquare size={18} className="text-marketing" />
+                          ) : group.leads.some((l) => selectedLeads.has(l.id)) ? (
+                            <Minus size={18} className="text-marketing" />
+                          ) : (
+                            <Square size={18} className="text-gray-400" />
+                          )}
+                        </button>
+                      </th>
                       <th className="p-3 font-medium">Nome</th>
                       <th className="p-3 font-medium">Email</th>
                       <th className="p-3 font-medium">Stato</th>
@@ -547,7 +698,24 @@ export default function MarketingLeadsPage() {
                   </thead>
                   <tbody>
                     {group.leads.map((lead) => (
-                      <tr key={lead.id} className="border-b last:border-b-0 hover:bg-gray-50">
+                      <tr 
+                        key={lead.id} 
+                        className={`border-b last:border-b-0 hover:bg-gray-50 ${
+                          selectedLeads.has(lead.id) ? "bg-marketing/5" : ""
+                        }`}
+                      >
+                        <td className="p-3">
+                          <button
+                            onClick={() => handleSelectLead(lead.id)}
+                            className="p-1 hover:bg-gray-200 rounded transition"
+                          >
+                            {selectedLeads.has(lead.id) ? (
+                              <CheckSquare size={18} className="text-marketing" />
+                            ) : (
+                              <Square size={18} className="text-gray-400" />
+                            )}
+                          </button>
+                        </td>
                         <td className="p-3 font-medium">
                           <div className="flex items-center gap-2">
                             {lead.name}
@@ -743,6 +911,16 @@ export default function MarketingLeadsPage() {
           onUpdate={handleLeadUpdate}
           isDemoMode={isDemoMode}
           accentColor="marketing"
+        />
+      )}
+
+      {/* Bulk Cost Modal */}
+      {showBulkCostModal && (
+        <BulkCostModal
+          leadIds={Array.from(selectedLeads)}
+          onClose={() => setShowBulkCostModal(false)}
+          onSetCost={handleBulkSetCost}
+          onDistributeCost={handleBulkDistributeCost}
         />
       )}
     </div>

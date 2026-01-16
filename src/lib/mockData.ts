@@ -17,6 +17,10 @@ export const mockStats = {
     totalRevenue: 87000,
     totalCost: 24500,
     costPerLead: "71.64",
+    actualCostPerLead: "35.42",
+    leadsWithCost: 17,
+    totalAcquisitionCost: 602.14,
+    costCoverage: "5.0",
     roi: "255.1",
   },
   leadsByStatus: [

@@ -8,7 +8,7 @@ import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { PieChart } from "@/components/charts/PieChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { BarChart } from "@/components/charts/BarChart";
-import { UsersRound, BookOpen, Megaphone, Euro, UserCheck, TestTube, Users } from "lucide-react";
+import { UsersRound, BookOpen, Megaphone, Euro, UserCheck, TestTube, Users, AlertTriangle } from "lucide-react";
 import { HelpIcon } from "@/components/ui/HelpIcon";
 import { helpTexts } from "@/lib/helpTexts";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
@@ -31,6 +31,10 @@ interface Stats {
     totalRevenue: number;
     totalCost: number;
     costPerLead: string;
+    actualCostPerLead: string;
+    leadsWithCost: number;
+    totalAcquisitionCost: number;
+    costCoverage: string;
     roi: string;
   };
   leadsByStatus: { status: string; count: number }[];
@@ -355,7 +359,7 @@ export default function AdminDashboard() {
       {/* Profitability Summary */}
       <div data-tour="profitability" className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-lg font-semibold mb-6">Riepilogo Profittabilita</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <p className="text-sm text-gray-600">Ricavo Totale</p>
             <p className="text-2xl font-bold text-green-600">
@@ -376,12 +380,29 @@ export default function AdminDashboard() {
           </div>
           <div className="text-center p-4 bg-yellow-50 rounded-lg">
             <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
-              Costo per Lead
+              CPL Stimato
               <HelpIcon text={helpTexts.cplEstimato} size="sm" />
             </p>
             <p className="text-2xl font-bold text-yellow-600">
               €{stats.financial.costPerLead}
             </p>
+          </div>
+          <div className="text-center p-4 bg-orange-50 rounded-lg">
+            <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
+              CPL Effettivo
+              <HelpIcon text="CPL calcolato sui costi reali di acquisizione impostati per ogni lead. Piu preciso del CPL stimato." size="sm" />
+            </p>
+            <p className="text-2xl font-bold text-orange-600">
+              €{stats.financial.actualCostPerLead}
+            </p>
+            {parseFloat(stats.financial.costCoverage) < 100 && (
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <AlertTriangle size={12} className="text-orange-500" />
+                <span className="text-xs text-orange-600">
+                  {stats.financial.costCoverage}% copertura
+                </span>
+              </div>
+            )}
           </div>
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <p className="text-sm text-gray-600 flex items-center justify-center gap-1">

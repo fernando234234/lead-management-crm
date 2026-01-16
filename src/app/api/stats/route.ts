@@ -72,9 +72,29 @@ export async function GET() {
     // Calculate conversion rate
     const conversionRate = totalLeads > 0 ? (enrolledLeads / totalLeads) * 100 : 0;
 
-    // Calculate cost per lead
+    // Calculate estimated cost per lead (from campaign spend)
     const totalCost = Number(spendRecords._sum.amount) || 0;
     const costPerLead = totalLeads > 0 ? totalCost / totalLeads : 0;
+
+    // Calculate actual CPL (from individual lead acquisition costs)
+    const leadsWithCost = await prisma.lead.findMany({
+      where: {
+        acquisitionCost: { not: null, gt: 0 }
+      },
+      select: { acquisitionCost: true }
+    });
+    
+    const leadsWithCostCount = leadsWithCost.length;
+    const totalAcquisitionCost = leadsWithCost.reduce(
+      (sum, lead) => sum + (Number(lead.acquisitionCost) || 0), 
+      0
+    );
+    const actualCostPerLead = leadsWithCostCount > 0 
+      ? totalAcquisitionCost / leadsWithCostCount 
+      : 0;
+    const costCoverage = totalLeads > 0 
+      ? (leadsWithCostCount / totalLeads) * 100 
+      : 0;
 
     return NextResponse.json({
       overview: {
@@ -93,6 +113,10 @@ export async function GET() {
         totalRevenue,
         totalCost,
         costPerLead: costPerLead.toFixed(2),
+        actualCostPerLead: actualCostPerLead.toFixed(2),
+        leadsWithCost: leadsWithCostCount,
+        totalAcquisitionCost,
+        costCoverage: costCoverage.toFixed(1),
         roi: totalCost > 0 ? (((totalRevenue - totalCost) / totalCost) * 100).toFixed(1) : 0,
       },
       leadsByStatus: leadsByStatus.map((s) => ({

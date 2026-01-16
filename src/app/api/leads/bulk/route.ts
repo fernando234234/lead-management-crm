@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-type BulkAction = "assign" | "status" | "delete";
+type BulkAction = "assign" | "status" | "delete" | "set_cost" | "distribute_cost";
 
 interface BulkRequestBody {
   action: BulkAction;
@@ -10,6 +10,9 @@ interface BulkRequestBody {
     assignedToId?: string;
     distribute?: boolean;
     status?: string;
+    acquisitionCost?: number;      // For set_cost action
+    totalBudget?: number;          // For distribute_cost action
+    campaignId?: string;           // For distribute_cost action
   };
 }
 
@@ -131,6 +134,56 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           return NextResponse.json(
             { error: error instanceof Error ? error.message : "Failed to delete leads" },
+            { status: 500 }
+          );
+        }
+        break;
+      }
+
+      case "set_cost": {
+        // Set the same acquisitionCost for all selected leads
+        if (data?.acquisitionCost === undefined || data.acquisitionCost === null) {
+          return NextResponse.json(
+            { error: "Missing acquisitionCost value" },
+            { status: 400 }
+          );
+        }
+
+        try {
+          const result = await prisma.lead.updateMany({
+            where: { id: { in: leadIds } },
+            data: { acquisitionCost: data.acquisitionCost },
+          });
+          successCount = result.count;
+        } catch (error) {
+          return NextResponse.json(
+            { error: error instanceof Error ? error.message : "Failed to set acquisition cost" },
+            { status: 500 }
+          );
+        }
+        break;
+      }
+
+      case "distribute_cost": {
+        // Distribute a total budget evenly across selected leads
+        if (!data?.totalBudget || data.totalBudget <= 0) {
+          return NextResponse.json(
+            { error: "Missing or invalid totalBudget value" },
+            { status: 400 }
+          );
+        }
+
+        const costPerLead = data.totalBudget / leadIds.length;
+
+        try {
+          const result = await prisma.lead.updateMany({
+            where: { id: { in: leadIds } },
+            data: { acquisitionCost: costPerLead },
+          });
+          successCount = result.count;
+        } catch (error) {
+          return NextResponse.json(
+            { error: error instanceof Error ? error.message : "Failed to distribute cost" },
             { status: 500 }
           );
         }
