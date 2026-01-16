@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LogIn, Mail, Lock, AlertCircle } from "lucide-react";
+import { LogIn, Mail, Lock, AlertCircle, AlertTriangle } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -56,7 +56,17 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      {/* Demo/Mock Data Banner */}
+      <div className="fixed top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 py-2 px-4 z-50">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 text-amber-800 text-sm">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          <span>
+            <strong>Versione Demo:</strong> Dati fittizi a scopo dimostrativo
+          </span>
+        </div>
+      </div>
+      
+      <div className="w-full max-w-md mt-8">
         {/* Logo/Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-red-600 rounded-xl mb-4 shadow-red">
@@ -131,7 +141,9 @@ function LoginForm() {
 
           {/* Demo credentials */}
           <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-500 text-center mb-3">Account Demo</p>
+            <p className="text-xs text-gray-500 text-center mb-3">
+              Credenziali Demo (clicca per compilare)
+            </p>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <button
                 type="button"
@@ -151,7 +163,7 @@ function LoginForm() {
                 }}
                 className="p-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition font-medium"
               >
-                Commercial
+                Commerciale
               </button>
               <button
                 type="button"
@@ -164,12 +176,15 @@ function LoginForm() {
                 Marketing
               </button>
             </div>
+            <p className="text-xs text-amber-600 text-center mt-3">
+              Tutti i dati mostrati sono fittizi
+            </p>
           </div>
         </div>
 
         {/* Footer branding */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          Powered by Job Formazione Style
+          Ispirato allo stile Job Formazione
         </p>
       </div>
     </div>

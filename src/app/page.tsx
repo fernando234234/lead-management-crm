@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { LogIn, LogOut, User, ArrowRight } from "lucide-react";
+import { LogIn, LogOut, User, ArrowRight, AlertTriangle } from "lucide-react";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -18,7 +18,18 @@ export default function Home() {
       {/* Subtle red accent top bar */}
       <div className="fixed top-0 left-0 right-0 h-1 bg-red-600" />
       
-      <div className="text-center space-y-8 p-8 max-w-lg">
+      {/* Demo/Mock Data Banner */}
+      <div className="fixed top-1 left-0 right-0 bg-amber-50 border-b border-amber-200 py-2 px-4 z-50">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 text-amber-800 text-sm">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          <span>
+            <strong>Versione Demo:</strong> Questo sito utilizza dati fittizi a scopo dimostrativo. 
+            Nessun dato reale viene memorizzato o elaborato.
+          </span>
+        </div>
+      </div>
+      
+      <div className="text-center space-y-8 p-8 max-w-lg mt-12">
         {/* Logo area */}
         <div className="inline-flex items-center justify-center w-20 h-20 bg-red-600 rounded-2xl shadow-red mb-4">
           <span className="text-3xl font-bold text-white">LM</span>
@@ -107,9 +118,14 @@ export default function Home() {
         )}
 
         {/* Footer branding */}
-        <p className="text-xs text-gray-400 pt-8">
-          Powered by Job Formazione Style
-        </p>
+        <div className="pt-8 space-y-2">
+          <p className="text-xs text-gray-400">
+            Ispirato allo stile Job Formazione
+          </p>
+          <p className="text-xs text-amber-600 font-medium">
+            I dati visualizzati sono fittizi e generati automaticamente
+          </p>
+        </div>
       </div>
     </main>
   );
