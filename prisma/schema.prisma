@@ -135,6 +135,58 @@ model ProfitabilityRecord {
   @@index([platform])
 }
 
+model LeadActivity {
+  id          String       @id @default(cuid())
+  leadId      String
+  userId      String
+  type        ActivityType
+  description String
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+  lead        Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  userId      String
+  leadId      String?
+  title       String
+  description String?
+  dueDate     DateTime
+  completed   Boolean      @default(false)
+  completedAt DateTime?
+  priority    TaskPriority @default(MEDIUM)
+  createdAt   DateTime     @default(now())
+  lead        Lead?        @relation(fields: [leadId], references: [id])
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([leadId])
+  @@index([dueDate])
+  @@index([completed])
+}
+
 enum UserRole {
   ADMIN
   COMMERCIAL
@@ -180,38 +232,6 @@ enum ActivityType {
   ENROLLMENT
 }
 
-model LeadActivity {
-  id          String       @id @default(cuid())
-  leadId      String
-  lead        Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User         @relation(fields: [userId], references: [id])
-  type        ActivityType
-  description String
-  metadata    Json?        // For call duration, outcome details, etc.
-  createdAt   DateTime     @default(now())
-
-  @@index([leadId])
-  @@index([userId])
-  @@index([createdAt])
-}
-
-model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      NotificationType
-  title     String
-  message   String
-  link      String?          // URL to navigate to
-  read      Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  @@index([userId])
-  @@index([read])
-  @@index([createdAt])
-}
-
 enum NotificationType {
   LEAD_ASSIGNED
   LEAD_STATUS_CHANGED
@@ -225,24 +245,4 @@ enum TaskPriority {
   HIGH
   MEDIUM
   LOW
-}
-
-model Task {
-  id          String       @id @default(cuid())
-  userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  leadId      String?
-  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  title       String
-  description String?
-  dueDate     DateTime
-  completed   Boolean      @default(false)
-  completedAt DateTime?
-  priority    TaskPriority @default(MEDIUM)
-  createdAt   DateTime     @default(now())
-
-  @@index([userId])
-  @@index([leadId])
-  @@index([dueDate])
-  @@index([completed])
 }
