@@ -149,7 +149,7 @@ export function Sidebar({ role }: SidebarProps) {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1" aria-label="Navigazione principale">
+      <nav data-tour="sidebar-nav" className="flex-1 p-4 space-y-1" aria-label="Navigazione principale">
         {config.links.map((link) => {
           const Icon = link.icon;
           const isActive = pathname === link.href;

@@ -10,6 +10,9 @@ import { LineChart } from "@/components/charts/LineChart";
 import { BarChart } from "@/components/charts/BarChart";
 import { UsersRound, BookOpen, Megaphone, Euro, UserCheck, TestTube, Users } from "lucide-react";
 import { HelpIcon } from "@/components/ui/HelpIcon";
+import { helpTexts } from "@/lib/helpTexts";
+import { OnboardingTour } from "@/components/ui/OnboardingTour";
+import { adminTourSteps } from "@/lib/tourSteps";
 
 interface Stats {
   overview: {
@@ -185,6 +188,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Onboarding Tour */}
+      <OnboardingTour steps={adminTourSteps} tourKey="admin-dashboard" />
+
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -211,43 +217,49 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+      <div data-tour="stats-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         <StatCard
           title="Utenti"
           value={stats.overview.totalUsers}
           icon={UsersRound}
+          tooltip="Numero totale di utenti nel sistema (Admin, Commerciali, Marketing)."
         />
         <StatCard
           title="Corsi Attivi"
           value={stats.overview.activeCourses}
           icon={BookOpen}
+          tooltip="Corsi attualmente disponibili per le iscrizioni."
         />
         <StatCard
           title="Campagne"
           value={stats.overview.activeCampaigns}
           icon={Megaphone}
+          tooltip="Campagne pubblicitarie attive per acquisizione lead."
         />
         <StatCard
           title="Lead Totali"
           value={stats.overview.totalLeads}
           icon={Users}
+          tooltip="Numero totale di lead acquisiti da tutte le campagne."
         />
         <StatCard
           title="Iscritti"
           value={stats.overview.enrolledLeads}
           icon={UserCheck}
+          tooltip={helpTexts.leadIscritto}
         />
         <StatCard
           title="Ricavi"
           value={`€${stats.financial.totalRevenue.toLocaleString()}`}
           icon={Euro}
+          tooltip={helpTexts.ricavo}
         />
       </div>
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Lead Status Distribution - Pie Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div data-tour="lead-distribution" className="bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-lg font-semibold">Distribuzione Lead</h2>
             <p className="text-sm text-gray-500">Per stato</p>
@@ -284,7 +296,7 @@ export default function AdminDashboard() {
       {/* Two Column Layout - Recent Leads & Top Campaigns Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Leads */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div data-tour="recent-leads" className="bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-lg font-semibold">Lead Recenti</h2>
             <p className="text-sm text-gray-500">Ultimi 5 lead aggiunti</p>
@@ -341,7 +353,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Profitability Summary */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div data-tour="profitability" className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-lg font-semibold mb-6">Riepilogo Profittabilita</h2>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
           <div className="text-center p-4 bg-green-50 rounded-lg">
@@ -365,7 +377,7 @@ export default function AdminDashboard() {
           <div className="text-center p-4 bg-yellow-50 rounded-lg">
             <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
               Costo per Lead
-              <HelpIcon text="Spesa totale marketing / Numero totale lead" size="sm" />
+              <HelpIcon text={helpTexts.cplEstimato} size="sm" />
             </p>
             <p className="text-2xl font-bold text-yellow-600">
               €{stats.financial.costPerLead}
@@ -374,7 +386,7 @@ export default function AdminDashboard() {
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
               ROI
-              <HelpIcon text="Return on Investment: (Ricavi - Costi) / Costi × 100" size="sm" />
+              <HelpIcon text={helpTexts.roi} size="sm" />
             </p>
             <p className="text-2xl font-bold text-admin">
               {stats.financial.roi}%

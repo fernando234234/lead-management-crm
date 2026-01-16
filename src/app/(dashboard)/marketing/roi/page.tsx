@@ -6,6 +6,10 @@ import { mockCampaigns, mockLeads, mockStats } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import { LineChart } from "@/components/charts/LineChart";
 import { BarChart } from "@/components/charts/BarChart";
+import { HelpIcon } from "@/components/ui/HelpIcon";
+import { helpTexts, shortLabels } from "@/lib/helpTexts";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { MiniFunnel, ROIIndicator } from "@/components/ui/ProgressIndicators";
 import {
   TrendingUp,
   TrendingDown,
@@ -316,6 +320,28 @@ export default function MarketingROIPage() {
     );
   };
 
+  // Table header with optional help tooltip
+  const TableHeader = ({ 
+    column, 
+    label, 
+    helpText 
+  }: { 
+    column: keyof CampaignPerformance; 
+    label: string; 
+    helpText?: string;
+  }) => (
+    <th
+      className="p-3 font-medium cursor-pointer hover:text-gray-700"
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {helpText && <HelpIcon text={helpText} size="sm" />}
+        <SortIcon column={column} />
+      </div>
+    </th>
+  );
+
   const getRoiColor = (roi: number) => {
     if (roi >= 100) return "text-green-600 bg-green-50";
     if (roi >= 50) return "text-green-500 bg-green-50";
@@ -352,17 +378,20 @@ export default function MarketingROIPage() {
           value={`€${overallStats.totalRevenue.toLocaleString("it-IT")}`}
           icon={Euro}
           className="border-green-200"
+          tooltip={helpTexts.ricavo}
         />
         <StatCard
           title="Spesa Totale"
           value={`€${overallStats.effectiveSpent.toLocaleString("it-IT")}`}
           icon={DollarSign}
           className="border-red-200"
+          tooltip={helpTexts.spesa}
         />
         <StatCard
           title="ROI %"
           value={`${overallStats.overallRoi.toFixed(1)}%`}
           icon={BarChart3}
+          tooltip={helpTexts.roi}
           trend={{
             value: overallStats.overallRoi,
             isPositive: overallStats.overallRoi >= 0,
@@ -372,6 +401,7 @@ export default function MarketingROIPage() {
           title="Profitto Netto"
           value={`€${overallStats.totalProfit.toLocaleString("it-IT")}`}
           icon={overallStats.totalProfit >= 0 ? TrendingUp : TrendingDown}
+          tooltip={helpTexts.profitto}
           className={
             overallStats.totalProfit >= 0
               ? "border-green-200 bg-green-50"
@@ -387,12 +417,14 @@ export default function MarketingROIPage() {
           value={`€${overallStats.avgCostPerLeadEstimated.toFixed(2)}`}
           icon={Users}
           subtitle="Da budget campagna"
+          tooltip={helpTexts.cplEstimato}
         />
         <StatCard
           title="CPL Effettivo"
           value={`€${overallStats.avgCostPerLeadActual.toFixed(2)}`}
           icon={Users}
           subtitle={`${overallStats.totalLeads} lead totali`}
+          tooltip={helpTexts.cplEffettivo}
           className={overallStats.avgCostPerLeadActual > 0 ? "border-green-200 bg-green-50" : ""}
         />
         <StatCard
@@ -400,12 +432,32 @@ export default function MarketingROIPage() {
           value={`€${overallStats.avgCostPerConsulenza.toFixed(2)}`}
           icon={Phone}
           subtitle={`${overallStats.totalContacted} contattati`}
+          tooltip={helpTexts.costoConsulenza}
         />
         <StatCard
           title="Costo per Contratto"
           value={`€${overallStats.avgCostPerContratto.toFixed(2)}`}
           icon={FileCheck}
           subtitle={`${overallStats.totalEnrolled} iscritti`}
+          tooltip={helpTexts.costoContratto}
+        />
+      </div>
+
+      {/* Conversion Funnel Overview */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">Funnel di Conversione</h2>
+            <p className="text-sm text-gray-500">Panoramica del percorso lead → iscritto</p>
+          </div>
+          <ROIIndicator value={overallStats.overallRoi} size="md" showTrend />
+        </div>
+        <MiniFunnel
+          total={overallStats.totalLeads}
+          contacted={overallStats.totalContacted}
+          negotiating={Math.floor(overallStats.totalContacted * 0.6)}
+          enrolled={overallStats.totalEnrolled}
+          lost={overallStats.totalLeads - overallStats.totalEnrolled - Math.floor(overallStats.totalContacted * 0.3)}
         />
       </div>
 
@@ -511,82 +563,26 @@ export default function MarketingROIPage() {
       </div>
 
       {/* Performance Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b bg-gray-50">
-          <h2 className="font-semibold text-gray-900">
-            Confronto Performance Campagne
-          </h2>
-        </div>
+      <CollapsibleSection
+        title="Confronto Performance Campagne"
+        subtitle="Clicca sulle intestazioni per ordinare"
+        badge={sortedCampaigns.length}
+        defaultOpen={true}
+      >
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="text-left text-sm text-gray-500 border-b bg-gray-50">
                 <th className="p-3 font-medium">Campagna</th>
                 <th className="p-3 font-medium">Platform</th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("spent")}
-                >
-                  <div className="flex items-center gap-1">
-                    Spesa <SortIcon column="spent" />
-                  </div>
-                </th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("leads")}
-                >
-                  <div className="flex items-center gap-1">
-                    Lead <SortIcon column="leads" />
-                  </div>
-                </th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("cpl")}
-                >
-                  <div className="flex items-center gap-1">
-                    CPL Est. <SortIcon column="cpl" />
-                  </div>
-                </th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("actualCpl")}
-                >
-                  <div className="flex items-center gap-1">
-                    CPL Eff. <SortIcon column="actualCpl" />
-                  </div>
-                </th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("costPerConsulenza")}
-                >
-                  <div className="flex items-center gap-1">
-                    C/Consulenza <SortIcon column="costPerConsulenza" />
-                  </div>
-                </th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("costPerContratto")}
-                >
-                  <div className="flex items-center gap-1">
-                    C/Contratto <SortIcon column="costPerContratto" />
-                  </div>
-                </th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("revenue")}
-                >
-                  <div className="flex items-center gap-1">
-                    Ricavo <SortIcon column="revenue" />
-                  </div>
-                </th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("roi")}
-                >
-                  <div className="flex items-center gap-1">
-                    ROI <SortIcon column="roi" />
-                  </div>
-                </th>
+                <TableHeader column="spent" label="Spesa" helpText={helpTexts.spesa} />
+                <TableHeader column="leads" label="Lead" />
+                <TableHeader column="cpl" label="CPL Est." helpText={helpTexts.cplEstimato} />
+                <TableHeader column="actualCpl" label="CPL Eff." helpText={helpTexts.cplEffettivo} />
+                <TableHeader column="costPerConsulenza" label="C/Consulenza" helpText={helpTexts.costoConsulenza} />
+                <TableHeader column="costPerContratto" label="C/Contratto" helpText={helpTexts.costoContratto} />
+                <TableHeader column="revenue" label="Ricavo" helpText={helpTexts.ricavo} />
+                <TableHeader column="roi" label="ROI" helpText={helpTexts.roi} />
               </tr>
             </thead>
             <tbody>
@@ -669,7 +665,7 @@ export default function MarketingROIPage() {
             </div>
           )}
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* ROI Summary by Platform */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

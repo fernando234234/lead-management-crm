@@ -8,6 +8,7 @@ import { PieChart } from "@/components/charts/PieChart";
 import { BarChart } from "@/components/charts/BarChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { FunnelChart } from "@/components/charts/FunnelChart";
+import { helpTexts } from "@/lib/helpTexts";
 import {
   Users,
   TrendingUp,
@@ -528,21 +529,25 @@ export default function ReportsPage() {
             title="Lead Totali"
             value={stats?.overview.totalLeads || 0}
             icon={Users}
+            tooltip="Numero totale di lead acquisiti da tutte le campagne attive."
           />
           <StatCard
             title="Tasso Conversione"
             value={`${stats?.overview.conversionRate || 0}%`}
             icon={TrendingUp}
+            tooltip={helpTexts.conversionRate}
           />
           <StatCard
             title="Ricavi"
             value={`€${(stats?.financial.totalRevenue || 0).toLocaleString()}`}
             icon={Euro}
+            tooltip={helpTexts.ricavo}
           />
           <StatCard
             title="ROI"
             value={`${stats?.financial.roi || 0}%`}
             icon={Target}
+            tooltip={helpTexts.roi}
           />
         </div>
       </section>
