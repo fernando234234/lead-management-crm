@@ -17,6 +17,9 @@ import {
   ArrowDown,
   Minus,
   Filter,
+  Users,
+  Phone,
+  FileCheck,
 } from "lucide-react";
 
 // Platform options
@@ -32,6 +35,7 @@ interface Lead {
   id: string;
   status: string;
   enrolled: boolean;
+  contacted: boolean;
   campaign: {
     id: string;
     name: string;
@@ -74,12 +78,15 @@ interface CampaignPerformance {
   budget: number;
   spent: number;
   leads: number;
-  enrolled: number;
+  contacted: number; // consulenze
+  enrolled: number;  // contratti
   revenue: number;
   roi: number;
   profit: number;
   conversionRate: number;
-  cpl: number;
+  cpl: number;              // Costo per Lead
+  costPerConsulenza: number; // Costo per Consulenza
+  costPerContratto: number;  // Costo per Contratto
 }
 
 export default function MarketingROIPage() {
@@ -134,8 +141,15 @@ export default function MarketingROIPage() {
         const spent = campaign.totalSpent || campaign.cost || 0;
         const leadCount = campaign.leadCount || campaign.metrics?.totalLeads || 0;
         
-        // Get enrolled leads for this campaign from leads data
+        // Get leads for this campaign from leads data
         const campaignLeads = leads.filter((l) => l.campaign?.id === campaign.id);
+        
+        // Count contacted leads (consulenze)
+        const contactedCount = campaignLeads.filter(
+          (l) => l.status === "CONTATTATO" || l.status === "IN_TRATTATIVA" || l.status === "ISCRITTO"
+        ).length;
+        
+        // Count enrolled leads (contratti)
         const enrolledCount =
           campaign.metrics?.enrolledLeads ||
           campaignLeads.filter((l) => l.enrolled || l.status === "ISCRITTO").length;
@@ -148,7 +162,11 @@ export default function MarketingROIPage() {
         const profit = revenue - spent;
         const roi = spent > 0 ? ((revenue - spent) / spent) * 100 : 0;
         const conversionRate = leadCount > 0 ? (enrolledCount / leadCount) * 100 : 0;
-        const cpl = leadCount > 0 ? spent / leadCount : 0;
+        
+        // Calculate cost metrics
+        const cpl = leadCount > 0 ? spent / leadCount : 0;                    // Costo per Lead
+        const costPerConsulenza = contactedCount > 0 ? spent / contactedCount : 0; // Costo per Consulenza
+        const costPerContratto = enrolledCount > 0 ? spent / enrolledCount : 0;    // Costo per Contratto
 
         return {
           id: campaign.id,
@@ -159,12 +177,15 @@ export default function MarketingROIPage() {
           budget: campaign.budget || 0,
           spent,
           leads: leadCount,
+          contacted: contactedCount,
           enrolled: enrolledCount,
           revenue,
           roi,
           profit,
           conversionRate,
           cpl,
+          costPerConsulenza,
+          costPerContratto,
         };
       });
   }, [campaigns, leads, filterPlatform]);
@@ -204,12 +225,28 @@ export default function MarketingROIPage() {
     const totalSpent = campaignPerformance.reduce((sum, c) => sum + c.spent, 0);
     const totalProfit = totalRevenue - totalSpent;
     const overallRoi = totalSpent > 0 ? ((totalRevenue - totalSpent) / totalSpent) * 100 : 0;
+    
+    // Aggregate lead counts
+    const totalLeads = campaignPerformance.reduce((sum, c) => sum + c.leads, 0);
+    const totalContacted = campaignPerformance.reduce((sum, c) => sum + c.contacted, 0);
+    const totalEnrolled = campaignPerformance.reduce((sum, c) => sum + c.enrolled, 0);
+    
+    // Calculate overall cost metrics
+    const avgCostPerLead = totalLeads > 0 ? totalSpent / totalLeads : 0;
+    const avgCostPerConsulenza = totalContacted > 0 ? totalSpent / totalContacted : 0;
+    const avgCostPerContratto = totalEnrolled > 0 ? totalSpent / totalEnrolled : 0;
 
     return {
       totalRevenue,
       totalSpent,
       totalProfit,
       overallRoi,
+      totalLeads,
+      totalContacted,
+      totalEnrolled,
+      avgCostPerLead,
+      avgCostPerConsulenza,
+      avgCostPerContratto,
     };
   }, [campaignPerformance]);
 
@@ -277,7 +314,7 @@ export default function MarketingROIPage() {
         )}
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Row 1: Revenue & ROI */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
           title="Ricavo Totale"
@@ -309,6 +346,28 @@ export default function MarketingROIPage() {
               ? "border-green-200 bg-green-50"
               : "border-red-200 bg-red-50"
           }
+        />
+      </div>
+
+      {/* Stats Cards - Row 2: Cost Metrics (from your notes) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard
+          title="Costo per Lead"
+          value={`€${overallStats.avgCostPerLead.toFixed(2)}`}
+          icon={Users}
+          subtitle={`${overallStats.totalLeads} lead totali`}
+        />
+        <StatCard
+          title="Costo per Consulenza"
+          value={`€${overallStats.avgCostPerConsulenza.toFixed(2)}`}
+          icon={Phone}
+          subtitle={`${overallStats.totalContacted} contattati`}
+        />
+        <StatCard
+          title="Costo per Contratto"
+          value={`€${overallStats.avgCostPerContratto.toFixed(2)}`}
+          icon={FileCheck}
+          subtitle={`${overallStats.totalEnrolled} iscritti`}
         />
       </div>
 
@@ -428,18 +487,10 @@ export default function MarketingROIPage() {
                 <th className="p-3 font-medium">Platform</th>
                 <th
                   className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("budget")}
-                >
-                  <div className="flex items-center gap-1">
-                    Budget <SortIcon column="budget" />
-                  </div>
-                </th>
-                <th
-                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
                   onClick={() => handleSort("spent")}
                 >
                   <div className="flex items-center gap-1">
-                    Speso <SortIcon column="spent" />
+                    Spesa <SortIcon column="spent" />
                   </div>
                 </th>
                 <th
@@ -452,10 +503,26 @@ export default function MarketingROIPage() {
                 </th>
                 <th
                   className="p-3 font-medium cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("enrolled")}
+                  onClick={() => handleSort("cpl")}
                 >
                   <div className="flex items-center gap-1">
-                    Iscritti <SortIcon column="enrolled" />
+                    CPL <SortIcon column="cpl" />
+                  </div>
+                </th>
+                <th
+                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
+                  onClick={() => handleSort("costPerConsulenza")}
+                >
+                  <div className="flex items-center gap-1">
+                    C/Consulenza <SortIcon column="costPerConsulenza" />
+                  </div>
+                </th>
+                <th
+                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
+                  onClick={() => handleSort("costPerContratto")}
+                >
+                  <div className="flex items-center gap-1">
+                    C/Contratto <SortIcon column="costPerContratto" />
                   </div>
                 </th>
                 <th
@@ -512,18 +579,25 @@ export default function MarketingROIPage() {
                       {campaign.platformLabel}
                     </span>
                   </td>
-                  <td className="p-3">€{campaign.budget.toLocaleString("it-IT")}</td>
                   <td className="p-3">€{campaign.spent.toLocaleString("it-IT")}</td>
-                  <td className="p-3">{campaign.leads}</td>
                   <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <span>{campaign.enrolled}</span>
-                      <span className="text-xs text-gray-500">
-                        ({campaign.conversionRate.toFixed(1)}%)
+                    <div className="flex items-center gap-1">
+                      <span>{campaign.leads}</span>
+                      <span className="text-xs text-gray-400">
+                        ({campaign.contacted}C/{campaign.enrolled}I)
                       </span>
                     </div>
                   </td>
-                  <td className="p-3 font-medium">
+                  <td className="p-3 font-medium text-blue-600">
+                    €{campaign.cpl.toFixed(2)}
+                  </td>
+                  <td className="p-3 font-medium text-orange-600">
+                    €{campaign.costPerConsulenza.toFixed(2)}
+                  </td>
+                  <td className="p-3 font-medium text-purple-600">
+                    €{campaign.costPerContratto.toFixed(2)}
+                  </td>
+                  <td className="p-3 font-medium text-green-600">
                     €{campaign.revenue.toLocaleString("it-IT")}
                   </td>
                   <td className="p-3">
