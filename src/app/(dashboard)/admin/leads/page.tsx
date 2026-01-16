@@ -65,6 +65,7 @@ interface Campaign {
   name: string;
   source?: string;
   platform?: string;
+  course?: { id: string; name: string } | null;
 }
 
 interface UserData {
@@ -420,12 +421,14 @@ export default function AdminLeadsPage() {
       });
     } else {
       setEditingLead(null);
+      // Default to first/latest campaign (required field)
+      const defaultCampaign = campaigns[0];
       setFormData({
         name: "",
         email: "",
         phone: "",
-        courseId: courses[0]?.id || "",
-        campaignId: "",
+        courseId: defaultCampaign?.course?.id || courses[0]?.id || "",
+        campaignId: defaultCampaign?.id || "",
         assignedToId: "",
         isTarget: false,
         notes: "",
@@ -473,11 +476,17 @@ export default function AdminLeadsPage() {
       return;
     }
 
+    // Campaign is required
+    if (!formData.campaignId) {
+      alert("Seleziona una campagna per il lead");
+      return;
+    }
+
     const payload = {
       ...formData,
       email: formData.email || null,
       phone: formData.phone || null,
-      campaignId: formData.campaignId || null,
+      campaignId: formData.campaignId, // Required - not null
       assignedToId: formData.assignedToId || null,
       notes: formData.notes || null,
       callOutcome: formData.callOutcome || null,

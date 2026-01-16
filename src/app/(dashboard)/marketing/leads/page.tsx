@@ -14,8 +14,11 @@ import {
   TestTube,
   ChevronDown,
   ChevronRight,
+  Pencil,
+  Eye,
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
+import LeadDetailModal from "@/components/ui/LeadDetailModal";
 
 // Export columns configuration
 const leadExportColumns = [
@@ -59,20 +62,33 @@ const statusColors: Record<string, string> = {
 interface Lead {
   id: string;
   name: string;
-  email: string;
-  phone?: string;
+  email: string | null;
+  phone: string | null;
   status: string;
+  contacted: boolean;
+  contactedAt: string | null;
+  enrolled: boolean;
+  enrolledAt: string | null;
+  isTarget: boolean;
+  notes: string | null;
+  callOutcome: string | null;
+  outcomeNotes: string | null;
   acquisitionCost: number;
   createdAt: string;
   campaign: {
     id: string;
     name: string;
-    platform: string;
+    platform?: string;
   } | null;
-  course?: {
+  course: {
     id: string;
     name: string;
     price?: number;
+  } | null;
+  assignedTo: {
+    id: string;
+    name: string;
+    email: string;
   } | null;
 }
 
@@ -103,6 +119,19 @@ export default function MarketingLeadsPage() {
   const [filterCampaign, setFilterCampaign] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
+  
+  // Edit/Detail modal state
+  const [detailLead, setDetailLead] = useState<Lead | null>(null);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    status: "NUOVO",
+    notes: "",
+    isTarget: false,
+  });
 
   useEffect(() => {
     if (isDemoMode) {
@@ -142,7 +171,7 @@ export default function MarketingLeadsPage() {
       const matchesSearch =
         !searchTerm ||
         lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.email.toLowerCase().includes(searchTerm.toLowerCase());
+        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesCampaign =
         !filterCampaign || lead.campaign?.id === filterCampaign;
       const matchesStatus = !filterStatus || lead.status === filterStatus;
@@ -229,6 +258,87 @@ export default function MarketingLeadsPage() {
 
   const collapseAll = () => {
     setExpandedCampaigns(new Set());
+  };
+
+  // Open edit modal
+  const openEditModal = (lead: Lead) => {
+    setEditingLead(lead);
+    setFormData({
+      name: lead.name,
+      email: lead.email || "",
+      phone: lead.phone || "",
+      status: lead.status,
+      notes: lead.notes || "",
+      isTarget: lead.isTarget,
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle edit submit
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLead) return;
+
+    if (isDemoMode) {
+      setLeads(
+        leads.map((l) =>
+          l.id === editingLead.id
+            ? {
+                ...l,
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                status: formData.status,
+                notes: formData.notes,
+                isTarget: formData.isTarget,
+              }
+            : l
+        )
+      );
+      setShowEditModal(false);
+      return;
+    }
+
+    try {
+      await fetch(`/api/leads/${editingLead.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email || null,
+          phone: formData.phone || null,
+          status: formData.status,
+          notes: formData.notes || null,
+          isTarget: formData.isTarget,
+        }),
+      });
+      setShowEditModal(false);
+      fetchData();
+    } catch (error) {
+      console.error("Failed to update lead:", error);
+    }
+  };
+
+  // Handle lead update from detail modal
+  const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
+    if (isDemoMode) {
+      setLeads(leads.map((l) => (l.id === leadId ? { ...l, ...data } : l)));
+      if (detailLead?.id === leadId) {
+        setDetailLead({ ...detailLead, ...data } as Lead);
+      }
+      return;
+    }
+
+    try {
+      await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Failed to update lead:", error);
+    }
   };
 
   if (loading) {
@@ -394,13 +504,23 @@ export default function MarketingLeadsPage() {
                       <th className="p-3 font-medium">Email</th>
                       <th className="p-3 font-medium">Stato</th>
                       <th className="p-3 font-medium">Data</th>
-                      <th className="p-3 font-medium">Costo Acquisizione</th>
+                      <th className="p-3 font-medium">Costo Acq.</th>
+                      <th className="p-3 font-medium">Azioni</th>
                     </tr>
                   </thead>
                   <tbody>
                     {group.leads.map((lead) => (
                       <tr key={lead.id} className="border-b last:border-b-0 hover:bg-gray-50">
-                        <td className="p-3 font-medium">{lead.name}</td>
+                        <td className="p-3 font-medium">
+                          <div className="flex items-center gap-2">
+                            {lead.name}
+                            {lead.isTarget && (
+                              <span className="px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">
+                                Target
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-3 text-gray-600">{lead.email}</td>
                         <td className="p-3">
                           <span
@@ -417,6 +537,24 @@ export default function MarketingLeadsPage() {
                         <td className="p-3 font-medium">
                           €{(lead.acquisitionCost || 0).toFixed(2)}
                         </td>
+                        <td className="p-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setDetailLead(lead)}
+                              className="p-1.5 text-gray-500 hover:text-marketing transition"
+                              title="Dettagli"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              onClick={() => openEditModal(lead)}
+                              className="p-1.5 text-gray-500 hover:text-marketing transition"
+                              title="Modifica"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -432,6 +570,123 @@ export default function MarketingLeadsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editingLead && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">
+              Modifica Lead
+              {isDemoMode && (
+                <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>
+              )}
+            </h2>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefono
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stato
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isTarget"
+                  checked={formData.isTarget}
+                  onChange={(e) => setFormData({ ...formData, isTarget: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="isTarget" className="text-sm text-gray-700">
+                  Lead Target (prioritario)
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-marketing text-white rounded-lg hover:opacity-90 transition"
+                >
+                  Salva Modifiche
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lead Detail Modal */}
+      {detailLead && (
+        <LeadDetailModal
+          lead={detailLead}
+          onClose={() => setDetailLead(null)}
+          onUpdate={handleLeadUpdate}
+          isDemoMode={isDemoMode}
+          accentColor="marketing"
+        />
+      )}
     </div>
   );
 }
