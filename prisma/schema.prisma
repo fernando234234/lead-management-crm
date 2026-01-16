@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id               String         @id @default(cuid())
+  email            String         @unique
+  name             String
+  password         String
+  role             UserRole       @default(COMMERCIAL)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  createdCampaigns Campaign[]     @relation("CampaignCreator")
+  assignedLeads    Lead[]         @relation("AssignedTo")
+  contactedLeads   Lead[]         @relation("ContactedBy")
+  activities       LeadActivity[]
+  notifications    Notification[]
+  tasks            Task[]
+}
+
+model Course {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal    @db.Decimal(10, 2)
+  startDate   DateTime?
+  endDate     DateTime?
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  campaigns   Campaign[]
+  leads       Lead[]
+}
+
+model Lead {
+  id              String         @id @default(cuid())
+  name            String
+  email           String?
+  phone           String?
+  courseId        String
+  isTarget        Boolean        @default(false)
+  notes           String?
+  contacted       Boolean        @default(false)
+  contactedAt     DateTime?
+  contactedById   String?
+  callOutcome     CallOutcome?
+  outcomeNotes    String?
+  enrolled        Boolean        @default(false)
+  enrolledAt      DateTime?
+  assignedToId    String?
+  campaignId      String?
+  acquisitionCost Decimal?       @db.Decimal(10, 2)
+  status          LeadStatus     @default(NUOVO)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  assignedTo      User?          @relation("AssignedTo", fields: [assignedToId], references: [id])
+  campaign        Campaign?      @relation(fields: [campaignId], references: [id])
+  contactedBy     User?          @relation("ContactedBy", fields: [contactedById], references: [id])
+  course          Course         @relation(fields: [courseId], references: [id])
+  activities      LeadActivity[]
+  tasks           Task[]
+
+  @@index([courseId])
+  @@index([campaignId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([contacted])
+  @@index([enrolled])
+}
+
+model Campaign {
+  id           String          @id @default(cuid())
+  name         String
+  platform     Platform
+  courseId     String
+  createdById  String
+  budget       Decimal         @default(0) @db.Decimal(10, 2)
+  status       CampaignStatus  @default(ACTIVE)
+  startDate    DateTime        @default(now())
+  endDate      DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  course       Course          @relation(fields: [courseId], references: [id])
+  createdBy    User            @relation("CampaignCreator", fields: [createdById], references: [id])
+  spendRecords CampaignSpend[]
+  leads        Lead[]
+
+  @@index([platform])
+  @@index([courseId])
+  @@index([createdById])
+  @@index([status])
+}
+
+model CampaignSpend {
+  id         String   @id @default(cuid())
+  campaignId String
+  date       DateTime @db.Date
+  amount     Decimal  @db.Decimal(10, 2)
+  notes      String?
+  createdAt  DateTime @default(now())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([date])
+  @@index([campaignId])
+}
+
+model ProfitabilityRecord {
+  id                String    @id @default(cuid())
+  month             Int
+  year              Int
+  courseId          String?
+  campaignId        String?
+  commercialId      String?
+  platform          Platform?
+  revenue           Decimal   @default(0) @db.Decimal(10, 2)
+  totalExpense      Decimal   @default(0) @db.Decimal(10, 2)
+  costPerLead       Decimal   @default(0) @db.Decimal(10, 2)
+  costPerConsulenza Decimal   @default(0) @db.Decimal(10, 2)
+  costPerContract   Decimal   @default(0) @db.Decimal(10, 2)
+  totalLeads        Int       @default(0)
+  totalContacted    Int       @default(0)
+  totalEnrolled     Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([month, year, courseId, campaignId, commercialId, platform])
+  @@index([month, year])
+  @@index([platform])
+}
+
+enum UserRole {
+  ADMIN
+  COMMERCIAL
+  MARKETING
+}
+
+enum LeadStatus {
+  NUOVO
+  CONTATTATO
+  IN_TRATTATIVA
+  ISCRITTO
+  PERSO
+}
+
+enum CallOutcome {
+  POSITIVO
+  NEGATIVO
+  RICHIAMARE
+  NON_RISPONDE
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  GOOGLE_ADS
+  TIKTOK
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  EMAIL
+  STATUS_CHANGE
+  ASSIGNMENT
+  ENROLLMENT
+}
+
+model LeadActivity {
+  id          String       @id @default(cuid())
+  leadId      String
+  lead        Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  type        ActivityType
+  description String
+  metadata    Json?        // For call duration, outcome details, etc.
+  createdAt   DateTime     @default(now())
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  link      String?          // URL to navigate to
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  LEAD_ASSIGNED
+  LEAD_STATUS_CHANGED
+  LEAD_ENROLLED
+  CAMPAIGN_CREATED
+  REMINDER
+  SYSTEM
+}
+
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId      String?
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  dueDate     DateTime
+  completed   Boolean      @default(false)
+  completedAt DateTime?
+  priority    TaskPriority @default(MEDIUM)
+  createdAt   DateTime     @default(now())
+
+  @@index([userId])
+  @@index([leadId])
+  @@index([dueDate])
+  @@index([completed])
+}

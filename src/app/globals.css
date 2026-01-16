@@ -1,0 +1,510 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 17, 24, 39;
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 249, 250, 251;
+  
+  /* Primary red theme - Job Formazione inspired */
+  --primary: #dc2626;
+  --primary-light: #ef4444;
+  --primary-dark: #b91c1c;
+  --primary-foreground: #ffffff;
+  
+  /* Accent colors */
+  --accent-red: #dc2626;
+  --accent-white: #ffffff;
+  --accent-gray: #f3f4f6;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Smooth transitions for interactive elements */
+@layer components {
+  .transition-all-smooth {
+    @apply transition-all duration-200 ease-out;
+  }
+  
+  /* Card utilities */
+  .card-base {
+    @apply bg-white rounded-xl shadow-card transition-all duration-200;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-card-hover hover:-translate-y-0.5;
+  }
+  
+  /* Gradient utilities for red theme */
+  .gradient-red {
+    @apply bg-gradient-to-r from-red-600 to-red-500;
+  }
+  
+  .gradient-red-dark {
+    @apply bg-gradient-to-r from-red-700 to-red-600;
+  }
+  
+  .gradient-red-light {
+    @apply bg-gradient-to-r from-red-500 to-red-400;
+  }
+  
+  .gradient-red-subtle {
+    @apply bg-gradient-to-br from-red-50 to-white;
+  }
+  
+  /* Enhanced Button styles */
+  .btn-primary {
+    @apply px-4 py-2 bg-red-600 text-white font-medium rounded-lg;
+    @apply hover:bg-red-700 active:bg-red-800;
+    @apply transition-all duration-200 ease-out;
+    @apply active:scale-[0.98];
+    @apply shadow-sm hover:shadow-md;
+    @apply focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+  
+  .btn-primary-outline {
+    @apply px-4 py-2 border-2 border-red-600 text-red-600 font-medium rounded-lg;
+    @apply hover:bg-red-50 active:bg-red-100;
+    @apply transition-all duration-200 ease-out;
+    @apply active:scale-[0.98];
+    @apply focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-white text-red-600 font-medium rounded-lg;
+    @apply border-2 border-red-600;
+    @apply hover:bg-red-50 active:bg-red-100;
+    @apply transition-all duration-200 ease-out;
+    @apply active:scale-[0.98];
+    @apply focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-ghost {
+    @apply px-4 py-2 text-gray-600 font-medium rounded-lg;
+    @apply hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200;
+    @apply transition-all duration-200 ease-out;
+    @apply active:scale-[0.98];
+    @apply focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600 text-white font-medium rounded-lg;
+    @apply hover:bg-red-700 active:bg-red-800;
+    @apply transition-all duration-200 ease-out;
+    @apply active:scale-[0.98];
+    @apply focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-icon {
+    @apply p-2 text-gray-500 rounded-lg;
+    @apply hover:bg-gray-100 hover:text-gray-900;
+    @apply active:bg-gray-200 active:scale-95;
+    @apply transition-all duration-200 ease-out;
+    @apply focus:outline-none focus:ring-2 focus:ring-gray-300;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* Input focus states */
+  .input-focus-red {
+    @apply focus:ring-2 focus:ring-red-500 focus:border-red-500;
+  }
+
+  /* Enhanced Card Styles */
+  .card {
+    @apply bg-white rounded-xl border border-gray-100;
+    @apply shadow-sm hover:shadow-md;
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .card-interactive {
+    @apply hover:-translate-y-0.5;
+  }
+
+  .card-accent {
+    @apply border-l-4 border-l-red-600;
+  }
+
+  .card-gradient {
+    @apply bg-gradient-to-br from-white to-gray-50/50;
+  }
+
+  /* Enhanced Table Styles */
+  .table-enhanced {
+    @apply w-full text-sm;
+  }
+
+  .table-enhanced thead {
+    @apply sticky top-0 z-10;
+  }
+
+  .table-enhanced thead tr {
+    @apply bg-gray-50/95 backdrop-blur-sm border-b border-gray-200;
+  }
+
+  .table-enhanced thead th {
+    @apply p-4 text-left text-gray-600 font-semibold;
+    @apply first:rounded-tl-lg last:rounded-tr-lg;
+  }
+
+  .table-enhanced thead th.sortable {
+    @apply cursor-pointer select-none;
+    @apply hover:bg-gray-100 transition-colors duration-150;
+  }
+
+  .table-enhanced thead th.sortable:active {
+    @apply bg-gray-200;
+  }
+
+  .table-enhanced tbody tr {
+    @apply border-b border-gray-100;
+    @apply transition-colors duration-150;
+  }
+
+  .table-enhanced tbody tr:nth-child(even) {
+    @apply bg-gray-50/30;
+  }
+
+  .table-enhanced tbody tr:hover {
+    @apply bg-red-50/50;
+  }
+
+  .table-enhanced tbody tr.selected {
+    @apply bg-blue-50;
+  }
+
+  .table-enhanced tbody td {
+    @apply p-4;
+  }
+
+  /* Chart Container Styles */
+  .chart-container {
+    @apply bg-white rounded-xl border border-gray-100 p-6;
+    @apply shadow-sm;
+  }
+
+  .chart-container-title {
+    @apply text-lg font-semibold text-gray-900 mb-4;
+    @apply flex items-center gap-2;
+  }
+
+  .chart-container-title::before {
+    content: '';
+    @apply w-1 h-5 bg-red-600 rounded-full;
+  }
+
+  /* Loading Skeleton */
+  .skeleton {
+    @apply animate-pulse bg-gray-200 rounded;
+  }
+
+  .skeleton-text {
+    @apply h-4 bg-gray-200 rounded animate-pulse;
+  }
+
+  .skeleton-title {
+    @apply h-6 bg-gray-200 rounded animate-pulse w-1/3;
+  }
+
+  .skeleton-card {
+    @apply bg-gray-200 rounded-xl animate-pulse;
+  }
+
+  /* Status Badge Styles */
+  .status-badge {
+    @apply px-2.5 py-1 rounded-full text-xs font-medium;
+    @apply inline-flex items-center gap-1;
+  }
+
+  .status-nuovo {
+    @apply bg-blue-100 text-blue-700;
+  }
+
+  .status-contattato {
+    @apply bg-yellow-100 text-yellow-700;
+  }
+
+  .status-in-trattativa {
+    @apply bg-purple-100 text-purple-700;
+  }
+
+  .status-iscritto {
+    @apply bg-green-100 text-green-700;
+  }
+
+  .status-perso {
+    @apply bg-red-100 text-red-700;
+  }
+
+  /* Enhanced Input Styles */
+  .input-enhanced {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg;
+    @apply focus:ring-2 focus:ring-red-500/30 focus:border-red-500;
+    @apply transition-all duration-200;
+    @apply placeholder:text-gray-400;
+  }
+
+  .input-enhanced:hover:not(:focus) {
+    @apply border-gray-400;
+  }
+
+  /* Enhanced Select Styles */
+  .select-enhanced {
+    @apply px-3 py-2 border border-gray-300 rounded-lg;
+    @apply focus:ring-2 focus:ring-red-500/30 focus:border-red-500;
+    @apply transition-all duration-200;
+    @apply bg-white cursor-pointer;
+  }
+
+  .select-enhanced:hover:not(:focus) {
+    @apply border-gray-400;
+  }
+
+  /* Modal Backdrop */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50;
+    @apply flex items-center justify-center p-4;
+  }
+
+  /* Modal Content */
+  .modal-content {
+    @apply bg-white rounded-2xl shadow-2xl;
+    @apply max-h-[90vh] overflow-y-auto;
+  }
+
+  /* Filter Bar */
+  .filter-bar {
+    @apply bg-white rounded-xl border border-gray-100 p-4;
+    @apply shadow-sm;
+  }
+
+  /* Page Header */
+  .page-header {
+    @apply flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4;
+  }
+
+  .page-title {
+    @apply text-2xl font-bold text-gray-900;
+  }
+
+  .page-subtitle {
+    @apply text-gray-500 text-sm mt-0.5;
+  }
+
+  /* Empty State */
+  .empty-state {
+    @apply p-12 text-center;
+  }
+
+  .empty-state-icon {
+    @apply w-16 h-16 mx-auto mb-4 text-gray-300;
+  }
+
+  .empty-state-title {
+    @apply text-lg font-medium text-gray-600 mb-2;
+  }
+
+  .empty-state-description {
+    @apply text-sm text-gray-400;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    @apply absolute z-50 px-3 py-1.5 text-xs font-medium text-white;
+    @apply bg-gray-900 rounded-lg shadow-lg;
+    @apply whitespace-nowrap;
+  }
+
+  .tooltip-arrow {
+    @apply absolute w-2 h-2 bg-gray-900 rotate-45;
+  }
+
+  /* Section Title with Accent */
+  .section-title {
+    @apply text-lg font-semibold text-gray-900 flex items-center gap-3;
+  }
+
+  .section-title::before {
+    content: '';
+    @apply w-1 h-6 bg-red-600 rounded-full;
+  }
+
+  /* Data Table Row Actions */
+  .row-actions {
+    @apply flex items-center gap-1;
+  }
+
+  .row-action-btn {
+    @apply p-1.5 text-gray-400 rounded-lg;
+    @apply hover:text-gray-700 hover:bg-gray-100;
+    @apply transition-all duration-150;
+  }
+
+  .row-action-btn:hover {
+    @apply scale-110;
+  }
+
+  .row-action-btn-danger:hover {
+    @apply text-red-600 bg-red-50;
+  }
+}
+
+/* Accessibility: Focus visible styles for keyboard navigation */
+@layer base {
+  /* Ensure focus-visible works consistently across browsers */
+  :focus-visible {
+    outline: 2px solid #dc2626;
+    outline-offset: 2px;
+  }
+
+  /* Remove default outline and use focus-visible instead */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Improved contrast for interactive elements */
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid #dc2626;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Skip link styles */
+  .sr-only:focus {
+    position: absolute;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: nowrap;
+  }
+
+  /* High contrast mode improvements */
+  @media (prefers-contrast: high) {
+    * {
+      border-color: currentColor !important;
+    }
+  }
+
+  /* Reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+/* Animation keyframes */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
