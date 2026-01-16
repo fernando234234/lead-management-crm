@@ -36,6 +36,7 @@ interface Lead {
   status: string;
   enrolled: boolean;
   contacted: boolean;
+  acquisitionCost?: number | null;
   campaign: {
     id: string;
     name: string;
@@ -76,17 +77,19 @@ interface CampaignPerformance {
   platformLabel: string;
   platformColor: string;
   budget: number;
-  spent: number;
+  spent: number;              // Estimated from campaign budget
+  actualSpent: number;        // Sum of individual lead acquisition costs
   leads: number;
-  contacted: number; // consulenze
-  enrolled: number;  // contratti
+  contacted: number;          // consulenze
+  enrolled: number;           // contratti
   revenue: number;
   roi: number;
   profit: number;
   conversionRate: number;
-  cpl: number;              // Costo per Lead
-  costPerConsulenza: number; // Costo per Consulenza
-  costPerContratto: number;  // Costo per Contratto
+  cpl: number;                // Costo per Lead (estimated)
+  actualCpl: number;          // Costo per Lead (actual from lead data)
+  costPerConsulenza: number;  // Costo per Consulenza
+  costPerContratto: number;   // Costo per Contratto
 }
 
 export default function MarketingROIPage() {
@@ -144,6 +147,12 @@ export default function MarketingROIPage() {
         // Get leads for this campaign from leads data
         const campaignLeads = leads.filter((l) => l.campaign?.id === campaign.id);
         
+        // Calculate ACTUAL spent (sum of individual lead acquisition costs)
+        const actualSpent = campaignLeads.reduce(
+          (sum, l) => sum + (l.acquisitionCost || 0), 
+          0
+        );
+        
         // Count contacted leads (consulenze)
         const contactedCount = campaignLeads.filter(
           (l) => l.status === "CONTATTATO" || l.status === "IN_TRATTATIVA" || l.status === "ISCRITTO"
@@ -158,15 +167,23 @@ export default function MarketingROIPage() {
         const coursePrice = campaign.course?.price || 0;
         const revenue = enrolledCount * coursePrice;
 
-        // Calculate ROI
-        const profit = revenue - spent;
-        const roi = spent > 0 ? ((revenue - spent) / spent) * 100 : 0;
+        // Use actual spent if available, otherwise fall back to campaign budget
+        const effectiveSpent = actualSpent > 0 ? actualSpent : spent;
+        
+        // Calculate ROI (use effective spent)
+        const profit = revenue - effectiveSpent;
+        const roi = effectiveSpent > 0 ? ((revenue - effectiveSpent) / effectiveSpent) * 100 : 0;
         const conversionRate = leadCount > 0 ? (enrolledCount / leadCount) * 100 : 0;
         
-        // Calculate cost metrics
-        const cpl = leadCount > 0 ? spent / leadCount : 0;                    // Costo per Lead
-        const costPerConsulenza = contactedCount > 0 ? spent / contactedCount : 0; // Costo per Consulenza
-        const costPerContratto = enrolledCount > 0 ? spent / enrolledCount : 0;    // Costo per Contratto
+        // Calculate cost metrics - ESTIMATED (from campaign budget)
+        const cpl = leadCount > 0 ? spent / leadCount : 0;
+        
+        // Calculate cost metrics - ACTUAL (from individual lead costs)
+        const actualCpl = leadCount > 0 ? actualSpent / leadCount : 0;
+        
+        // These use effective spent (actual if available)
+        const costPerConsulenza = contactedCount > 0 ? effectiveSpent / contactedCount : 0;
+        const costPerContratto = enrolledCount > 0 ? effectiveSpent / enrolledCount : 0;
 
         return {
           id: campaign.id,
@@ -176,6 +193,7 @@ export default function MarketingROIPage() {
           platformColor: platformConfig?.color || "bg-gray-100 text-gray-700",
           budget: campaign.budget || 0,
           spent,
+          actualSpent,
           leads: leadCount,
           contacted: contactedCount,
           enrolled: enrolledCount,
@@ -184,6 +202,7 @@ export default function MarketingROIPage() {
           profit,
           conversionRate,
           cpl,
+          actualCpl,
           costPerConsulenza,
           costPerContratto,
         };
@@ -222,29 +241,41 @@ export default function MarketingROIPage() {
   // Overall stats
   const overallStats = useMemo(() => {
     const totalRevenue = campaignPerformance.reduce((sum, c) => sum + c.revenue, 0);
-    const totalSpent = campaignPerformance.reduce((sum, c) => sum + c.spent, 0);
-    const totalProfit = totalRevenue - totalSpent;
-    const overallRoi = totalSpent > 0 ? ((totalRevenue - totalSpent) / totalSpent) * 100 : 0;
+    const totalSpentEstimated = campaignPerformance.reduce((sum, c) => sum + c.spent, 0);
+    const totalSpentActual = campaignPerformance.reduce((sum, c) => sum + c.actualSpent, 0);
+    
+    // Use actual if available, otherwise estimated
+    const effectiveSpent = totalSpentActual > 0 ? totalSpentActual : totalSpentEstimated;
+    const totalProfit = totalRevenue - effectiveSpent;
+    const overallRoi = effectiveSpent > 0 ? ((totalRevenue - effectiveSpent) / effectiveSpent) * 100 : 0;
     
     // Aggregate lead counts
     const totalLeads = campaignPerformance.reduce((sum, c) => sum + c.leads, 0);
     const totalContacted = campaignPerformance.reduce((sum, c) => sum + c.contacted, 0);
     const totalEnrolled = campaignPerformance.reduce((sum, c) => sum + c.enrolled, 0);
     
-    // Calculate overall cost metrics
-    const avgCostPerLead = totalLeads > 0 ? totalSpent / totalLeads : 0;
-    const avgCostPerConsulenza = totalContacted > 0 ? totalSpent / totalContacted : 0;
-    const avgCostPerContratto = totalEnrolled > 0 ? totalSpent / totalEnrolled : 0;
+    // Calculate overall cost metrics - ESTIMATED (from campaign budgets)
+    const avgCostPerLeadEstimated = totalLeads > 0 ? totalSpentEstimated / totalLeads : 0;
+    
+    // Calculate overall cost metrics - ACTUAL (from lead data)
+    const avgCostPerLeadActual = totalLeads > 0 ? totalSpentActual / totalLeads : 0;
+    
+    // These use effective spent
+    const avgCostPerConsulenza = totalContacted > 0 ? effectiveSpent / totalContacted : 0;
+    const avgCostPerContratto = totalEnrolled > 0 ? effectiveSpent / totalEnrolled : 0;
 
     return {
       totalRevenue,
-      totalSpent,
+      totalSpentEstimated,
+      totalSpentActual,
+      effectiveSpent,
       totalProfit,
       overallRoi,
       totalLeads,
       totalContacted,
       totalEnrolled,
-      avgCostPerLead,
+      avgCostPerLeadEstimated,
+      avgCostPerLeadActual,
       avgCostPerConsulenza,
       avgCostPerContratto,
     };
@@ -324,7 +355,7 @@ export default function MarketingROIPage() {
         />
         <StatCard
           title="Spesa Totale"
-          value={`€${overallStats.totalSpent.toLocaleString("it-IT")}`}
+          value={`€${overallStats.effectiveSpent.toLocaleString("it-IT")}`}
           icon={DollarSign}
           className="border-red-200"
         />
@@ -350,12 +381,19 @@ export default function MarketingROIPage() {
       </div>
 
       {/* Stats Cards - Row 2: Cost Metrics (from your notes) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
-          title="Costo per Lead"
-          value={`€${overallStats.avgCostPerLead.toFixed(2)}`}
+          title="CPL Stimato"
+          value={`€${overallStats.avgCostPerLeadEstimated.toFixed(2)}`}
+          icon={Users}
+          subtitle="Da budget campagna"
+        />
+        <StatCard
+          title="CPL Effettivo"
+          value={`€${overallStats.avgCostPerLeadActual.toFixed(2)}`}
           icon={Users}
           subtitle={`${overallStats.totalLeads} lead totali`}
+          className={overallStats.avgCostPerLeadActual > 0 ? "border-green-200 bg-green-50" : ""}
         />
         <StatCard
           title="Costo per Consulenza"
@@ -506,7 +544,15 @@ export default function MarketingROIPage() {
                   onClick={() => handleSort("cpl")}
                 >
                   <div className="flex items-center gap-1">
-                    CPL <SortIcon column="cpl" />
+                    CPL Est. <SortIcon column="cpl" />
+                  </div>
+                </th>
+                <th
+                  className="p-3 font-medium cursor-pointer hover:text-gray-700"
+                  onClick={() => handleSort("actualCpl")}
+                >
+                  <div className="flex items-center gap-1">
+                    CPL Eff. <SortIcon column="actualCpl" />
                   </div>
                 </th>
                 <th
@@ -588,8 +634,11 @@ export default function MarketingROIPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="p-3 font-medium text-blue-600">
+                  <td className="p-3 text-gray-500">
                     €{campaign.cpl.toFixed(2)}
+                  </td>
+                  <td className="p-3 font-medium text-blue-600">
+                    {campaign.actualCpl > 0 ? `€${campaign.actualCpl.toFixed(2)}` : "-"}
                   </td>
                   <td className="p-3 font-medium text-orange-600">
                     €{campaign.costPerConsulenza.toFixed(2)}

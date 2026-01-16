@@ -131,6 +131,7 @@ export default function MarketingLeadsPage() {
     status: "NUOVO",
     notes: "",
     isTarget: false,
+    acquisitionCost: "",
   });
 
   useEffect(() => {
@@ -270,6 +271,7 @@ export default function MarketingLeadsPage() {
       status: lead.status,
       notes: lead.notes || "",
       isTarget: lead.isTarget,
+      acquisitionCost: lead.acquisitionCost ? String(lead.acquisitionCost) : "",
     });
     setShowEditModal(true);
   };
@@ -278,6 +280,10 @@ export default function MarketingLeadsPage() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingLead) return;
+
+    const acquisitionCostValue = formData.acquisitionCost 
+      ? parseFloat(formData.acquisitionCost) 
+      : null;
 
     if (isDemoMode) {
       setLeads(
@@ -291,6 +297,7 @@ export default function MarketingLeadsPage() {
                 status: formData.status,
                 notes: formData.notes,
                 isTarget: formData.isTarget,
+                acquisitionCost: acquisitionCostValue || 0,
               }
             : l
         )
@@ -310,6 +317,7 @@ export default function MarketingLeadsPage() {
           status: formData.status,
           notes: formData.notes || null,
           isTarget: formData.isTarget,
+          acquisitionCost: acquisitionCostValue,
         }),
       });
       setShowEditModal(false);
@@ -633,6 +641,23 @@ export default function MarketingLeadsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Costo Acquisizione (€)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.acquisitionCost}
+                  onChange={(e) => setFormData({ ...formData, acquisitionCost: e.target.value })}
+                  placeholder="Es: 25.50"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Costo effettivo per acquisire questo lead
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <input
