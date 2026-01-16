@@ -12,33 +12,47 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email e password richiesti");
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            console.log("[AUTH] Missing credentials");
+            return null;
+          }
+
+          console.log("[AUTH] Looking up user:", credentials.email);
+          
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          });
+
+          if (!user) {
+            console.log("[AUTH] User not found");
+            return null;
+          }
+
+          console.log("[AUTH] User found, checking password");
+          
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            console.log("[AUTH] Password invalid");
+            return null;
+          }
+
+          console.log("[AUTH] Login successful for:", user.email);
+          
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("[AUTH] Error during authorization:", error);
+          return null;
         }
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
-
-        if (!user) {
-          throw new Error("Credenziali non valide");
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Credenziali non valide");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
       },
     }),
   ],
@@ -67,4 +81,5 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 };
