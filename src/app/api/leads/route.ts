@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
         isTarget: body.isTarget ?? false,
         notes: body.notes || null,
         status: body.status || "NUOVO",
+        acquisitionCost: body.acquisitionCost ?? null,
       },
       include: {
         course: { select: { id: true, name: true } },

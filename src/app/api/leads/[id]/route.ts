@@ -74,6 +74,11 @@ export async function PUT(
         updateData.enrolledAt = new Date();
       }
     }
+    
+    // Acquisition cost tracking (for Marketing)
+    if (body.acquisitionCost !== undefined) {
+      updateData.acquisitionCost = body.acquisitionCost;
+    }
 
     const lead = await prisma.lead.update({
       where: { id: params.id },

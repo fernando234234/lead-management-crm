@@ -117,6 +117,8 @@ export default function CommercialLeadsPage() {
     contacted: false,
     callOutcome: "",
     outcomeNotes: "",
+    isTarget: false,
+    enrolled: false,
   });
 
   // Outcome form
@@ -205,6 +207,8 @@ export default function CommercialLeadsPage() {
       contacted: lead.contacted,
       callOutcome: lead.callOutcome || "",
       outcomeNotes: lead.outcomeNotes || "",
+      isTarget: lead.isTarget || false,
+      enrolled: lead.enrolled || false,
     });
     setShowModal(true);
   };
@@ -259,6 +263,8 @@ export default function CommercialLeadsPage() {
           contacted: formData.contacted,
           callOutcome: formData.callOutcome || null,
           outcomeNotes: formData.outcomeNotes || null,
+          isTarget: formData.isTarget,
+          enrolled: formData.enrolled,
         }),
       });
       setShowModal(false);
@@ -673,7 +679,7 @@ export default function CommercialLeadsPage() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -684,6 +690,28 @@ export default function CommercialLeadsPage() {
                     className="w-4 h-4"
                   />
                   <span className="text-sm">Contattato</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.isTarget}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isTarget: e.target.checked })
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-orange-600 font-medium">Lead Target</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.enrolled}
+                    onChange={(e) =>
+                      setFormData({ ...formData, enrolled: e.target.checked })
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-green-600 font-medium">Iscritto</span>
                 </label>
               </div>
               {formData.contacted && (
