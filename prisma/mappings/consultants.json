@@ -1,0 +1,82 @@
+{
+  "canonicalUsers": [
+    {
+      "name": "Simone Cringoli",
+      "email": "simone.cringoli@leadcrm.it",
+      "role": "COMMERCIAL"
+    },
+    {
+      "name": "Marilena Abbenante",
+      "email": "marilena.abbenante@leadcrm.it",
+      "role": "COMMERCIAL"
+    },
+    {
+      "name": "Marcella Abbenante",
+      "email": "marcella.abbenante@leadcrm.it",
+      "role": "COMMERCIAL"
+    },
+    {
+      "name": "Silvana Pacia",
+      "email": "silvana.pacia@leadcrm.it",
+      "role": "COMMERCIAL"
+    },
+    {
+      "name": "Natascia Lombardi",
+      "email": "natascia.lombardi@leadcrm.it",
+      "role": "COMMERCIAL"
+    },
+    {
+      "name": "Eleonora Rossi",
+      "email": "eleonora.rossi@leadcrm.it",
+      "role": "COMMERCIAL"
+    },
+    {
+      "name": "Martina Sculli",
+      "email": "martina.sculli@leadcrm.it",
+      "role": "COMMERCIAL"
+    },
+    {
+      "name": "Benedetta Barbarisi",
+      "email": "benedetta.barbarisi@leadcrm.it",
+      "role": "COMMERCIAL"
+    },
+    {
+      "name": "Raffaele Zambella",
+      "email": "raffaele.zambella@leadcrm.it",
+      "role": "COMMERCIAL"
+    }
+  ],
+  "mappings": {
+    "Simone": "Simone Cringoli",
+    "simone": "Simone Cringoli",
+    "Simone Cringoli": "Simone Cringoli",
+    
+    "Marilena": "Marilena Abbenante",
+    "Marilena Abbenante": "Marilena Abbenante",
+    
+    "Marcella": "Marcella Abbenante",
+    "\nMarcella": "Marcella Abbenante",
+    "Marcella Abbenante": "Marcella Abbenante",
+    
+    "Silvana": "Silvana Pacia",
+    " Silvana": "Silvana Pacia",
+    "SILVANA PACIA": "Silvana Pacia",
+    "Sivana": "Silvana Pacia",
+    
+    "Natascia": "Natascia Lombardi",
+    "Natascia ": "Natascia Lombardi",
+    "natascia": "Natascia Lombardi",
+    "Natascia Lombardi": "Natascia Lombardi",
+    
+    "Eleonora": "Eleonora Rossi",
+    "Eleonora ": "Eleonora Rossi",
+    "Eleonora Rossi": "Eleonora Rossi",
+    
+    "Martina": "Martina Sculli",
+    "Martina  Sculli": "Martina Sculli",
+    
+    "Benedetta Barbarisi": "Benedetta Barbarisi",
+    
+    "Raffaele Zambella": "Raffaele Zambella"
+  }
+}
