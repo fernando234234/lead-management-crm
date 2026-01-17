@@ -56,6 +56,8 @@ model Lead {
   assignedToId    String?
   campaignId      String?
   acquisitionCost Decimal?       @db.Decimal(10, 2)
+  revenue         Decimal?       @db.Decimal(10, 2)
+  source          LeadSource     @default(MANUAL)
   status          LeadStatus     @default(NUOVO)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -72,6 +74,8 @@ model Lead {
   @@index([status])
   @@index([contacted])
   @@index([enrolled])
+  @@index([source])
+  @@index([isTarget])
 }
 
 model Campaign {
@@ -245,4 +249,10 @@ enum TaskPriority {
   HIGH
   MEDIUM
   LOW
+}
+
+enum LeadSource {
+  LEGACY_IMPORT
+  MANUAL
+  CAMPAIGN
 }
