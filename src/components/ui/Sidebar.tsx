@@ -20,6 +20,7 @@ import {
   X,
   Columns3,
   ClipboardList,
+  FileSpreadsheet,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ const roleConfig = {
     title: "Admin Panel",
     links: [
       { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/dashboard-commerciale", label: "Dashboard Excel", icon: FileSpreadsheet },
       { href: "/admin/users", label: "Utenti", icon: Users },
       { href: "/admin/courses", label: "Corsi", icon: BookOpen },
       { href: "/admin/campaigns", label: "Campagne", icon: Megaphone },
