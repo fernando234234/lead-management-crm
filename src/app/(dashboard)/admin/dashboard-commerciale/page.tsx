@@ -484,12 +484,6 @@ export default function DashboardCommercialePage() {
                 color="bg-yellow-500"
               />
               <FunnelStep 
-                label="Appuntamenti" 
-                value={funnelData.appuntamenti} 
-                maxValue={funnelData.leadGenerati}
-                color="bg-purple-500"
-              />
-              <FunnelStep 
                 label="Iscrizioni" 
                 value={funnelData.iscrizioni} 
                 maxValue={funnelData.leadGenerati}
