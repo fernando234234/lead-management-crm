@@ -32,6 +32,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { commercialTourSteps } from "@/lib/tourSteps";
 import Link from "next/link";
+import { GoalsProgress } from "@/components/ui/GoalsProgress";
 
 interface Lead {
   id: string;
@@ -543,38 +544,82 @@ export default function CommercialDashboard() {
         />
       </div>
 
-      {/* Quick Actions Bar */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/commercial/leads"
-            className="flex items-center gap-2 px-4 py-2.5 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
-          >
-            <Plus size={18} />
-            Nuovo Lead
-          </Link>
-          <Link
-            href="/commercial/pipeline"
-            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-          >
-            <LayoutGrid size={18} />
-            Pipeline
-          </Link>
-          <Link
-            href="/commercial/leads"
-            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-          >
-            <Users size={18} />
-            I Miei Lead
-          </Link>
-          <Link
-            href="/commercial/tasks"
-            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-          >
-            <ListTodo size={18} />
-            Promemoria
-          </Link>
+      {/* Quick Actions Bar + Goals */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/commercial/leads"
+              className="flex items-center gap-2 px-4 py-2.5 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
+            >
+              <Plus size={18} />
+              Nuovo Lead
+            </Link>
+            <Link
+              href="/commercial/pipeline"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+            >
+              <LayoutGrid size={18} />
+              Pipeline
+            </Link>
+            <Link
+              href="/commercial/leads"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+            >
+              <Users size={18} />
+              I Miei Lead
+            </Link>
+            <Link
+              href="/commercial/tasks"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+            >
+              <ListTodo size={18} />
+              Promemoria
+            </Link>
+          </div>
         </div>
+        
+        {/* Monthly Goals Progress - Compact version */}
+        {!isDemoMode && <GoalsProgress compact />}
+        {isDemoMode && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Target size={18} className="text-commercial" />
+              <span className="font-semibold text-sm text-gray-900">
+                Obiettivi Gennaio
+              </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Phone size={14} className="text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: "65%" }} />
+                  </div>
+                </div>
+                <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">65%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <UserCheck size={14} className="text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 transition-all duration-500" style={{ width: "40%" }} />
+                  </div>
+                </div>
+                <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">40%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingUp size={14} className="text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-yellow-500 transition-all duration-500" style={{ width: "55%" }} />
+                  </div>
+                </div>
+                <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">55%</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Charts Row */}

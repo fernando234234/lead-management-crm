@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export interface Activity {
   id: string;
-  type: "CALL" | "STATUS_CHANGE" | "ENROLLMENT" | "LEAD_CREATED" | "CONTACT";
+  type: "CALL" | "STATUS_CHANGE" | "ENROLLMENT" | "LEAD_CREATED" | "CONTACT" | "NOTE" | "EMAIL" | "ASSIGNMENT";
   description: string;
   leadId: string;
   leadName: string;
@@ -16,6 +16,7 @@ export interface Activity {
     newStatus?: string;
     callOutcome?: string;
     courseName?: string;
+    outcomeNotes?: string;
   };
 }
 
@@ -36,7 +37,38 @@ export async function GET(request: NextRequest) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // Fetch leads assigned to this user with recent activity
+    // First, try to fetch from LeadActivity table (new system)
+    const leadActivities = await prisma.leadActivity.findMany({
+      where: {
+        userId: userId,
+        createdAt: { gte: startDate },
+      },
+      include: {
+        lead: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+
+    // If we have activities from the new system, use those
+    if (leadActivities.length > 0) {
+      const activities: Activity[] = leadActivities.map((activity) => ({
+        id: activity.id,
+        type: activity.type as Activity["type"],
+        description: activity.description,
+        leadId: activity.leadId,
+        leadName: activity.lead.name,
+        userId: activity.userId,
+        createdAt: activity.createdAt.toISOString(),
+        metadata: activity.metadata as Activity["metadata"],
+      }));
+
+      return NextResponse.json(activities);
+    }
+
+    // Fallback: Derive activities from lead data (for backwards compatibility)
     const leads = await prisma.lead.findMany({
       where: {
         assignedToId: userId,
@@ -52,14 +84,13 @@ export async function GET(request: NextRequest) {
         campaign: { select: { name: true } },
       },
       orderBy: { updatedAt: "desc" },
-      take: limit * 3, // Fetch more to have enough activities after processing
+      take: limit * 3,
     });
 
-    // Build activities from lead data
     const activities: Activity[] = [];
 
     for (const lead of leads) {
-      // Check for enrollment (highest priority)
+      // Check for enrollment
       if (lead.enrolledAt && new Date(lead.enrolledAt) >= startDate) {
         activities.push({
           id: `enrollment-${lead.id}`,
@@ -69,9 +100,7 @@ export async function GET(request: NextRequest) {
           leadName: lead.name,
           userId: userId,
           createdAt: lead.enrolledAt.toISOString(),
-          metadata: {
-            courseName: lead.course?.name,
-          },
+          metadata: { courseName: lead.course?.name },
         });
       }
 
@@ -96,13 +125,11 @@ export async function GET(request: NextRequest) {
           leadName: lead.name,
           userId: userId,
           createdAt: lead.contactedAt.toISOString(),
-          metadata: {
-            callOutcome: lead.callOutcome || undefined,
-          },
+          metadata: { callOutcome: lead.callOutcome || undefined },
         });
       }
 
-      // Check for lead creation (if created by this user)
+      // Check for lead creation
       if (lead.createdById === userId && new Date(lead.createdAt) >= startDate) {
         activities.push({
           id: `created-${lead.id}`,
@@ -112,19 +139,16 @@ export async function GET(request: NextRequest) {
           leadName: lead.name,
           userId: userId,
           createdAt: lead.createdAt.toISOString(),
-          metadata: {
-            courseName: lead.course?.name,
-          },
+          metadata: { courseName: lead.course?.name },
         });
       }
 
-      // Check for status change (use updatedAt as proxy)
-      // Only if status is not NUOVO and updatedAt is different from createdAt
+      // Check for status change
       if (
         lead.status !== "NUOVO" &&
         lead.updatedAt.getTime() !== lead.createdAt.getTime() &&
         new Date(lead.updatedAt) >= startDate &&
-        !lead.enrolledAt // Don't duplicate enrollment
+        !lead.enrolledAt
       ) {
         const statusLabels: Record<string, string> = {
           CONTATTATO: "Contattato",
@@ -133,9 +157,8 @@ export async function GET(request: NextRequest) {
           PERSO: "Perso",
         };
 
-        // Only add if not already covered by contact or enrollment
         const hasContact = lead.contactedAt && 
-          Math.abs(lead.contactedAt.getTime() - lead.updatedAt.getTime()) < 60000; // Within 1 minute
+          Math.abs(lead.contactedAt.getTime() - lead.updatedAt.getTime()) < 60000;
         
         if (!hasContact) {
           activities.push({
@@ -146,22 +169,18 @@ export async function GET(request: NextRequest) {
             leadName: lead.name,
             userId: userId,
             createdAt: lead.updatedAt.toISOString(),
-            metadata: {
-              newStatus: lead.status,
-            },
+            metadata: { newStatus: lead.status },
           });
         }
       }
     }
 
-    // Sort by date descending and limit
+    // Sort and limit
     activities.sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    const limitedActivities = activities.slice(0, limit);
-
-    return NextResponse.json(limitedActivities);
+    return NextResponse.json(activities.slice(0, limit));
   } catch (error) {
     console.error("Failed to fetch activities:", error);
     return NextResponse.json(

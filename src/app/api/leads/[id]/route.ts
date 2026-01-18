@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createNotification, createNotificationForRole } from "@/lib/notifications";
+import { ActivityType } from "@prisma/client";
 
 // GET /api/leads/[id]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const lead = await prisma.lead.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         course: true,
         campaign: true,
@@ -32,15 +36,17 @@ export async function GET(
 // PUT /api/leads/[id]
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    const { id } = await params;
     const body = await request.json();
 
     // Ottieni il lead attuale per confrontare i cambiamenti
     const currentLead = await prisma.lead.findUnique({
-      where: { id: params.id },
-      select: { status: true, assignedToId: true, name: true },
+      where: { id },
+      select: { status: true, assignedToId: true, name: true, contacted: true, enrolled: true },
     });
 
     // Build update data
@@ -90,7 +96,7 @@ export async function PUT(
     }
 
     const lead = await prisma.lead.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         course: { select: { id: true, name: true } },
@@ -98,6 +104,71 @@ export async function PUT(
         assignedTo: { select: { id: true, name: true } },
       },
     });
+
+    // Log activities for changes
+    if (session?.user?.id) {
+      const activities: Array<{ leadId: string; userId: string; type: ActivityType; description: string; metadata?: object }> = [];
+
+      // Status change
+      if (body.status && body.status !== currentLead?.status) {
+        activities.push({
+          leadId: id,
+          userId: session.user.id,
+          type: 'STATUS_CHANGE' as ActivityType,
+          description: `Status cambiato da ${currentLead?.status || 'N/A'} a ${body.status}`,
+          metadata: { oldStatus: currentLead?.status, newStatus: body.status },
+        });
+      }
+
+      // Contact logged
+      if (body.contacted && !currentLead?.contacted) {
+        activities.push({
+          leadId: id,
+          userId: session.user.id,
+          type: 'CONTACT' as ActivityType,
+          description: `Lead contattato${body.callOutcome ? ` - Esito: ${body.callOutcome}` : ''}`,
+          metadata: { callOutcome: body.callOutcome, outcomeNotes: body.outcomeNotes },
+        });
+      }
+
+      // Call outcome update (even if already contacted)
+      if (body.callOutcome && currentLead?.contacted) {
+        activities.push({
+          leadId: id,
+          userId: session.user.id,
+          type: 'CALL' as ActivityType,
+          description: `Chiamata registrata - Esito: ${body.callOutcome}`,
+          metadata: { callOutcome: body.callOutcome, outcomeNotes: body.outcomeNotes },
+        });
+      }
+
+      // Enrollment
+      if (body.enrolled && !currentLead?.enrolled) {
+        activities.push({
+          leadId: id,
+          userId: session.user.id,
+          type: 'ENROLLMENT' as ActivityType,
+          description: `Lead iscritto al corso ${lead.course?.name || ''}`,
+          metadata: { courseId: lead.course?.id, courseName: lead.course?.name },
+        });
+      }
+
+      // Assignment change
+      if (body.assignedToId && body.assignedToId !== currentLead?.assignedToId) {
+        activities.push({
+          leadId: id,
+          userId: session.user.id,
+          type: 'ASSIGNMENT' as ActivityType,
+          description: `Lead assegnato a ${lead.assignedTo?.name || 'N/A'}`,
+          metadata: { oldAssignedToId: currentLead?.assignedToId, newAssignedToId: body.assignedToId },
+        });
+      }
+
+      // Create all activities
+      if (activities.length > 0) {
+        await prisma.leadActivity.createMany({ data: activities });
+      }
+    }
 
     // Notifica quando lo status cambia a ISCRITTO
     if (body.status === "ISCRITTO" && currentLead?.status !== "ISCRITTO") {
@@ -143,11 +214,12 @@ export async function PUT(
 // DELETE /api/leads/[id]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await prisma.lead.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

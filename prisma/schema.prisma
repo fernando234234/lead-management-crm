@@ -23,6 +23,7 @@ model User {
   activities       LeadActivity[]
   notifications    Notification[]
   tasks            Task[]
+  goals            Goal[]
 }
 
 model Course {
@@ -197,6 +198,25 @@ model Task {
   @@index([completed])
 }
 
+model Goal {
+  id              String   @id @default(cuid())
+  userId          String
+  month           Int      // 1-12
+  year            Int      // e.g., 2024
+  targetLeads     Int      @default(0)     // Target number of leads to contact
+  targetEnrolled  Int      @default(0)     // Target number of enrollments
+  targetCalls     Int      @default(0)     // Target number of calls
+  targetRevenue   Decimal  @default(0) @db.Decimal(10, 2)  // Target revenue
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month, year])
+  @@index([userId])
+  @@index([month, year])
+}
+
 enum UserRole {
   ADMIN
   COMMERCIAL
@@ -240,6 +260,8 @@ enum ActivityType {
   STATUS_CHANGE
   ASSIGNMENT
   ENROLLMENT
+  LEAD_CREATED
+  CONTACT
 }
 
 enum NotificationType {
