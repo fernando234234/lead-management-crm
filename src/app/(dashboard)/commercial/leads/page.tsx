@@ -19,7 +19,9 @@ import {
   TestTube,
   Eye,
   Inbox,
+  Plus,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import Pagination from "@/components/ui/Pagination";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import EmptyState from "@/components/ui/EmptyState";
@@ -47,6 +49,13 @@ interface Lead {
 interface Course {
   id: string;
   name: string;
+}
+
+interface Campaign {
+  id: string;
+  name: string;
+  platform: string;
+  course: { id: string; name: string };
 }
 
 const statusColors: Record<string, string> = {
@@ -91,12 +100,15 @@ export default function CommercialLeadsPage() {
   const { isDemoMode } = useDemoMode();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showOutcomeModal, setShowOutcomeModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedLeadForOutcome, setSelectedLeadForOutcome] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
+  const [creating, setCreating] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -127,6 +139,16 @@ export default function CommercialLeadsPage() {
     outcomeNotes: "",
   });
 
+  // Create lead form
+  const [createFormData, setCreateFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    courseId: "",
+    campaignId: "",
+    notes: "",
+  });
+
   // Demo user ID (simulating a commercial user)
   const demoUserId = "1"; // Marco Verdi in mockData
 
@@ -147,22 +169,27 @@ export default function CommercialLeadsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [leadsRes, coursesRes] = await Promise.all([
+      const [leadsRes, coursesRes, campaignsRes] = await Promise.all([
         fetch("/api/leads?assignedToMe=true"),
         fetch("/api/courses"),
+        fetch("/api/campaigns?status=ACTIVE"),
       ]);
 
-      const [leadsData, coursesData] = await Promise.all([
+      const [leadsData, coursesData, campaignsData] = await Promise.all([
         leadsRes.json(),
         coursesRes.json(),
+        campaignsRes.json(),
       ]);
 
-      // Filter leads assigned to current user
+      // Filter leads assigned to current user OR created by current user
       const myLeads = leadsData.filter(
-        (lead: Lead) => lead.assignedTo?.id === session?.user?.id
+        (lead: Lead) => 
+          lead.assignedTo?.id === session?.user?.id ||
+          (lead as Lead & { createdBy?: { id: string } }).createdBy?.id === session?.user?.id
       );
       setLeads(myLeads);
       setCourses(coursesData);
+      setCampaigns(campaignsData);
     } catch (error) {
       console.error("Failed to fetch data:", error);
     } finally {
@@ -387,6 +414,88 @@ export default function CommercialLeadsPage() {
     }
   };
 
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!createFormData.name.trim()) {
+      toast.error("Il nome è obbligatorio");
+      return;
+    }
+    if (!createFormData.courseId) {
+      toast.error("Seleziona un corso");
+      return;
+    }
+    if (!createFormData.campaignId) {
+      toast.error("Seleziona una campagna");
+      return;
+    }
+
+    if (isDemoMode) {
+      const newLead: Lead = {
+        id: `demo-${Date.now()}`,
+        name: createFormData.name,
+        email: createFormData.email || null,
+        phone: createFormData.phone || null,
+        status: "NUOVO",
+        contacted: false,
+        contactedAt: null,
+        enrolled: false,
+        enrolledAt: null,
+        isTarget: false,
+        notes: createFormData.notes || null,
+        callOutcome: null,
+        outcomeNotes: null,
+        createdAt: new Date().toISOString(),
+        course: courses.find(c => c.id === createFormData.courseId) ? { id: createFormData.courseId, name: courses.find(c => c.id === createFormData.courseId)!.name } : null,
+        campaign: campaigns.find(c => c.id === createFormData.campaignId) ? { id: createFormData.campaignId, name: campaigns.find(c => c.id === createFormData.campaignId)!.name } : null,
+        assignedTo: session?.user ? { id: session.user.id, name: session.user.name || "", email: session.user.email || "" } : null,
+      };
+      setLeads([newLead, ...leads]);
+      setShowCreateModal(false);
+      setCreateFormData({ name: "", email: "", phone: "", courseId: "", campaignId: "", notes: "" });
+      toast.success("Lead creato con successo!");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createFormData.name,
+          email: createFormData.email || null,
+          phone: createFormData.phone || null,
+          courseId: createFormData.courseId,
+          campaignId: createFormData.campaignId,
+          assignedToId: session?.user?.id,
+          createdById: session?.user?.id,
+          notes: createFormData.notes || null,
+          source: "MANUAL",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create lead");
+      }
+
+      setShowCreateModal(false);
+      setCreateFormData({ name: "", email: "", phone: "", courseId: "", campaignId: "", notes: "" });
+      toast.success("Lead creato con successo!");
+      fetchData();
+    } catch (error) {
+      console.error("Failed to create lead:", error);
+      toast.error("Errore nella creazione del lead");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // Filter campaigns by selected course
+  const filteredCampaigns = createFormData.courseId 
+    ? campaigns.filter(c => c.course?.id === createFormData.courseId)
+    : campaigns;
+
   if (loading) {
     return <div className="p-8">Caricamento...</div>;
   }
@@ -397,14 +506,23 @@ export default function CommercialLeadsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">I Miei Lead</h1>
-          <p className="text-gray-500">{filteredLeads.length} lead assegnati a te</p>
+          <p className="text-gray-500">{filteredLeads.length} lead</p>
         </div>
-        {isDemoMode && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-            <TestTube size={16} />
-            Demo
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {isDemoMode && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+              <TestTube size={16} />
+              Demo
+            </div>
+          )}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
+          >
+            <Plus size={18} />
+            Nuovo Lead
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -855,6 +973,156 @@ export default function CommercialLeadsPage() {
           isDemoMode={isDemoMode}
           accentColor="commercial"
         />
+      )}
+
+      {/* Create Lead Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                Nuovo Lead
+                {isDemoMode && (
+                  <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>
+                )}
+              </h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={createFormData.name}
+                  onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
+                  placeholder="Nome e cognome del lead"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={createFormData.email}
+                    onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
+                    placeholder="email@esempio.it"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefono
+                  </label>
+                  <input
+                    type="tel"
+                    value={createFormData.phone}
+                    onChange={(e) => setCreateFormData({ ...createFormData, phone: e.target.value })}
+                    placeholder="+39 123 456 7890"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Corso <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={createFormData.courseId}
+                  onChange={(e) => setCreateFormData({ 
+                    ...createFormData, 
+                    courseId: e.target.value,
+                    campaignId: "" // Reset campaign when course changes
+                  })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
+                >
+                  <option value="">Seleziona un corso</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Campagna <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={createFormData.campaignId}
+                  onChange={(e) => setCreateFormData({ ...createFormData, campaignId: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
+                  disabled={!createFormData.courseId}
+                >
+                  <option value="">
+                    {createFormData.courseId ? "Seleziona una campagna" : "Seleziona prima un corso"}
+                  </option>
+                  {filteredCampaigns.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {campaign.name} ({campaign.platform})
+                    </option>
+                  ))}
+                </select>
+                {createFormData.courseId && filteredCampaigns.length === 0 && (
+                  <p className="text-sm text-amber-600 mt-1">
+                    Nessuna campagna attiva per questo corso. Contatta il marketing.
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note
+                </label>
+                <textarea
+                  value={createFormData.notes}
+                  onChange={(e) => setCreateFormData({ ...createFormData, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Note aggiuntive sul lead..."
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                  disabled={creating}
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating || !createFormData.name || !createFormData.courseId || !createFormData.campaignId}
+                  className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {creating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Creazione...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={18} />
+                      Crea Lead
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

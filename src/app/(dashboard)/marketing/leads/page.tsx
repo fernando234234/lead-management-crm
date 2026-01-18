@@ -127,6 +127,7 @@ export default function MarketingLeadsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCampaign, setFilterCampaign] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterWithoutCost, setFilterWithoutCost] = useState(false);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   
   // Edit/Detail modal state
@@ -189,9 +190,10 @@ export default function MarketingLeadsPage() {
       const matchesCampaign =
         !filterCampaign || lead.campaign?.id === filterCampaign;
       const matchesStatus = !filterStatus || lead.status === filterStatus;
-      return matchesSearch && matchesCampaign && matchesStatus;
+      const matchesWithoutCost = !filterWithoutCost || !lead.acquisitionCost || lead.acquisitionCost === 0;
+      return matchesSearch && matchesCampaign && matchesStatus && matchesWithoutCost;
     });
-  }, [leads, searchTerm, filterCampaign, filterStatus]);
+  }, [leads, searchTerm, filterCampaign, filterStatus, filterWithoutCost]);
 
   // Group leads by campaign
   const groupedLeads = useMemo((): GroupedLeads[] => {
@@ -573,6 +575,22 @@ export default function MarketingLeadsPage() {
               </option>
             ))}
           </select>
+          <label className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
+            <input
+              type="checkbox"
+              checked={filterWithoutCost}
+              onChange={(e) => setFilterWithoutCost(e.target.checked)}
+              className="w-4 h-4 text-marketing rounded focus:ring-marketing"
+            />
+            <span className="text-sm text-gray-700 whitespace-nowrap">
+              Solo senza costo
+            </span>
+            {filterWithoutCost && (
+              <span className="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
+                {leads.filter(l => !l.acquisitionCost || l.acquisitionCost === 0).length}
+              </span>
+            )}
+          </label>
         </div>
       </div>
 

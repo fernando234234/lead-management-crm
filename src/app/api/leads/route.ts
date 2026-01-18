@@ -48,9 +48,10 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         course: { select: { id: true, name: true, price: true } },
-        campaign: { select: { id: true, name: true, platform: true } },
+        campaign: { select: { id: true, name: true, platform: true, createdById: true } },
         assignedTo: { select: { id: true, name: true, email: true } },
         contactedBy: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -75,15 +76,18 @@ export async function POST(request: NextRequest) {
         courseId: body.courseId,
         campaignId: body.campaignId || null,
         assignedToId: body.assignedToId || null,
+        createdById: body.createdById || null,
         isTarget: body.isTarget ?? false,
         notes: body.notes || null,
         status: body.status || "NUOVO",
+        source: body.source || "MANUAL",
         acquisitionCost: body.acquisitionCost ?? null,
       },
       include: {
         course: { select: { id: true, name: true } },
         campaign: { select: { id: true, name: true } },
         assignedTo: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
       },
     });
 
