@@ -6,7 +6,28 @@ import { useDemoMode } from "@/contexts/DemoModeContext";
 import { mockLeads } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
-import { Users, Phone, UserCheck, Target, TestTube } from "lucide-react";
+import { FunnelChart } from "@/components/charts/FunnelChart";
+import { LineChart } from "@/components/charts/LineChart";
+import { PieChart } from "@/components/charts/PieChart";
+import {
+  Users,
+  Phone,
+  UserCheck,
+  Target,
+  TestTube,
+  PhoneCall,
+  Star,
+  ArrowRight,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  PhoneOff,
+  PhoneMissed,
+  TrendingUp,
+  LayoutGrid,
+  ListTodo,
+  Plus,
+} from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { commercialTourSteps } from "@/lib/tourSteps";
@@ -19,17 +40,53 @@ interface Lead {
   phone: string;
   status: string;
   contacted: boolean;
+  contactedAt: string | null;
   enrolled: boolean;
+  enrolledAt: string | null;
   callOutcome: string | null;
+  isTarget: boolean;
   createdAt: string;
+  updatedAt?: string;
   course?: { id: string; name: string };
   campaign?: { id: string; name: string };
 }
+
+interface Activity {
+  id: string;
+  type: "CALL" | "STATUS_CHANGE" | "ENROLLMENT" | "LEAD_CREATED" | "CONTACT";
+  description: string;
+  leadId: string;
+  leadName: string;
+  userId: string;
+  createdAt: string;
+  metadata?: {
+    oldStatus?: string;
+    newStatus?: string;
+    callOutcome?: string;
+    courseName?: string;
+  };
+}
+
+const statusLabels: Record<string, string> = {
+  NUOVO: "Nuovo",
+  CONTATTATO: "Contattato",
+  IN_TRATTATIVA: "In Trattativa",
+  ISCRITTO: "Iscritto",
+  PERSO: "Perso",
+};
+
+const outcomeLabels: Record<string, string> = {
+  POSITIVO: "Positivo",
+  NEGATIVO: "Negativo",
+  RICHIAMARE: "Da Richiamare",
+  NON_RISPONDE: "Non Risponde",
+};
 
 export default function CommercialDashboard() {
   const { data: session } = useSession();
   const { isDemoMode } = useDemoMode();
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
@@ -47,19 +104,19 @@ export default function CommercialDashboard() {
     if (!startDate && !endDate) return true;
     const date = new Date(dateStr);
     date.setHours(0, 0, 0, 0);
-    
+
     if (startDate) {
       const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
       if (date < start) return false;
     }
-    
+
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
       if (date > end) return false;
     }
-    
+
     return true;
   };
 
@@ -75,86 +132,318 @@ export default function CommercialDashboard() {
         (lead) => lead.assignedTo?.id === DEMO_USER_ID
       ) as Lead[];
       setLeads(demoLeads);
+
+      // Generate mock activities
+      const mockActivities: Activity[] = [
+        {
+          id: "1",
+          type: "ENROLLMENT",
+          description: "Marco Bianchi iscritto al corso Marketing Digitale",
+          leadId: "1",
+          leadName: "Marco Bianchi",
+          userId: DEMO_USER_ID,
+          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: "2",
+          type: "CALL",
+          description: "Chiamato Anna Ferrari - esito positivo",
+          leadId: "2",
+          leadName: "Anna Ferrari",
+          userId: DEMO_USER_ID,
+          createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          metadata: { callOutcome: "POSITIVO" },
+        },
+        {
+          id: "3",
+          type: "STATUS_CHANGE",
+          description: "Luca Verdi spostato a In Trattativa",
+          leadId: "3",
+          leadName: "Luca Verdi",
+          userId: DEMO_USER_ID,
+          createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+          metadata: { newStatus: "IN_TRATTATIVA" },
+        },
+        {
+          id: "4",
+          type: "CALL",
+          description: "Chiamato Sara Rossi - da richiamare",
+          leadId: "4",
+          leadName: "Sara Rossi",
+          userId: DEMO_USER_ID,
+          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          metadata: { callOutcome: "RICHIAMARE" },
+        },
+        {
+          id: "5",
+          type: "LEAD_CREATED",
+          description: "Creato lead Paolo Neri",
+          leadId: "5",
+          leadName: "Paolo Neri",
+          userId: DEMO_USER_ID,
+          createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+        },
+      ];
+      setActivities(mockActivities);
       setLoading(false);
     } else if (session?.user?.id) {
-      fetchLeads();
+      fetchData();
     }
   }, [isDemoMode, session?.user?.id]);
 
-  const fetchLeads = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/leads?assignedToId=${session?.user?.id}`);
-      const data = await res.json();
-      setLeads(data.leads || []);
+      const [leadsRes, activitiesRes] = await Promise.all([
+        fetch(`/api/leads?assignedToId=${session?.user?.id}`),
+        fetch(`/api/activities?limit=10&days=7`),
+      ]);
+
+      const leadsData = await leadsRes.json();
+      setLeads(leadsData.leads || leadsData || []);
+
+      if (activitiesRes.ok) {
+        const activitiesData = await activitiesRes.json();
+        setActivities(activitiesData || []);
+      }
     } catch (error) {
-      console.error("Failed to fetch leads:", error);
+      console.error("Failed to fetch data:", error);
     } finally {
       setLoading(false);
     }
   };
 
   // Calculate stats dynamically based on filtered leads
-  const stats = useMemo(() => ({
-    totalLeads: filteredLeads.length,
-    contacted: filteredLeads.filter((lead) => lead.contacted).length,
-    enrolled: filteredLeads.filter((lead) => lead.enrolled).length,
-    conversionRate: filteredLeads.length > 0
-      ? ((filteredLeads.filter((lead) => lead.enrolled).length / filteredLeads.length) * 100).toFixed(1)
-      : "0",
-  }), [filteredLeads]);
+  const stats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  // Filter leads to contact (not contacted or need to call back)
-  const leadsToContact = useMemo(() => {
-    return filteredLeads.filter(
-      (lead) => !lead.contacted || lead.callOutcome === "RICHIAMARE"
-    ).slice(0, 10);
+    const contactedToday = filteredLeads.filter((lead) => {
+      if (!lead.contactedAt) return false;
+      const contactDate = new Date(lead.contactedAt);
+      contactDate.setHours(0, 0, 0, 0);
+      return contactDate.getTime() === today.getTime();
+    }).length;
+
+    const pendingCallbacks = filteredLeads.filter((lead) => {
+      if (lead.callOutcome !== "RICHIAMARE" || !lead.contactedAt) return false;
+      const contactDate = new Date(lead.contactedAt);
+      const hoursSinceContact =
+        (Date.now() - contactDate.getTime()) / (1000 * 60 * 60);
+      return hoursSinceContact > 48;
+    }).length;
+
+    const targetLeads = filteredLeads.filter(
+      (lead) => lead.isTarget && !lead.contacted
+    ).length;
+
+    const enrolled = filteredLeads.filter((lead) => lead.enrolled).length;
+    const conversionRate =
+      filteredLeads.length > 0
+        ? ((enrolled / filteredLeads.length) * 100).toFixed(1)
+        : "0";
+
+    // Calculate comparison with last month (simplified for demo)
+    const lastMonthLeads = leads.filter((lead) => {
+      const createdDate = new Date(lead.createdAt);
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      return createdDate >= twoMonthsAgo && createdDate < oneMonthAgo;
+    });
+    const lastMonthEnrolled = lastMonthLeads.filter((l) => l.enrolled).length;
+    const enrolledTrend =
+      lastMonthEnrolled > 0
+        ? Math.round(((enrolled - lastMonthEnrolled) / lastMonthEnrolled) * 100)
+        : enrolled > 0
+        ? 100
+        : 0;
+
+    return {
+      totalLeads: filteredLeads.length,
+      contacted: filteredLeads.filter((lead) => lead.contacted).length,
+      contactedToday,
+      enrolled,
+      conversionRate,
+      pendingCallbacks,
+      targetLeads,
+      enrolledTrend,
+    };
+  }, [filteredLeads, leads]);
+
+  // Funnel data for conversion funnel chart
+  const funnelData = useMemo(() => {
+    const statusCounts = {
+      assegnati: filteredLeads.length,
+      contattati: filteredLeads.filter((l) => l.contacted).length,
+      inTrattativa: filteredLeads.filter((l) => l.status === "IN_TRATTATIVA")
+        .length,
+      iscritti: filteredLeads.filter((l) => l.enrolled).length,
+    };
+
+    return [
+      { name: "Assegnati", value: statusCounts.assegnati, color: "#3B82F6" },
+      { name: "Contattati", value: statusCounts.contattati, color: "#8B5CF6" },
+      {
+        name: "In Trattativa",
+        value: statusCounts.inTrattativa,
+        color: "#F59E0B",
+      },
+      { name: "Iscritti", value: statusCounts.iscritti, color: "#10B981" },
+    ];
   }, [filteredLeads]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("it-IT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+  // Status distribution for pie chart
+  const statusDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredLeads.forEach((lead) => {
+      counts[lead.status] = (counts[lead.status] || 0) + 1;
     });
+
+    const colors: Record<string, string> = {
+      NUOVO: "#3B82F6",
+      CONTATTATO: "#F59E0B",
+      IN_TRATTATIVA: "#8B5CF6",
+      ISCRITTO: "#10B981",
+      PERSO: "#EF4444",
+    };
+
+    return Object.entries(counts).map(([status, count]) => ({
+      name: statusLabels[status] || status,
+      value: count,
+      color: colors[status] || "#6B7280",
+    }));
+  }, [filteredLeads]);
+
+  // Performance trend data (last 30 days)
+  const trendData = useMemo(() => {
+    const days = 30;
+    const data: { date: string; contattati: number; iscritti: number }[] = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+
+      const contacted = leads.filter((lead) => {
+        if (!lead.contactedAt) return false;
+        const contactDate = new Date(lead.contactedAt);
+        return contactDate >= date && contactDate < nextDate;
+      }).length;
+
+      const enrolled = leads.filter((lead) => {
+        if (!lead.enrolledAt) return false;
+        const enrollDate = new Date(lead.enrolledAt);
+        return enrollDate >= date && enrollDate < nextDate;
+      }).length;
+
+      data.push({
+        date: date.toLocaleDateString("it-IT", {
+          day: "2-digit",
+          month: "2-digit",
+        }),
+        contattati: contacted,
+        iscritti: enrolled,
+      });
+    }
+
+    return data;
+  }, [leads]);
+
+  // Leads needing attention
+  const leadsNeedingAttention = useMemo(() => {
+    const now = Date.now();
+    const fortyEightHours = 48 * 60 * 60 * 1000;
+
+    return filteredLeads
+      .filter((lead) => {
+        // Overdue callbacks (callback requested > 48h ago)
+        if (lead.callOutcome === "RICHIAMARE" && lead.contactedAt) {
+          const contactDate = new Date(lead.contactedAt).getTime();
+          if (now - contactDate > fortyEightHours) return true;
+        }
+
+        // Not contacted for 48h+ (status is NUOVO)
+        if (!lead.contacted && lead.status === "NUOVO") {
+          const createdDate = new Date(lead.createdAt).getTime();
+          if (now - createdDate > fortyEightHours) return true;
+        }
+
+        // Target leads not contacted
+        if (lead.isTarget && !lead.contacted) return true;
+
+        return false;
+      })
+      .slice(0, 5)
+      .map((lead) => {
+        let reason = "";
+        let priority: "high" | "medium" | "low" = "medium";
+
+        if (lead.callOutcome === "RICHIAMARE" && lead.contactedAt) {
+          const hours = Math.floor(
+            (now - new Date(lead.contactedAt).getTime()) / (1000 * 60 * 60)
+          );
+          reason = `Callback scaduto da ${hours}h`;
+          priority = "high";
+        } else if (lead.isTarget && !lead.contacted) {
+          reason = "Lead Target non contattato";
+          priority = "high";
+        } else if (!lead.contacted) {
+          const hours = Math.floor(
+            (now - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60)
+          );
+          reason = `Non contattato da ${hours}h`;
+          priority = hours > 72 ? "high" : "medium";
+        }
+
+        return { ...lead, reason, priority };
+      });
+  }, [filteredLeads]);
+
+  // Format time for activity timeline
+  const formatActivityTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+      return `${diffDays}g fa`;
+    } else if (diffHours > 0) {
+      return `${diffHours}h fa`;
+    } else {
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      return diffMinutes > 0 ? `${diffMinutes}m fa` : "Ora";
+    }
   };
 
-  const statusTooltips: Record<string, string> = {
-    "Da contattare": "Lead non ancora contattato. Effettua la prima chiamata.",
-    "Richiamare": "Il lead ha richiesto di essere richiamato.",
-    "NUOVO": "Lead appena acquisito, in attesa di primo contatto.",
-    "CONTATTATO": "Lead contattato, in attesa di risposta.",
-    "IN_TRATTATIVA": "Trattativa in corso con il lead.",
-    "ISCRITTO": "Lead convertito con successo!",
-    "PERSO": "Lead non interessato o non raggiungibile.",
-  };
-
-  const getStatusBadge = (lead: Lead) => {
-    if (!lead.contacted) {
-      return (
-        <Tooltip content={statusTooltips["Da contattare"]} position="top">
-          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs cursor-help">
-            Da contattare
-          </span>
-        </Tooltip>
-      );
+  // Get activity icon
+  const getActivityIcon = (type: Activity["type"], metadata?: Activity["metadata"]) => {
+    switch (type) {
+      case "ENROLLMENT":
+        return <UserCheck size={16} className="text-green-600" />;
+      case "CALL":
+        if (metadata?.callOutcome === "POSITIVO")
+          return <CheckCircle size={16} className="text-green-600" />;
+        if (metadata?.callOutcome === "NEGATIVO")
+          return <PhoneOff size={16} className="text-red-600" />;
+        if (metadata?.callOutcome === "RICHIAMARE")
+          return <PhoneCall size={16} className="text-yellow-600" />;
+        if (metadata?.callOutcome === "NON_RISPONDE")
+          return <PhoneMissed size={16} className="text-gray-600" />;
+        return <Phone size={16} className="text-blue-600" />;
+      case "STATUS_CHANGE":
+        return <TrendingUp size={16} className="text-purple-600" />;
+      case "LEAD_CREATED":
+        return <Plus size={16} className="text-blue-600" />;
+      default:
+        return <Clock size={16} className="text-gray-600" />;
     }
-    if (lead.callOutcome === "RICHIAMARE") {
-      return (
-        <Tooltip content={statusTooltips["Richiamare"]} position="top">
-          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs cursor-help">
-            Richiamare
-          </span>
-        </Tooltip>
-      );
-    }
-    return (
-      <Tooltip content={statusTooltips[lead.status] || "Stato del lead"} position="top">
-        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs cursor-help">
-          {lead.status}
-        </span>
-      </Tooltip>
-    );
   };
 
   if (loading) {
@@ -166,14 +455,18 @@ export default function CommercialDashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard Commerciale</h1>
-          <p className="text-gray-500">Panoramica dei tuoi lead e performance</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Dashboard Commerciale
+          </h1>
+          <p className="text-gray-500 mt-1">
+            Panoramica dei tuoi lead e performance
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <DateRangeFilter
             startDate={startDate}
             endDate={endDate}
@@ -192,72 +485,361 @@ export default function CommercialDashboard() {
       {/* Onboarding Tour */}
       <OnboardingTour steps={commercialTourSteps} tourKey="commercial-dashboard" />
 
-      {/* Stats Grid */}
-      <div data-tour="stats-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Grid - 6 cards in 2 rows */}
+      <div
+        data-tour="stats-grid"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
+      >
         <StatCard
           title="Lead Assegnati"
           value={stats.totalLeads}
           icon={Users}
+          iconColor="text-commercial"
           subtitle="Totale"
+          animate
         />
         <StatCard
-          title="Contattati"
-          value={stats.contacted}
+          title="Contattati Oggi"
+          value={stats.contactedToday}
           icon={Phone}
-          subtitle={stats.totalLeads > 0 ? `${((stats.contacted / stats.totalLeads) * 100).toFixed(0)}% del totale` : "0% del totale"}
+          iconColor="text-blue-600"
+          subtitle={`${stats.contacted} totali`}
+          animate
         />
         <StatCard
           title="Iscritti"
           value={stats.enrolled}
           icon={UserCheck}
-          subtitle="Conversioni completate"
+          iconColor="text-green-600"
+          trend={
+            stats.enrolledTrend !== 0
+              ? { value: Math.abs(stats.enrolledTrend), isPositive: stats.enrolledTrend > 0 }
+              : undefined
+          }
+          animate
+        />
+        <StatCard
+          title="Callback Pendenti"
+          value={stats.pendingCallbacks}
+          icon={PhoneCall}
+          iconColor="text-yellow-600"
+          subtitle="Scaduti >48h"
+          animate
         />
         <StatCard
           title="Tasso Conversione"
           value={`${stats.conversionRate}%`}
           icon={Target}
+          iconColor="text-purple-600"
+          animate
+        />
+        <StatCard
+          title="Lead Target"
+          value={stats.targetLeads}
+          icon={Star}
+          iconColor="text-orange-500"
+          subtitle="Da contattare"
+          animate
         />
       </div>
 
-      {/* Recent Leads Table */}
-      <div data-tour="tasks" className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6 border-b border-gray-100">
-          <h2 className="text-lg font-semibold">Lead Recenti da Contattare</h2>
-          <p className="text-sm text-gray-500">Lead non contattati o da richiamare</p>
+      {/* Quick Actions Bar */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/commercial/leads"
+            className="flex items-center gap-2 px-4 py-2.5 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
+          >
+            <Plus size={18} />
+            Nuovo Lead
+          </Link>
+          <Link
+            href="/commercial/pipeline"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+          >
+            <LayoutGrid size={18} />
+            Pipeline
+          </Link>
+          <Link
+            href="/commercial/leads"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+          >
+            <Users size={18} />
+            I Miei Lead
+          </Link>
+          <Link
+            href="/commercial/tasks"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+          >
+            <ListTodo size={18} />
+            Promemoria
+          </Link>
         </div>
-        <div className="p-6">
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Conversion Funnel */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Funnel di Conversione
+          </h2>
+          <FunnelChart
+            stages={funnelData}
+            height={280}
+            showPercentages={true}
+            showDropoff={true}
+          />
+        </div>
+
+        {/* Performance Trend */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Trend Performance (30 giorni)
+          </h2>
+          <LineChart
+            data={trendData}
+            xKey="date"
+            height={280}
+            showGrid={true}
+            showLegend={true}
+            lines={[
+              { dataKey: "contattati", color: "#3B82F6", name: "Contattati" },
+              { dataKey: "iscritti", color: "#10B981", name: "Iscritti" },
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* Status Distribution + Two Column Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Status Distribution Pie */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Distribuzione Stati
+          </h2>
+          {statusDistribution.length > 0 ? (
+            <PieChart 
+              data={statusDistribution} 
+              nameKey="name"
+              valueKey="value"
+              colors={statusDistribution.map(s => s.color)}
+              height={250} 
+              showLegend={true} 
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-gray-400">
+              Nessun dato disponibile
+            </div>
+          )}
+        </div>
+
+        {/* Leads Needing Attention */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Richiede Attenzione
+            </h2>
+            <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+              {leadsNeedingAttention.length}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {leadsNeedingAttention.length > 0 ? (
+              leadsNeedingAttention.map((lead) => (
+                <Link
+                  key={lead.id}
+                  href={`/commercial/leads?id=${lead.id}`}
+                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition group"
+                >
+                  <div
+                    className={`p-1.5 rounded-full ${
+                      lead.priority === "high"
+                        ? "bg-red-100"
+                        : lead.priority === "medium"
+                        ? "bg-yellow-100"
+                        : "bg-gray-100"
+                    }`}
+                  >
+                    {lead.priority === "high" ? (
+                      <AlertTriangle
+                        size={14}
+                        className="text-red-600"
+                      />
+                    ) : lead.isTarget ? (
+                      <Star size={14} className="text-orange-500" />
+                    ) : (
+                      <Clock size={14} className="text-yellow-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate group-hover:text-commercial transition">
+                      {lead.name}
+                    </p>
+                    <p className="text-sm text-gray-500 truncate">
+                      {lead.reason}
+                    </p>
+                  </div>
+                  <ArrowRight
+                    size={16}
+                    className="text-gray-400 group-hover:text-commercial transition flex-shrink-0 mt-1"
+                  />
+                </Link>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                <CheckCircle size={32} className="mb-2" />
+                <p className="text-sm">Tutto in ordine!</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Activity Timeline */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Attivita Recenti
+          </h2>
+          <div className="space-y-3">
+            {activities.length > 0 ? (
+              activities.slice(0, 6).map((activity) => (
+                <div
+                  key={activity.id}
+                  className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0"
+                >
+                  <div className="p-1.5 bg-gray-100 rounded-full">
+                    {getActivityIcon(activity.type, activity.metadata)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 truncate">
+                      {activity.description}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {formatActivityTime(activity.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                <Clock size={32} className="mb-2" />
+                <p className="text-sm">Nessuna attivita recente</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Leads Table */}
+      <div
+        data-tour="tasks"
+        className="bg-white rounded-xl shadow-sm border border-gray-100"
+      >
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Lead Recenti da Contattare</h2>
+              <p className="text-sm text-gray-500">
+                Lead non contattati o da richiamare
+              </p>
+            </div>
+            <Link
+              href="/commercial/leads"
+              className="text-commercial hover:underline text-sm font-medium flex items-center gap-1"
+            >
+              Vedi tutti
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-sm text-gray-500 border-b">
-                <th className="pb-3 font-medium">Data Creazione</th>
-                <th className="pb-3 font-medium">Nome</th>
-                <th className="pb-3 font-medium">Corso</th>
-                <th className="pb-3 font-medium">Stato</th>
-                <th className="pb-3 font-medium">Azioni</th>
+              <tr className="text-left text-sm text-gray-500 border-b bg-gray-50">
+                <th className="px-6 py-3 font-medium">Data</th>
+                <th className="px-6 py-3 font-medium">Nome</th>
+                <th className="px-6 py-3 font-medium">Corso</th>
+                <th className="px-6 py-3 font-medium">Stato</th>
+                <th className="px-6 py-3 font-medium">Azioni</th>
               </tr>
             </thead>
             <tbody className="text-sm">
-              {leadsToContact.length > 0 ? (
-                leadsToContact.map((lead) => (
-                  <tr key={lead.id} className="border-b">
-                    <td className="py-4">{formatDate(lead.createdAt)}</td>
-                    <td className="py-4">{lead.name}</td>
-                    <td className="py-4">{lead.course?.name || "-"}</td>
-                    <td className="py-4">{getStatusBadge(lead)}</td>
-                    <td className="py-4">
+              {filteredLeads
+                .filter(
+                  (lead) =>
+                    !lead.contacted || lead.callOutcome === "RICHIAMARE"
+                )
+                .slice(0, 8)
+                .map((lead, index) => (
+                  <tr
+                    key={lead.id}
+                    className={`border-b last:border-0 hover:bg-gray-50 transition ${
+                      index % 2 === 0 ? "" : "bg-gray-50/30"
+                    }`}
+                  >
+                    <td className="px-6 py-4 text-gray-500">
+                      {new Date(lead.createdAt).toLocaleDateString("it-IT")}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900">
+                          {lead.name}
+                        </span>
+                        {lead.isTarget && (
+                          <span className="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-700 rounded">
+                            Target
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {lead.course?.name || "-"}
+                    </td>
+                    <td className="px-6 py-4">
+                      {!lead.contacted ? (
+                        <Tooltip
+                          content="Lead non ancora contattato"
+                          position="top"
+                        >
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs cursor-help">
+                            Da contattare
+                          </span>
+                        </Tooltip>
+                      ) : lead.callOutcome === "RICHIAMARE" ? (
+                        <Tooltip
+                          content="Il lead ha richiesto di essere richiamato"
+                          position="top"
+                        >
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs cursor-help">
+                            Richiamare
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                          {statusLabels[lead.status] || lead.status}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
                       <Link
                         href={`/commercial/leads?id=${lead.id}`}
-                        className="text-commercial hover:underline"
+                        className="text-commercial hover:underline font-medium"
                       >
                         Vedi Dettagli
                       </Link>
                     </td>
                   </tr>
-                ))
-              ) : (
+                ))}
+              {filteredLeads.filter(
+                (lead) => !lead.contacted || lead.callOutcome === "RICHIAMARE"
+              ).length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-400">
-                    Nessun lead da contattare
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                    <CheckCircle
+                      size={32}
+                      className="mx-auto mb-2 text-green-500"
+                    />
+                    <p>Ottimo lavoro! Nessun lead da contattare.</p>
                   </td>
                 </tr>
               )}

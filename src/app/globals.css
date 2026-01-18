@@ -370,6 +370,12 @@ body {
 
 /* Accessibility: Focus visible styles for keyboard navigation */
 @layer base {
+  /* Minimum body font size for readability */
+  html {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
   /* Ensure focus-visible works consistently across browsers */
   :focus-visible {
     outline: 2px solid #dc2626;
@@ -393,22 +399,67 @@ body {
     border-radius: 4px;
   }
 
-  /* Skip link styles */
-  .sr-only:focus {
+  /* Ensure minimum touch target size (44x44px) for mobile accessibility */
+  button,
+  [role="button"],
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Exception for inline text links */
+  p a,
+  span a,
+  li a {
+    min-height: auto;
+    min-width: auto;
+  }
+
+  /* Improved text contrast - ensure gray text meets WCAG AA (4.5:1) */
+  .text-gray-500 {
+    color: #6b7280; /* Contrast ratio 4.6:1 on white */
+  }
+
+  .text-gray-400 {
+    color: #9ca3af; /* Use sparingly, meets 3:1 for large text only */
+  }
+
+  /* Skip link styles - visible on focus */
+  .skip-link {
     position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .skip-link:focus {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
     width: auto;
     height: auto;
-    padding: 0.5rem 1rem;
-    margin: 0;
-    overflow: visible;
-    clip: auto;
-    white-space: nowrap;
+    padding: 0.75rem 1.5rem;
+    background: #dc2626;
+    color: white;
+    font-weight: 600;
+    z-index: 9999;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   }
 
   /* High contrast mode improvements */
   @media (prefers-contrast: high) {
     * {
       border-color: currentColor !important;
+    }
+
+    .text-gray-500,
+    .text-gray-400 {
+      color: #374151 !important;
     }
   }
 
@@ -423,6 +474,41 @@ body {
       scroll-behavior: auto !important;
     }
   }
+
+  /* Dark mode support (for future) */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --foreground-rgb: 249, 250, 251;
+      --background-start-rgb: 17, 24, 39;
+      --background-end-rgb: 31, 41, 55;
+    }
+  }
+}
+
+/* Screen reader only - for accessibility labels */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Screen reader announcements for dynamic content */
+.sr-announce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 /* Custom scrollbar for webkit browsers */

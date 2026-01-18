@@ -25,6 +25,7 @@ import toast from "react-hot-toast";
 import Pagination from "@/components/ui/Pagination";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import EmptyState from "@/components/ui/EmptyState";
+import ExportButton from "@/components/ui/ExportButton";
 
 interface Lead {
   id: string;
@@ -87,6 +88,22 @@ const outcomeColors: Record<string, string> = {
   RICHIAMARE: "bg-yellow-100 text-yellow-700",
   NON_RISPONDE: "bg-gray-100 text-gray-700",
 };
+
+// Export columns configuration for commercial leads
+const leadExportColumns = [
+  { key: "name", label: "Nome" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Telefono" },
+  { key: "course.name", label: "Corso" },
+  { key: "status", label: "Stato" },
+  { key: "contacted", label: "Contattato" },
+  { key: "contactedAt", label: "Data Contatto" },
+  { key: "callOutcome", label: "Esito Chiamata" },
+  { key: "outcomeNotes", label: "Note Esito" },
+  { key: "enrolled", label: "Iscritto" },
+  { key: "isTarget", label: "Target" },
+  { key: "createdAt", label: "Data Creazione" },
+];
 
 const outcomeIcons: Record<string, React.ReactNode> = {
   POSITIVO: <CheckCircle size={14} className="text-green-600" />,
@@ -515,6 +532,11 @@ export default function CommercialLeadsPage() {
               Demo
             </div>
           )}
+          <ExportButton
+            data={filteredLeads}
+            columns={leadExportColumns}
+            filename="i_miei_lead_export"
+          />
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
