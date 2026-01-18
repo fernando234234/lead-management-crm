@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-type BulkAction = "assign" | "status" | "delete" | "set_cost" | "distribute_cost";
+type BulkAction = "assign" | "status" | "delete" | "set_cost" | "distribute_cost" | "distribute_by_period";
+
+interface Distribution {
+  leadId: string;
+  cost: number;
+}
 
 interface BulkRequestBody {
   action: BulkAction;
@@ -13,6 +18,7 @@ interface BulkRequestBody {
     acquisitionCost?: number;      // For set_cost action
     totalBudget?: number;          // For distribute_cost action
     campaignId?: string;           // For distribute_cost action
+    distributions?: Distribution[]; // For distribute_by_period action
   };
 }
 
@@ -186,6 +192,33 @@ export async function POST(request: NextRequest) {
             { error: error instanceof Error ? error.message : "Failed to distribute cost" },
             { status: 500 }
           );
+        }
+        break;
+      }
+
+      case "distribute_by_period": {
+        // Distribute costs with individual amounts per lead (for period-wise distribution)
+        if (!data?.distributions || data.distributions.length === 0) {
+          return NextResponse.json(
+            { error: "Missing distributions array" },
+            { status: 400 }
+          );
+        }
+
+        // Update each lead with its specific cost
+        for (const dist of data.distributions) {
+          try {
+            await prisma.lead.update({
+              where: { id: dist.leadId },
+              data: { acquisitionCost: dist.cost },
+            });
+            successCount++;
+          } catch (error) {
+            errors.push({
+              leadId: dist.leadId,
+              error: error instanceof Error ? error.message : "Unknown error",
+            });
+          }
         }
         break;
       }

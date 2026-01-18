@@ -19,11 +19,14 @@ import {
   CheckSquare,
   Square,
   Minus,
+  Zap,
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import { CostCoverage, CostCoverageInline, calculateCostMetrics } from "@/components/ui/CostCoverage";
 import { BulkCostModal } from "@/components/ui/BulkCostModal";
+import { QuickDistributeCostModal } from "@/components/ui/QuickDistributeCostModal";
+import toast from "react-hot-toast";
 
 // Export columns configuration
 const leadExportColumns = [
@@ -97,6 +100,12 @@ interface Lead {
   } | null;
 }
 
+interface SpendRecord {
+  id: string;
+  date: string;
+  amount: number;
+}
+
 interface Campaign {
   id: string;
   name: string;
@@ -104,6 +113,7 @@ interface Campaign {
   totalSpent?: number;
   cost?: number;
   leadCount?: number;
+  spendRecords?: SpendRecord[];
   metrics?: {
     totalLeads: number;
   };
@@ -147,6 +157,12 @@ export default function MarketingLeadsPage() {
   // Bulk selection state
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [showBulkCostModal, setShowBulkCostModal] = useState(false);
+  
+  // Quick distribute modal state
+  const [quickDistributeCampaign, setQuickDistributeCampaign] = useState<{
+    campaign: Campaign;
+    leads: Lead[];
+  } | null>(null);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -382,6 +398,44 @@ export default function MarketingLeadsPage() {
       fetchData();
     } catch (error) {
       console.error("Failed to distribute cost:", error);
+    }
+  };
+
+  // Handle quick period-wise distribution
+  const handleQuickDistribute = async (distributions: { leadId: string; cost: number }[]) => {
+    if (isDemoMode) {
+      const costMap = new Map(distributions.map(d => [d.leadId, d.cost]));
+      setLeads(
+        leads.map((l) =>
+          costMap.has(l.id) ? { ...l, acquisitionCost: costMap.get(l.id)! } : l
+        )
+      );
+      setQuickDistributeCampaign(null);
+      toast.success("Costi distribuiti con successo!");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/leads/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "distribute_by_period",
+          leadIds: distributions.map(d => d.leadId),
+          data: { distributions },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to distribute costs");
+      }
+
+      toast.success("Costi distribuiti con successo!");
+      fetchData();
+    } catch (error) {
+      console.error("Failed to distribute costs:", error);
+      toast.error("Errore nella distribuzione dei costi");
+      throw error;
     }
   };
 
@@ -643,11 +697,11 @@ export default function MarketingLeadsPage() {
             className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
           >
             {/* Campaign Header */}
-            <button
-              onClick={() => toggleCampaignExpanded(group.campaign.id)}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition"
-            >
-              <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
+              <button
+                onClick={() => toggleCampaignExpanded(group.campaign.id)}
+                className="flex items-center gap-4 flex-1"
+              >
                 <div className="p-2 bg-marketing/10 rounded-lg">
                   <Megaphone size={20} className="text-marketing" />
                 </div>
@@ -674,13 +728,37 @@ export default function MarketingLeadsPage() {
                     )}
                   </div>
                 </div>
+              </button>
+              <div className="flex items-center gap-2">
+                {/* Quick Distribute Button - only show if campaign has spend */}
+                {(group.campaign.totalSpent || 0) > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const fullCampaign = campaigns.find(c => c.id === group.campaign.id);
+                      if (fullCampaign) {
+                        setQuickDistributeCampaign({
+                          campaign: fullCampaign,
+                          leads: group.leads,
+                        });
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-marketing/10 text-marketing rounded-lg hover:bg-marketing/20 transition text-sm font-medium"
+                    title="Distribuzione rapida costi per periodo"
+                  >
+                    <Zap size={14} />
+                    Distribuisci
+                  </button>
+                )}
+                <button onClick={() => toggleCampaignExpanded(group.campaign.id)}>
+                  {expandedCampaigns.has(group.campaign.id) ? (
+                    <ChevronDown size={20} className="text-gray-400" />
+                  ) : (
+                    <ChevronRight size={20} className="text-gray-400" />
+                  )}
+                </button>
               </div>
-              {expandedCampaigns.has(group.campaign.id) ? (
-                <ChevronDown size={20} className="text-gray-400" />
-              ) : (
-                <ChevronRight size={20} className="text-gray-400" />
-              )}
-            </button>
+            </div>
 
             {/* Leads Table */}
             {expandedCampaigns.has(group.campaign.id) && (
@@ -939,6 +1017,19 @@ export default function MarketingLeadsPage() {
           onClose={() => setShowBulkCostModal(false)}
           onSetCost={handleBulkSetCost}
           onDistributeCost={handleBulkDistributeCost}
+        />
+      )}
+
+      {/* Quick Distribute Cost Modal */}
+      {quickDistributeCampaign && (
+        <QuickDistributeCostModal
+          campaignName={quickDistributeCampaign.campaign.name}
+          campaignId={quickDistributeCampaign.campaign.id}
+          leads={quickDistributeCampaign.leads}
+          spendRecords={quickDistributeCampaign.campaign.spendRecords || []}
+          totalSpent={quickDistributeCampaign.campaign.totalSpent || 0}
+          onDistribute={handleQuickDistribute}
+          onClose={() => setQuickDistributeCampaign(null)}
         />
       )}
     </div>
