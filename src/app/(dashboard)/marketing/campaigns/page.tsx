@@ -20,6 +20,7 @@ import {
 import Pagination from "@/components/ui/Pagination";
 import ExportButton from "@/components/ui/ExportButton";
 import EmptyState from "@/components/ui/EmptyState";
+import { SpendManagementModal } from "@/components/ui/SpendManagementModal";
 
 // Platform options matching Prisma enum
 const platformOptions = [
@@ -94,7 +95,7 @@ export default function MarketingCampaignsPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showSpendModal, setShowSpendModal] = useState(false);
+  const [showSpendManagement, setShowSpendManagement] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [selectedCampaignForSpend, setSelectedCampaignForSpend] = useState<Campaign | null>(null);
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
@@ -118,12 +119,6 @@ export default function MarketingCampaignsPage() {
     status: "ACTIVE",
     startDate: "",
     endDate: "",
-  });
-
-  const [spendFormData, setSpendFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
-    amount: "",
-    notes: "",
   });
 
   useEffect(() => {
@@ -197,12 +192,7 @@ export default function MarketingCampaignsPage() {
 
   const openSpendModal = (campaign: Campaign) => {
     setSelectedCampaignForSpend(campaign);
-    setSpendFormData({
-      date: new Date().toISOString().split("T")[0],
-      amount: "",
-      notes: "",
-    });
-    setShowSpendModal(true);
+    setShowSpendManagement(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -270,41 +260,6 @@ export default function MarketingCampaignsPage() {
       fetchData();
     } catch (error) {
       console.error("Failed to save campaign:", error);
-    }
-  };
-
-  const handleSpendSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCampaignForSpend) return;
-
-    if (isDemoMode) {
-      // In demo mode, just update the totalSpent locally
-      const amount = parseFloat(spendFormData.amount) || 0;
-      setCampaigns(
-        campaigns.map((c) =>
-          c.id === selectedCampaignForSpend.id
-            ? { ...c, totalSpent: (c.totalSpent || 0) + amount }
-            : c
-        )
-      );
-      setShowSpendModal(false);
-      return;
-    }
-
-    try {
-      await fetch(`/api/campaigns/${selectedCampaignForSpend.id}/spend`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: spendFormData.date,
-          amount: parseFloat(spendFormData.amount) || 0,
-          notes: spendFormData.notes || null,
-        }),
-      });
-      setShowSpendModal(false);
-      fetchData();
-    } catch (error) {
-      console.error("Failed to add spend:", error);
     }
   };
 
@@ -807,83 +762,17 @@ export default function MarketingCampaignsPage() {
         </div>
       )}
 
-      {/* Spend Modal */}
-      {showSpendModal && selectedCampaignForSpend && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              Aggiungi Spesa
-              {isDemoMode && (
-                <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>
-              )}
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Campagna: <strong>{selectedCampaignForSpend.name}</strong>
-            </p>
-            <form onSubmit={handleSpendSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={spendFormData.date}
-                  onChange={(e) =>
-                    setSpendFormData({ ...spendFormData, date: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Importo (€) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  value={spendFormData.amount}
-                  onChange={(e) =>
-                    setSpendFormData({ ...spendFormData, amount: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                  placeholder="100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note (opzionale)
-                </label>
-                <input
-                  type="text"
-                  value={spendFormData.notes}
-                  onChange={(e) =>
-                    setSpendFormData({ ...spendFormData, notes: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                  placeholder="es. Boost post"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowSpendModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:opacity-90 transition"
-                >
-                  Aggiungi Spesa
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Spend Management Modal */}
+      {showSpendManagement && selectedCampaignForSpend && (
+        <SpendManagementModal
+          campaign={selectedCampaignForSpend}
+          onClose={() => {
+            setShowSpendManagement(false);
+            setSelectedCampaignForSpend(null);
+          }}
+          onUpdate={fetchData}
+          isDemoMode={isDemoMode}
+        />
       )}
     </div>
   );
