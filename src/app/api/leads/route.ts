@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
 
-// GET /api/leads - Fetch all leads with filters
+// GET /api/leads - Fetch leads with visibility rules based on user role
+// - ADMIN: sees all leads
+// - MARKETING: sees leads from campaigns they created
+// - COMMERCIAL: sees leads they created OR are assigned to
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
     const { searchParams } = new URL(request.url);
     
     // Filters
@@ -44,6 +50,61 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // Apply visibility rules based on user role
+    if (session?.user) {
+      const userId = session.user.id;
+      const userRole = session.user.role;
+
+      if (userRole === "MARKETING") {
+        // Marketing sees leads from campaigns they created
+        // First get all campaign IDs created by this marketer
+        const myCampaigns = await prisma.campaign.findMany({
+          where: { createdById: userId },
+          select: { id: true },
+        });
+        const myCampaignIds = myCampaigns.map(c => c.id);
+        
+        where.campaignId = { in: myCampaignIds };
+      } else if (userRole === "COMMERCIAL") {
+        // Commercial sees leads they created OR are assigned to
+        where.OR = [
+          { createdById: userId },
+          { assignedToId: userId },
+          // Also include search OR conditions if present
+          ...(search ? [
+            { name: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+            { phone: { contains: search, mode: "insensitive" } },
+          ] : []),
+        ];
+        // Remove the search OR since we merged it above
+        if (search) {
+          delete where.OR;
+          where.AND = [
+            {
+              OR: [
+                { createdById: userId },
+                { assignedToId: userId },
+              ],
+            },
+            {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+                { phone: { contains: search, mode: "insensitive" } },
+              ],
+            },
+          ];
+        } else {
+          where.OR = [
+            { createdById: userId },
+            { assignedToId: userId },
+          ];
+        }
+      }
+      // ADMIN sees all leads - no additional filtering needed
+    }
+
     const leads = await prisma.lead.findMany({
       where,
       include: {
@@ -67,6 +128,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // If campaignId is provided, fetch campaign to get the marketer who owns it
+    let campaignOwnerId: string | null = null;
+    if (body.campaignId) {
+      const campaign = await prisma.campaign.findUnique({
+        where: { id: body.campaignId },
+        select: { createdById: true, name: true },
+      });
+      campaignOwnerId = campaign?.createdById || null;
+    }
 
     const lead = await prisma.lead.create({
       data: {
@@ -97,8 +168,20 @@ export async function POST(request: NextRequest) {
         body.assignedToId,
         "LEAD_ASSIGNED",
         "Nuovo lead assegnato",
-        `Ti e stato assegnato un nuovo lead: ${body.name}`,
+        `Ti è stato assegnato un nuovo lead: ${body.name}`,
         `/commercial/leads/${lead.id}`
+      );
+    }
+
+    // Notifica il marketer quando un lead viene aggiunto alla sua campagna
+    // (solo se il marketer non è anche chi ha creato il lead)
+    if (campaignOwnerId && campaignOwnerId !== body.createdById) {
+      await createNotification(
+        campaignOwnerId,
+        "LEAD_CREATED",
+        "Nuovo lead nella tua campagna",
+        `È stato aggiunto un nuovo lead "${body.name}" alla campagna "${lead.campaign?.name}"`,
+        `/marketing/leads`
       );
     }
 

@@ -244,6 +244,7 @@ enum ActivityType {
 
 enum NotificationType {
   LEAD_ASSIGNED
+  LEAD_CREATED
   LEAD_STATUS_CHANGED
   LEAD_ENROLLED
   CAMPAIGN_CREATED
