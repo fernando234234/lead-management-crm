@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useDemoMode } from "@/contexts/DemoModeContext";
 import { mockCampaigns, mockCourses } from "@/lib/mockData";
+import toast from "react-hot-toast";
 import {
   Plus,
   Pencil,
@@ -314,10 +315,11 @@ export default function MarketingCampaignsPage() {
       const campaign = campaigns.find((c) => c.id === id);
       const leadCount = campaign?.leadCount || campaign?.metrics?.totalLeads || 0;
       if (leadCount > 0) {
-        alert("Impossibile eliminare: la campagna ha lead associati");
+        toast.error("Impossibile eliminare: la campagna ha lead associati");
         return;
       }
       setCampaigns(campaigns.filter((c) => c.id !== id));
+      toast.success("Campagna eliminata");
       return;
     }
 
@@ -325,12 +327,14 @@ export default function MarketingCampaignsPage() {
       const res = await fetch(`/api/campaigns/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error);
+        toast.error(data.error || "Errore nell'eliminazione della campagna");
         return;
       }
+      toast.success("Campagna eliminata");
       fetchData();
     } catch (error) {
       console.error("Failed to delete campaign:", error);
+      toast.error("Errore nell'eliminazione della campagna");
     }
   };
 

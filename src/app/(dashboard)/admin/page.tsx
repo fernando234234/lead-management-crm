@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useDemoMode } from "@/contexts/DemoModeContext";
+import { useDataFilter, getDataSourceParam } from "@/contexts/DataFilterContext";
 import { mockStats } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
@@ -53,6 +54,11 @@ interface Stats {
     leads: number;
     budget: number;
   }[];
+  leadsOverTime?: {
+    giorno: string;
+    date: string;
+    lead: number;
+  }[];
 }
 
 const statusLabels: Record<string, string> = {
@@ -81,6 +87,7 @@ const STATUS_CHART_COLORS = [
 
 export default function AdminDashboard() {
   const { isDemoMode } = useDemoMode();
+  const { dataSource } = useDataFilter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState<string | null>(null);
@@ -128,8 +135,12 @@ export default function AdminDashboard() {
     }));
   }, [stats?.leadsByStatus]);
 
-  // Generate mock data for leads over time (last 7 days)
+  // Use real data for leads over time (last 7 days) or generate fallback
   const leadsOverTime = useMemo(() => {
+    if (stats?.leadsOverTime && stats.leadsOverTime.length > 0) {
+      return stats.leadsOverTime;
+    }
+    // Fallback for demo mode or if no data
     const days = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
@@ -141,7 +152,7 @@ export default function AdminDashboard() {
       });
     }
     return days;
-  }, []);
+  }, [stats?.leadsOverTime]);
 
   // Prepare campaign data for bar chart
   const campaignChartData = useMemo(() => {
@@ -161,12 +172,15 @@ export default function AdminDashboard() {
       // Fetch real data
       fetchStats();
     }
-  }, [isDemoMode]);
+  }, [isDemoMode, dataSource]);
 
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/stats");
+      // Build query params with data source filter
+      const sourceParam = getDataSourceParam(dataSource);
+      const url = sourceParam ? `/api/stats?${sourceParam}` : "/api/stats";
+      const res = await fetch(url);
       const data = await res.json();
       setStats(data);
     } catch (error) {

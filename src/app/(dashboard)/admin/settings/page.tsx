@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useDemoMode } from "@/contexts/DemoModeContext";
+import { useDataFilter } from "@/contexts/DataFilterContext";
 import { mockCourses, mockCampaigns, mockUsers } from "@/lib/mockData";
-import { Settings, Database, TestTube, Info, Check, UserPlus } from "lucide-react";
+import { Settings, Database, TestTube, Info, Check, UserPlus, Filter, Archive, Plus, Layers } from "lucide-react";
 import AssignmentRules from "@/components/ui/AssignmentRules";
 
 interface Course {
@@ -23,6 +24,7 @@ interface Commercial {
 
 export default function AdminSettingsPage() {
   const { isDemoMode, toggleDemoMode } = useDemoMode();
+  const { dataSource, setDataSource } = useDataFilter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [commercials, setCommercials] = useState<Commercial[]>([]);
@@ -104,6 +106,124 @@ export default function AdminSettingsPage() {
               courses={courses}
             />
           )}
+        </div>
+      </div>
+
+      {/* Data Source Filter Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white rounded-lg shadow-sm">
+              <Filter className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Filtro Dati</h2>
+              <p className="text-sm text-gray-600">
+                Scegli quali dati visualizzare in tutta l&apos;applicazione
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="space-y-4">
+            {/* Option: All Data */}
+            <label 
+              className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                dataSource === "all" 
+                  ? "border-amber-500 bg-amber-50" 
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="dataSource"
+                value="all"
+                checked={dataSource === "all"}
+                onChange={() => setDataSource("all")}
+                className="sr-only"
+              />
+              <div className={`p-2 rounded-lg ${dataSource === "all" ? "bg-amber-100" : "bg-gray-100"}`}>
+                <Layers className={`w-5 h-5 ${dataSource === "all" ? "text-amber-600" : "text-gray-500"}`} />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">Tutti i Dati</p>
+                <p className="text-sm text-gray-500">Mostra sia i dati importati che quelli nuovi</p>
+              </div>
+              {dataSource === "all" && (
+                <Check className="w-5 h-5 text-amber-600" />
+              )}
+            </label>
+
+            {/* Option: Legacy Only */}
+            <label 
+              className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                dataSource === "legacy" 
+                  ? "border-amber-500 bg-amber-50" 
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="dataSource"
+                value="legacy"
+                checked={dataSource === "legacy"}
+                onChange={() => setDataSource("legacy")}
+                className="sr-only"
+              />
+              <div className={`p-2 rounded-lg ${dataSource === "legacy" ? "bg-amber-100" : "bg-gray-100"}`}>
+                <Archive className={`w-5 h-5 ${dataSource === "legacy" ? "text-amber-600" : "text-gray-500"}`} />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">Solo Dati Legacy</p>
+                <p className="text-sm text-gray-500">Mostra solo i dati importati da Excel</p>
+              </div>
+              {dataSource === "legacy" && (
+                <Check className="w-5 h-5 text-amber-600" />
+              )}
+            </label>
+
+            {/* Option: New Only */}
+            <label 
+              className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                dataSource === "new" 
+                  ? "border-amber-500 bg-amber-50" 
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="dataSource"
+                value="new"
+                checked={dataSource === "new"}
+                onChange={() => setDataSource("new")}
+                className="sr-only"
+              />
+              <div className={`p-2 rounded-lg ${dataSource === "new" ? "bg-amber-100" : "bg-gray-100"}`}>
+                <Plus className={`w-5 h-5 ${dataSource === "new" ? "text-amber-600" : "text-gray-500"}`} />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">Solo Dati Nuovi</p>
+                <p className="text-sm text-gray-500">Mostra solo i lead creati manualmente o da campagne</p>
+              </div>
+              {dataSource === "new" && (
+                <Check className="w-5 h-5 text-amber-600" />
+              )}
+            </label>
+          </div>
+
+          {/* Info Box */}
+          <div className="mt-6 p-4 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 mt-0.5 flex-shrink-0 text-amber-600" />
+              <div className="text-sm">
+                <p className="font-medium text-amber-900 mb-1">Filtro Globale</p>
+                <p className="text-amber-700">
+                  Questa impostazione filtra i dati in tutte le dashboard, report e statistiche dell&apos;applicazione.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

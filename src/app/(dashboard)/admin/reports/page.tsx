@@ -73,6 +73,9 @@ interface Lead {
   id: string;
   status: string;
   enrolled: boolean;
+  contacted: boolean;
+  createdAt: string;
+  acquisitionCost: number | null;
   course: { id: string; name: string; price: number } | null;
   campaign: { id: string; name: string; platform: string } | null;
   assignedTo: { id: string; name: string } | null;
@@ -281,15 +284,47 @@ export default function ReportsPage() {
     });
   }, [users, leads]);
 
-  // Revenue/Cost trend line chart data
+  // Revenue/Cost trend line chart data - aggregate by month from real leads data
   const revenueCostTrend = useMemo(() => {
-    const months = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu"];
-    return months.map((month, i) => ({
-      mese: month,
-      ricavi: Math.floor(10000 + Math.random() * 15000 + i * 2000),
-      costi: Math.floor(3000 + Math.random() * 5000 + i * 500),
-    }));
-  }, []);
+    const monthData = new Map<string, { ricavi: number; costi: number }>();
+    
+    // Get last 6 months
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      monthData.set(key, { ricavi: 0, costi: 0 });
+    }
+    
+    // Aggregate leads by month
+    leads.forEach((lead) => {
+      const leadDate = new Date(lead.createdAt);
+      const key = `${leadDate.getFullYear()}-${String(leadDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (monthData.has(key)) {
+        const data = monthData.get(key)!;
+        // Revenue from enrolled leads
+        if (lead.enrolled && lead.course) {
+          data.ricavi += lead.course.price || 0;
+        }
+        // Cost from acquisition cost
+        if (lead.acquisitionCost) {
+          data.costi += Number(lead.acquisitionCost) || 0;
+        }
+      }
+    });
+    
+    // Convert to array with Italian month names
+    const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+    return Array.from(monthData.entries()).map(([key, data]) => {
+      const [year, month] = key.split('-');
+      return {
+        mese: monthNames[parseInt(month) - 1],
+        ricavi: data.ricavi,
+        costi: data.costi,
+      };
+    });
+  }, [leads]);
 
   // Calculate campaign performance with sorting
   const campaignPerformance = useMemo(() => {

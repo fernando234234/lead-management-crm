@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useDemoMode } from "@/contexts/DemoModeContext";
+import { useDataFilter, getDataSourceParam } from "@/contexts/DataFilterContext";
 import { 
   Users, 
   UserCheck, 
@@ -23,6 +24,7 @@ interface Lead {
   id: string;
   name: string;
   status: string;
+  isTarget: boolean;
   contacted: boolean;
   enrolled: boolean;
   acquisitionCost: number | null;
@@ -38,11 +40,18 @@ interface User {
   role: string;
 }
 
+interface SpendRecord {
+  id: string;
+  date: string;
+  amount: number;
+}
+
 interface Campaign {
   id: string;
   name: string;
   totalSpent: number;
   leadCount: number;
+  spendRecords?: SpendRecord[];
 }
 
 type SortDirection = "asc" | "desc" | null;
@@ -70,6 +79,7 @@ const courseExportColumns = [
 
 export default function DashboardCommercialePage() {
   const { isDemoMode } = useDemoMode();
+  const { dataSource } = useDataFilter();
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -91,13 +101,17 @@ export default function DashboardCommercialePage() {
 
   useEffect(() => {
     fetchData();
-  }, [isDemoMode]);
+  }, [isDemoMode, dataSource]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Build query params with data source filter
+      const sourceParam = getDataSourceParam(dataSource);
+      const leadsUrl = sourceParam ? `/api/leads?${sourceParam}` : "/api/leads";
+      
       const [leadsRes, usersRes, campaignsRes] = await Promise.all([
-        fetch("/api/leads"),
+        fetch(leadsUrl),
         fetch("/api/users"),
         fetch("/api/campaigns"),
       ]);
@@ -142,22 +156,57 @@ export default function DashboardCommercialePage() {
     });
   }, [leads, startDate, endDate]);
 
+  // Calculate filtered spend based on date range
+  const filteredSpend = useMemo(() => {
+    if (!startDate && !endDate) {
+      // No date filter - use total spent
+      return campaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
+    }
+    
+    // Filter spend records by date range
+    return campaigns.reduce((sum, campaign) => {
+      if (!campaign.spendRecords) return sum + (campaign.totalSpent || 0);
+      
+      const filteredRecords = campaign.spendRecords.filter((record) => {
+        const recordDate = new Date(record.date);
+        recordDate.setHours(0, 0, 0, 0);
+        
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          if (recordDate < start) return false;
+        }
+        
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (recordDate > end) return false;
+        }
+        
+        return true;
+      });
+      
+      return sum + filteredRecords.reduce((s, r) => s + Number(r.amount), 0);
+    }, 0);
+  }, [campaigns, startDate, endDate]);
+
   // Calculate KPIs (matching Excel exactly)
   const kpis = useMemo(() => {
     const totalLeads = filteredLeads.length;
     const enrolledLeads = filteredLeads.filter((l) => l.enrolled).length;
     const conversionRate = totalLeads > 0 ? (enrolledLeads / totalLeads) * 100 : 0;
     
-    // Total ad spend from campaigns
-    const totalSpend = campaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
+    // Total ad spend from campaigns (filtered by date)
+    const totalSpend = filteredSpend;
     
     // CPA (Cost Per Acquisition/Enrollment)
     const cpa = enrolledLeads > 0 ? totalSpend / enrolledLeads : 0;
     
     // Total revenue (enrolled * course price)
+    // Note: Prisma returns Decimal as string, so we must convert to Number
     const totalRevenue = filteredLeads
       .filter((l) => l.enrolled && l.course)
-      .reduce((sum, l) => sum + (l.course?.price || 0), 0);
+      .reduce((sum, l) => sum + Number(l.course?.price || 0), 0);
     
     // Net result
     const netResult = totalRevenue - totalSpend;
@@ -171,12 +220,13 @@ export default function DashboardCommercialePage() {
       totalRevenue,
       netResult,
     };
-  }, [filteredLeads, campaigns]);
+  }, [filteredLeads, filteredSpend]);
 
   // Funnel data (matching Excel)
   const funnelData = useMemo(() => {
     const totalLeads = filteredLeads.length;
-    const validLeads = filteredLeads.filter((l) => l.status !== "PERSO").length;
+    // Lead Validi = leads marked as target (isTarget field from Excel "Lead Validi" column)
+    const validLeads = filteredLeads.filter((l) => l.isTarget).length;
     const contacted = filteredLeads.filter((l) => l.contacted).length;
     // "Appuntamenti" would be IN_TRATTATIVA status
     const appointments = filteredLeads.filter((l) => l.status === "IN_TRATTATIVA").length;
@@ -194,7 +244,8 @@ export default function DashboardCommercialePage() {
   // Commercial performance (matching Excel table)
   const commercialPerformance = useMemo(() => {
     const commercials = users.filter((u) => u.role === "COMMERCIAL");
-    const totalSpend = campaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
+    // Use filtered spend for date-accurate cost calculations
+    const totalSpend = filteredSpend;
     
     const data = commercials.map((user) => {
       const userLeads = filteredLeads.filter((l) => l.assignedTo?.id === user.id);
@@ -233,7 +284,7 @@ export default function DashboardCommercialePage() {
     });
 
     return sorted;
-  }, [users, filteredLeads, campaigns, commercialSort, kpis.totalLeads]);
+  }, [users, filteredLeads, filteredSpend, commercialSort, kpis.totalLeads]);
 
   // Course performance (matching Excel table)
   const coursePerformance = useMemo(() => {
@@ -263,7 +314,8 @@ export default function DashboardCommercialePage() {
       courseMap.set(lead.course.id, existing);
     });
 
-    const totalSpend = campaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
+    // Use filtered spend for date-accurate cost calculations
+    const totalSpend = filteredSpend;
 
     const data = Array.from(courseMap.values()).map((course) => {
       const conversionRate = course.leads > 0 ? (course.enrollments / course.leads) * 100 : 0;
@@ -294,7 +346,7 @@ export default function DashboardCommercialePage() {
     });
 
     return sorted;
-  }, [filteredLeads, campaigns, courseSort, kpis.totalLeads]);
+  }, [filteredLeads, filteredSpend, courseSort, kpis.totalLeads]);
 
   // Sort handler
   const handleSort = (

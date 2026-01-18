@@ -258,6 +258,47 @@ async function main() {
   }
   console.log('Legacy campaign created.\n');
 
+  // Step 6b: Extract and create spend records from Excel
+  // Spend data is per-date-per-course, so we sum all spend for each unique date
+  console.log('Extracting spend records from Excel...');
+  const spendByDate = new Map<string, { date: Date; amount: number }>();
+  
+  for (const row of dataRows) {
+    const parsed = parseRow(row);
+    if (!parsed || typeof parsed.data !== 'number' || parsed.spesaAds <= 0) continue;
+    
+    const date = excelDateToJS(parsed.data);
+    const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Sum all spend for the same date (multiple courses can have spend on same day)
+    if (spendByDate.has(dateKey)) {
+      const existing = spendByDate.get(dateKey)!;
+      existing.amount += parsed.spesaAds;
+    } else {
+      spendByDate.set(dateKey, { date, amount: parsed.spesaAds });
+    }
+  }
+  
+  // Calculate total
+  let totalSpendAmount = 0;
+  spendByDate.forEach(({ amount }) => { totalSpendAmount += amount; });
+  
+  console.log(`Found ${spendByDate.size} unique spend dates, total: €${totalSpendAmount}`);
+  
+  if (!DRY_RUN && spendByDate.size > 0) {
+    const spendRecords = Array.from(spendByDate.values()).map(({ date, amount }) => ({
+      campaignId: legacyCampaignId,
+      date,
+      amount,
+      notes: 'Legacy import from Excel',
+    }));
+    
+    await prisma.campaignSpend.createMany({ data: spendRecords });
+    console.log(`Created ${spendRecords.length} spend records.\n`);
+  } else {
+    console.log('No spend records to create (dry run or no data).\n');
+  }
+
   // Step 7: Import leads
   console.log('Importing leads...');
   let processedCount = 0;

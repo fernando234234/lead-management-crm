@@ -1,10 +1,46 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // GET /api/stats - Get dashboard statistics
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Get counts
+    const { searchParams } = new URL(request.url);
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
+    const sourceParam = searchParams.get("source"); // Filter by lead source: LEGACY_IMPORT, MANUAL, CAMPAIGN
+
+    // Build base filter
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const baseFilter: Record<string, any> = {};
+    
+    // Date filter
+    if (startDateParam || endDateParam) {
+      baseFilter.createdAt = {};
+      if (startDateParam) {
+        const startDate = new Date(startDateParam);
+        startDate.setHours(0, 0, 0, 0);
+        baseFilter.createdAt.gte = startDate;
+      }
+      if (endDateParam) {
+        const endDate = new Date(endDateParam);
+        endDate.setHours(23, 59, 59, 999);
+        baseFilter.createdAt.lte = endDate;
+      }
+    }
+    
+    // Source filter (supports comma-separated values like "MANUAL,CAMPAIGN")
+    if (sourceParam) {
+      const sources = sourceParam.split(",").map(s => s.trim());
+      if (sources.length === 1) {
+        baseFilter.source = sources[0];
+      } else {
+        baseFilter.source = { in: sources };
+      }
+    }
+    
+    // Use baseFilter instead of dateFilter throughout
+    const dateFilter = baseFilter;
+    // Get counts (with optional date filter for leads)
     const [
       totalLeads,
       contactedLeads,
@@ -16,9 +52,9 @@ export async function GET() {
       totalUsers,
       commercialUsers,
     ] = await Promise.all([
-      prisma.lead.count(),
-      prisma.lead.count({ where: { contacted: true } }),
-      prisma.lead.count({ where: { enrolled: true } }),
+      prisma.lead.count({ where: dateFilter }),
+      prisma.lead.count({ where: { ...dateFilter, contacted: true } }),
+      prisma.lead.count({ where: { ...dateFilter, enrolled: true } }),
       prisma.course.count(),
       prisma.course.count({ where: { active: true } }),
       prisma.campaign.count(),
@@ -27,9 +63,10 @@ export async function GET() {
       prisma.user.count({ where: { role: "COMMERCIAL" } }),
     ]);
 
-    // Get leads by status
+    // Get leads by status (with date filter)
     const leadsByStatus = await prisma.lead.groupBy({
       by: ["status"],
+      where: dateFilter,
       _count: { status: true },
     });
 
@@ -38,9 +75,9 @@ export async function GET() {
       _sum: { amount: true },
     });
 
-    // Get total revenue (enrolled leads * course price)
+    // Get total revenue (enrolled leads * course price) with date filter
     const enrolledLeadsWithCourse = await prisma.lead.findMany({
-      where: { enrolled: true },
+      where: { ...dateFilter, enrolled: true },
       include: { course: { select: { price: true } } },
     });
 
@@ -49,8 +86,9 @@ export async function GET() {
       0
     );
 
-    // Get recent leads
+    // Get recent leads (with date filter)
     const recentLeads = await prisma.lead.findMany({
+      where: dateFilter,
       take: 5,
       orderBy: { createdAt: "desc" },
       include: {
@@ -69,6 +107,44 @@ export async function GET() {
       orderBy: { leads: { _count: "desc" } },
     });
 
+    // Get leads over time (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const leadsLast7Days = await prisma.lead.findMany({
+      where: {
+        createdAt: { gte: sevenDaysAgo }
+      },
+      select: { createdAt: true }
+    });
+
+    // Group by day
+    const leadsOverTimeMap = new Map<string, number>();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateKey = date.toISOString().split('T')[0];
+      leadsOverTimeMap.set(dateKey, 0);
+    }
+
+    leadsLast7Days.forEach(lead => {
+      const dateKey = lead.createdAt.toISOString().split('T')[0];
+      if (leadsOverTimeMap.has(dateKey)) {
+        leadsOverTimeMap.set(dateKey, (leadsOverTimeMap.get(dateKey) || 0) + 1);
+      }
+    });
+
+    const leadsOverTime = Array.from(leadsOverTimeMap.entries()).map(([date, count]) => {
+      const d = new Date(date);
+      const dayName = d.toLocaleDateString("it-IT", { weekday: "short" });
+      return {
+        giorno: dayName.charAt(0).toUpperCase() + dayName.slice(1),
+        date,
+        lead: count
+      };
+    });
+
     // Calculate conversion rate
     const conversionRate = totalLeads > 0 ? (enrolledLeads / totalLeads) * 100 : 0;
 
@@ -76,9 +152,10 @@ export async function GET() {
     const totalCost = Number(spendRecords._sum.amount) || 0;
     const costPerLead = totalLeads > 0 ? totalCost / totalLeads : 0;
 
-    // Calculate actual CPL (from individual lead acquisition costs)
+    // Calculate actual CPL (from individual lead acquisition costs) with date filter
     const leadsWithCost = await prisma.lead.findMany({
       where: {
+        ...dateFilter,
         acquisitionCost: { not: null, gt: 0 }
       },
       select: { acquisitionCost: true }
@@ -138,6 +215,7 @@ export async function GET() {
         leads: campaign._count.leads,
         budget: Number(campaign.budget),
       })),
+      leadsOverTime,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);

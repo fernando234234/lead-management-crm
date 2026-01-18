@@ -53,6 +53,8 @@ model Lead {
   outcomeNotes    String?
   enrolled        Boolean        @default(false)
   enrolledAt      DateTime?
+  appointmentDate DateTime?
+  appointmentNotes String?
   assignedToId    String?
   campaignId      String?
   acquisitionCost Decimal?       @db.Decimal(10, 2)

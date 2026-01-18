@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useDemoMode } from "@/contexts/DemoModeContext";
+import { useDataFilter } from "@/contexts/DataFilterContext";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -21,6 +22,9 @@ import {
   Columns3,
   ClipboardList,
   FileSpreadsheet,
+  Archive,
+  Plus,
+  Layers,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -82,6 +86,7 @@ export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { isDemoMode } = useDemoMode();
+  const { dataSource } = useDataFilter();
   const config = roleConfig[role];
 
   const handleLogout = () => {
@@ -128,6 +133,34 @@ export function Sidebar({ role }: SidebarProps) {
             <span className="font-medium">Modalita Demo</span>
           </div>
           <p className="text-xs text-purple-400/80 mt-1">Dati di esempio attivi</p>
+        </div>
+      )}
+
+      {/* Data Source Filter Indicator */}
+      {!isDemoMode && dataSource !== "all" && (
+        <div className={cn(
+          "mx-4 mt-4 px-3 py-2.5 rounded-xl",
+          dataSource === "legacy" 
+            ? "bg-amber-900/30 border border-amber-500/30" 
+            : "bg-emerald-900/30 border border-emerald-500/30"
+        )}>
+          <div className={cn(
+            "flex items-center gap-2 text-sm",
+            dataSource === "legacy" ? "text-amber-300" : "text-emerald-300"
+          )}>
+            {dataSource === "legacy" ? <Archive size={16} /> : <Plus size={16} />}
+            <span className="font-medium">
+              {dataSource === "legacy" ? "Solo Legacy" : "Solo Nuovi"}
+            </span>
+          </div>
+          <p className={cn(
+            "text-xs mt-1",
+            dataSource === "legacy" ? "text-amber-400/80" : "text-emerald-400/80"
+          )}>
+            {dataSource === "legacy" 
+              ? "Filtro: dati importati da Excel" 
+              : "Filtro: lead creati manualmente"}
+          </p>
         </div>
       )}
 

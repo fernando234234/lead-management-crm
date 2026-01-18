@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useDemoMode } from "@/contexts/DemoModeContext";
 import { mockCourses } from "@/lib/mockData";
+import toast from "react-hot-toast";
 import { Plus, Pencil, Trash2, BookOpen, TestTube } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 
@@ -153,7 +154,7 @@ export default function AdminCoursesPage() {
     if (isDemoMode) {
       const course = courses.find(c => c.id === id);
       if (course && course._count.leads > 0) {
-        alert("Impossibile eliminare: corso con lead associati");
+        toast.error("Impossibile eliminare: corso con lead associati");
         return;
       }
       setCourses(courses.filter(c => c.id !== id));
@@ -164,9 +165,10 @@ export default function AdminCoursesPage() {
       const res = await fetch(`/api/courses/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error);
+        toast.error(data.error || "Errore nell'eliminazione del corso");
         return;
       }
+      toast.success("Corso eliminato");
       fetchCourses();
     } catch (error) {
       console.error("Failed to delete course");

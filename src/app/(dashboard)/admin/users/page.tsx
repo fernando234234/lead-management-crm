@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { Plus, Pencil, Trash2, User, Shield, TrendingUp, Megaphone, Users } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import ExportButton from "@/components/ui/ExportButton";
@@ -151,12 +152,14 @@ export default function AdminUsersPage() {
       const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error);
+        toast.error(data.error || "Errore nell'eliminazione dell'utente");
         return;
       }
+      toast.success("Utente eliminato");
       fetchUsers();
     } catch (error) {
       console.error("Failed to delete user");
+      toast.error("Errore nell'eliminazione dell'utente");
     }
   };
 

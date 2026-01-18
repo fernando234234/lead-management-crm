@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useDemoMode } from "@/contexts/DemoModeContext";
 import { mockLeads, mockCourses, mockUsers, mockCampaigns } from "@/lib/mockData";
+import toast from "react-hot-toast";
 import {
   Plus,
   Pencil,
@@ -482,7 +483,7 @@ export default function AdminLeadsPage() {
 
     // Campaign is required
     if (!formData.campaignId) {
-      alert("Seleziona una campagna per il lead");
+      toast.error("Seleziona una campagna per il lead");
       return;
     }
 

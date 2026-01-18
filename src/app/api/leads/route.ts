@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const contacted = searchParams.get("contacted");
     const enrolled = searchParams.get("enrolled");
     const search = searchParams.get("search");
+    const source = searchParams.get("source"); // Filter by lead source: LEGACY_IMPORT, MANUAL, CAMPAIGN
 
     const where: Record<string, unknown> = {};
 
@@ -24,6 +25,17 @@ export async function GET(request: NextRequest) {
     if (status) where.status = status;
     if (contacted !== null && contacted !== "") where.contacted = contacted === "true";
     if (enrolled !== null && enrolled !== "") where.enrolled = enrolled === "true";
+    
+    // Handle source filter (supports comma-separated values like "MANUAL,CAMPAIGN")
+    if (source) {
+      const sources = source.split(",").map(s => s.trim());
+      if (sources.length === 1) {
+        where.source = sources[0];
+      } else {
+        where.source = { in: sources };
+      }
+    }
+    
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
