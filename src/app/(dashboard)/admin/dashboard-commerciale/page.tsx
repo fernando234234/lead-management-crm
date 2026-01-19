@@ -52,6 +52,7 @@ interface Campaign {
   totalSpent: number;
   leadCount: number;
   spendRecords?: SpendRecord[];
+  course?: { id: string; name: string };
 }
 
 type SortDirection = "asc" | "desc" | null;
@@ -88,6 +89,9 @@ export default function DashboardCommercialePage() {
   // Date filter
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+
+  // New: Course filter for Commercial Performance table
+  const [selectedCourseForCommercial, setSelectedCourseForCommercial] = useState<string>("all");
 
   // Sort states
   const [commercialSort, setCommercialSort] = useState<{ field: string; direction: SortDirection }>({
@@ -155,6 +159,17 @@ export default function DashboardCommercialePage() {
       return true;
     });
   }, [leads, startDate, endDate]);
+
+  // Derive unique courses from leads for the filter dropdown
+  const uniqueCourses = useMemo(() => {
+    const map = new Map<string, string>();
+    leads.forEach(l => {
+      if (l.course) {
+        map.set(l.course.id, l.course.name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [leads]);
 
   // Calculate filtered spend based on date range
   const filteredSpend = useMemo(() => {
@@ -244,18 +259,66 @@ export default function DashboardCommercialePage() {
   // Commercial performance (matching Excel table)
   const commercialPerformance = useMemo(() => {
     const commercials = users.filter((u) => u.role === "COMMERCIAL");
-    // Use filtered spend for date-accurate cost calculations
-    const totalSpend = filteredSpend;
+    
+    // Calculate total spend relevant to the current filter context
+    let viewTotalSpend = filteredSpend;
+    let viewTotalLeads = kpis.totalLeads;
+
+    // If a specific course is selected, we need to filter the Total Spend and Total Leads
+    // used for proportional calculation just for that course context
+    if (selectedCourseForCommercial !== "all") {
+      // Filter leads just for the total count of this course
+      const leadsForCourse = filteredLeads.filter(l => l.course?.id === selectedCourseForCommercial);
+      viewTotalLeads = leadsForCourse.length;
+
+      // Filter spend just for campaigns of this course
+      viewTotalSpend = campaigns.reduce((sum, campaign) => {
+        // Skip campaigns not for this course
+        if (campaign.course?.id !== selectedCourseForCommercial) return sum;
+
+        if (!campaign.spendRecords) return sum + (campaign.totalSpent || 0);
+        
+        // Apply date filter to records
+        const filteredRecords = campaign.spendRecords.filter((record) => {
+          const recordDate = new Date(record.date);
+          recordDate.setHours(0, 0, 0, 0);
+          
+          if (startDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            if (recordDate < start) return false;
+          }
+          
+          if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            if (recordDate > end) return false;
+          }
+          
+          return true;
+        });
+        
+        return sum + filteredRecords.reduce((s, r) => s + Number(r.amount), 0);
+      }, 0);
+    }
     
     const data = commercials.map((user) => {
-      const userLeads = filteredLeads.filter((l) => l.assignedTo?.id === user.id);
+      // Filter leads for this user AND the selected course
+      const userLeads = filteredLeads.filter((l) => {
+        if (l.assignedTo?.id !== user.id) return false;
+        if (selectedCourseForCommercial !== "all" && l.course?.id !== selectedCourseForCommercial) return false;
+        return true;
+      });
+
       const leads = userLeads.length;
       const contacted = userLeads.filter((l) => l.contacted).length;
       const enrollments = userLeads.filter((l) => l.enrolled).length;
       const conversionRate = leads > 0 ? (enrollments / leads) * 100 : 0;
       
-      // Distribute costs proportionally by lead count
-      const costShare = kpis.totalLeads > 0 ? (leads / kpis.totalLeads) * totalSpend : 0;
+      // Distribute costs proportionally by lead count WITHIN the current filter context
+      // Cost Share = (User's Leads for Course X / Total Leads for Course X) * Total Spend for Course X
+      const costShare = viewTotalLeads > 0 ? (leads / viewTotalLeads) * viewTotalSpend : 0;
+      
       const costPerConsultation = contacted > 0 ? costShare / contacted : 0;
       const costPerContract = enrollments > 0 ? costShare / enrollments : 0;
 
@@ -284,7 +347,7 @@ export default function DashboardCommercialePage() {
     });
 
     return sorted;
-  }, [users, filteredLeads, filteredSpend, commercialSort, kpis.totalLeads]);
+  }, [users, filteredLeads, filteredSpend, commercialSort, kpis.totalLeads, campaigns, selectedCourseForCommercial, startDate, endDate]);
 
   // Course performance (matching Excel table)
   const coursePerformance = useMemo(() => {
@@ -533,13 +596,27 @@ export default function DashboardCommercialePage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* PERFORMANCE PER COMMERCIALE */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-emerald-600 text-white px-4 py-3 flex justify-between items-center">
+          <div className="bg-emerald-600 text-white px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
             <h2 className="font-bold text-lg">PERFORMANCE PER COMMERCIALE</h2>
-            <ExportButton
-              data={commercialPerformance}
-              columns={commercialExportColumns}
-              filename="performance_commerciali"
-            />
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedCourseForCommercial}
+                onChange={(e) => setSelectedCourseForCommercial(e.target.value)}
+                className="bg-emerald-700 text-white border-none rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-emerald-400 cursor-pointer"
+              >
+                <option value="all">Tutti i Corsi</option>
+                {uniqueCourses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.name}
+                  </option>
+                ))}
+              </select>
+              <ExportButton
+                data={commercialPerformance}
+                columns={commercialExportColumns}
+                filename={`performance_commerciali_${selectedCourseForCommercial !== "all" ? "filtrato" : "totale"}`}
+              />
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
