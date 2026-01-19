@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
+import { OnboardingTour } from "@/components/ui/OnboardingTour";
+import { adminCommercialDashboardTourSteps } from "@/lib/tourSteps";
 
 // Types
 interface Lead {
@@ -454,6 +456,8 @@ export default function DashboardCommercialePage() {
 
   return (
     <div className="space-y-6">
+      <OnboardingTour steps={adminCommercialDashboardTourSteps} tourKey="admin-commercial-dashboard" />
+      
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -482,7 +486,10 @@ export default function DashboardCommercialePage() {
       {/* Main Grid - Excel Style Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: KPI COMMERCIALI */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div 
+          data-tour="kpi-section"
+          className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+        >
           <div className="bg-admin text-white px-4 py-3">
             <h2 className="font-bold text-lg">KPI COMMERCIALI</h2>
           </div>
@@ -521,7 +528,10 @@ export default function DashboardCommercialePage() {
         </div>
 
         {/* Middle Column: FUNNEL */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div 
+          data-tour="funnel-section"
+          className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+        >
           <div className="bg-blue-600 text-white px-4 py-3">
             <h2 className="font-bold text-lg">FUNNEL</h2>
           </div>
@@ -595,11 +605,15 @@ export default function DashboardCommercialePage() {
       {/* Performance Tables Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* PERFORMANCE PER COMMERCIALE */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div 
+          data-tour="commercial-table"
+          className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+        >
           <div className="bg-emerald-600 text-white px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
             <h2 className="font-bold text-lg">PERFORMANCE PER COMMERCIALE</h2>
             <div className="flex items-center gap-2">
               <select
+                data-tour="course-filter"
                 value={selectedCourseForCommercial}
                 onChange={(e) => setSelectedCourseForCommercial(e.target.value)}
                 className="bg-emerald-700 text-white border-none rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-emerald-400 cursor-pointer"

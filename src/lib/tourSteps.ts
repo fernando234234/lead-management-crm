@@ -65,29 +65,30 @@ export const commercialTourSteps: TourStep[] = [
   },
 ];
 
-export const marketingTourSteps: TourStep[] = [
+export const adminCommercialDashboardTourSteps: TourStep[] = [
   {
-    target: "[data-tour='stats-grid']",
-    title: "Benvenuto nella Dashboard Marketing!",
-    content: "Monitora le tue campagne attive, i lead generati e il ROI complessivo.",
-    placement: "bottom",
-  },
-  {
-    target: "[data-tour='campaigns-overview']",
-    title: "Panoramica Campagne",
-    content: "Vedi le performance delle tue campagne per piattaforma e corso.",
-    placement: "bottom",
-  },
-  {
-    target: "[data-tour='roi-section']",
-    title: "ROI e Costi",
-    content: "Analizza CPL Stimato (da budget) e CPL Effettivo (costi reali per lead). Passa il mouse sulle icone (?) per spiegazioni.",
-    placement: "top",
-  },
-  {
-    target: "[data-tour='sidebar-nav']",
-    title: "Navigazione",
-    content: "Vai su Campagne per gestirle, Leads per modificare i costi di acquisizione, e ROI per analisi dettagliate.",
+    target: "[data-tour='kpi-section']",
+    title: "KPI Commerciali",
+    content: "Monitora i risultati chiave: totale lead, iscrizioni, conversioni e costi. Il risultato netto ti dice subito se sei in profitto.",
     placement: "right",
   },
+  {
+    target: "[data-tour='funnel-section']",
+    title: "Funnel di Vendita",
+    content: "Visualizza il percorso dei lead dal primo contatto all'iscrizione. Identifica dove perdi potenziali clienti.",
+    placement: "left",
+  },
+  {
+    target: "[data-tour='course-filter']",
+    title: "Nuovo Filtro Corsi",
+    content: "Ora puoi filtrare le performance dei commerciali per corso specifico! Seleziona un corso per vedere chi vende meglio cosa.",
+    placement: "bottom",
+  },
+  {
+    target: "[data-tour='commercial-table']",
+    title: "Performance Commerciali",
+    content: "Analizza i risultati di ogni commerciale. Clicca sulle intestazioni per ordinare per lead, iscrizioni o costi.",
+    placement: "top",
+  },
 ];
+
