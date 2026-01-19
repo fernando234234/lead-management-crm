@@ -35,17 +35,28 @@ function LoginForm() {
       }
 
       // Redirect based on user role - we'll fetch the session to get role
-      const sessionRes = await fetch("/api/auth/session");
-      const session = await sessionRes.json();
-      
-      if (session?.user?.role) {
-        const roleRoutes: Record<string, string> = {
-          ADMIN: "/admin",
-          COMMERCIAL: "/commercial",
-          MARKETING: "/marketing",
-        };
-        router.replace(roleRoutes[session.user.role] || "/");
-      } else {
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+      try {
+        const sessionRes = await fetch("/api/auth/session", { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const session = await sessionRes.json();
+        
+        if (session?.user?.role) {
+          const roleRoutes: Record<string, string> = {
+            ADMIN: "/admin",
+            COMMERCIAL: "/commercial",
+            MARKETING: "/marketing",
+          };
+          router.replace(roleRoutes[session.user.role] || "/");
+        } else {
+          router.replace(callbackUrl);
+        }
+      } catch (fetchError) {
+        // Fallback if session fetch fails/times out: go to home/callback
+        console.warn("Session fetch failed, redirecting to default", fetchError);
         router.replace(callbackUrl);
       }
     } catch (err) {

@@ -13,35 +13,42 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         try {
+          const now = new Date().toISOString();
+          console.log(`[AUTH ${now}] Attempting login for: ${credentials?.email}`);
+
           if (!credentials?.email || !credentials?.password) {
-            console.log("[AUTH] Missing credentials");
+            console.log(`[AUTH ${now}] ❌ Missing credentials`);
             return null;
           }
 
-          console.log("[AUTH] Looking up user:", credentials.email);
-          
+          // Optimized query: only select necessary fields
           const user = await prisma.user.findUnique({
             where: { email: credentials.email },
+            select: {
+              id: true,
+              email: true,
+              password: true,
+              name: true,
+              role: true,
+            },
           });
 
           if (!user) {
-            console.log("[AUTH] User not found");
+            console.log(`[AUTH ${now}] ❌ User not found in database`);
             return null;
           }
 
-          console.log("[AUTH] User found, checking password");
-          
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
             user.password
           );
 
           if (!isPasswordValid) {
-            console.log("[AUTH] Password invalid");
+            console.log(`[AUTH ${now}] ❌ Invalid password`);
             return null;
           }
 
-          console.log("[AUTH] Login successful for:", user.email);
+          console.log(`[AUTH ${now}] ✅ Login successful for ${user.email} (${user.role})`);
           
           return {
             id: user.id,
