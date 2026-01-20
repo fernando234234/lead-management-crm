@@ -3,51 +3,27 @@ import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-// Helper to create dates relative to now
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
-
-function daysFromNow(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date;
-}
-
-async function cleanDatabase() {
-  console.log('🧹 Cleaning database...');
-  
-  // Use raw SQL to truncate all tables and reset sequences
-  await prisma.$executeRaw`TRUNCATE TABLE "LeadActivity" CASCADE`;
-  await prisma.$executeRaw`TRUNCATE TABLE "Task" CASCADE`;
-  await prisma.$executeRaw`TRUNCATE TABLE "Notification" CASCADE`;
-  await prisma.$executeRaw`TRUNCATE TABLE "ProfitabilityRecord" CASCADE`;
-  await prisma.$executeRaw`TRUNCATE TABLE "CampaignSpend" CASCADE`;
-  await prisma.$executeRaw`TRUNCATE TABLE "Lead" CASCADE`;
-  await prisma.$executeRaw`TRUNCATE TABLE "Campaign" CASCADE`;
-  await prisma.$executeRaw`TRUNCATE TABLE "Course" CASCADE`;
-  await prisma.$executeRaw`TRUNCATE TABLE "User" CASCADE`;
-  
-  console.log('✅ Database cleaned');
-}
-
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('🌱 Seeding database with essential users only...');
   console.log('');
 
-  // Clean first
-  await cleanDatabase();
-  console.log('');
+  // Check if admin user already exists
+  const existingAdmin = await prisma.user.findFirst({
+    where: { email: 'admin@leadcrm.it' }
+  });
 
-  // ============ USERS ============
-  console.log('Creating users...');
+  if (existingAdmin) {
+    console.log('✅ Admin user already exists, skipping seed.');
+    return;
+  }
+
+  // ============ USERS ONLY ============
+  console.log('Creating essential users...');
   
   const adminPassword = await hash('admin123', 12);
   const userPassword = await hash('user123', 12);
 
-  const admin = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: 'admin@leadcrm.it',
       name: 'Admin Sistema',
@@ -56,521 +32,44 @@ async function main() {
     },
   });
 
-  const commercial1 = await prisma.user.create({
+  await prisma.user.create({
     data: {
-      email: 'marco.verdi@leadcrm.it',
-      name: 'Marco Verdi',
+      email: 'commerciale@leadcrm.it',
+      name: 'Commerciale Default',
       password: userPassword,
       role: 'COMMERCIAL' as any,
     },
   });
 
-  const commercial2 = await prisma.user.create({
+  await prisma.user.create({
     data: {
-      email: 'sara.martini@leadcrm.it',
-      name: 'Sara Martini',
-      password: userPassword,
-      role: 'COMMERCIAL' as any,
-    },
-  });
-
-  const commercial3 = await prisma.user.create({
-    data: {
-      email: 'luca.pazzi@leadcrm.it',
-      name: 'Luca Pazzi',
-      password: userPassword,
-      role: 'COMMERCIAL' as any,
-    },
-  });
-
-  const marketing1 = await prisma.user.create({
-    data: {
-      email: 'giulia.rossi@leadcrm.it',
-      name: 'Giulia Rossi',
+      email: 'marketing@leadcrm.it',
+      name: 'Marketing Default',
       password: userPassword,
       role: 'MARKETING' as any,
     },
   });
 
-  const marketing2 = await prisma.user.create({
-    data: {
-      email: 'andrea.bianchi@leadcrm.it',
-      name: 'Andrea Bianchi',
-      password: userPassword,
-      role: 'MARKETING' as any,
-    },
-  });
-
-  console.log(`✅ Created 6 users`);
-
-  // ============ COURSES ============
-  console.log('Creating courses...');
-
-  const courseMarketing = await prisma.course.create({
-    data: {
-      name: 'Marketing Digitale Avanzato',
-      description: 'Impara le strategie avanzate di marketing digitale: SEO, SEM, Social Media Marketing, Email Marketing e Analytics.',
-      price: 1200,
-      startDate: daysFromNow(30),
-      endDate: daysFromNow(120),
-      active: true,
-    },
-  });
-
-  const courseVendite = await prisma.course.create({
-    data: {
-      name: 'Tecniche di Vendita B2B',
-      description: 'Tecniche avanzate di vendita B2B: prospecting, negoziazione, closing e gestione clienti.',
-      price: 890,
-      startDate: daysFromNow(15),
-      endDate: daysFromNow(75),
-      active: true,
-    },
-  });
-
-  const courseLeadership = await prisma.course.create({
-    data: {
-      name: 'Leadership & Management',
-      description: 'Sviluppa le tue competenze di leadership e gestione del team. Comunicazione efficace e motivazione.',
-      price: 1500,
-      startDate: daysFromNow(45),
-      endDate: daysFromNow(135),
-      active: true,
-    },
-  });
-
-  const courseExcel = await prisma.course.create({
-    data: {
-      name: 'Excel Avanzato per Business',
-      description: 'Padroneggia Excel per analisi dati e reportistica aziendale. Pivot, macro e dashboard.',
-      price: 450,
-      startDate: daysFromNow(7),
-      endDate: daysFromNow(37),
-      active: true,
-    },
-  });
-
-  const coursePM = await prisma.course.create({
-    data: {
-      name: 'Project Management Professional',
-      description: 'Preparazione completa alla certificazione PMP. Metodologie Agile e Waterfall.',
-      price: 2200,
-      startDate: daysFromNow(60),
-      endDate: daysFromNow(150),
-      active: true,
-    },
-  });
-
-  const coursePython = await prisma.course.create({
-    data: {
-      name: 'Python per Data Analysis',
-      description: 'Analisi dati con Python, Pandas e NumPy. Visualizzazione con Matplotlib e Seaborn.',
-      price: 980,
-      startDate: daysFromNow(20),
-      endDate: daysFromNow(80),
-      active: true,
-    },
-  });
-
-  console.log(`✅ Created 6 courses`);
-
-  // ============ CAMPAIGNS ============
-  console.log('Creating campaigns...');
-
-  const campaignFbMarketing = await prisma.campaign.create({
-    data: {
-      name: 'Facebook Ads - Marketing Q1 2026',
-      platform: 'META' as any,
-      courseId: courseMarketing.id,
-      createdById: marketing1.id,
-      budget: 2500,
-      status: 'ACTIVE' as any,
-      startDate: daysAgo(30),
-    },
-  });
-
-  const campaignGoogleVendite = await prisma.campaign.create({
-    data: {
-      name: 'Google Ads - Vendite B2B',
-      platform: 'GOOGLE_ADS' as any,
-      courseId: courseVendite.id,
-      createdById: marketing1.id,
-      budget: 1800,
-      status: 'ACTIVE' as any,
-      startDate: daysAgo(25),
-    },
-  });
-
-  const campaignLinkedinLeadership = await prisma.campaign.create({
-    data: {
-      name: 'LinkedIn B2B - Leadership Manager',
-      platform: 'LINKEDIN' as any,
-      courseId: courseLeadership.id,
-      createdById: marketing2.id,
-      budget: 3500,
-      status: 'ACTIVE' as any,
-      startDate: daysAgo(20),
-    },
-  });
-
-  const campaignInstagramExcel = await prisma.campaign.create({
-    data: {
-      name: 'Instagram - Excel per Tutti',
-      platform: 'META' as any,
-      courseId: courseExcel.id,
-      createdById: marketing2.id,
-      budget: 800,
-      status: 'ACTIVE' as any,
-      startDate: daysAgo(15),
-    },
-  });
-
-  const campaignTiktokPython = await prisma.campaign.create({
-    data: {
-      name: 'TikTok - Python Giovani Pro',
-      platform: 'TIKTOK' as any,
-      courseId: coursePython.id,
-      createdById: marketing1.id,
-      budget: 1200,
-      status: 'ACTIVE' as any,
-      startDate: daysAgo(10),
-    },
-  });
-
-  const campaignGooglePM = await prisma.campaign.create({
-    data: {
-      name: 'Google Ads - PMP Certification',
-      platform: 'GOOGLE_ADS' as any,
-      courseId: coursePM.id,
-      createdById: marketing2.id,
-      budget: 2800,
-      status: 'ACTIVE' as any,
-      startDate: daysAgo(18),
-    },
-  });
-
-  console.log(`✅ Created 6 campaigns`);
-
-  // ============ CAMPAIGN SPEND RECORDS ============
-  console.log('Creating campaign spend records...');
-
-  const campaignsWithSpend = [
-    { campaign: campaignFbMarketing, dailySpend: 80 },
-    { campaign: campaignGoogleVendite, dailySpend: 60 },
-    { campaign: campaignLinkedinLeadership, dailySpend: 120 },
-    { campaign: campaignInstagramExcel, dailySpend: 40 },
-    { campaign: campaignTiktokPython, dailySpend: 50 },
-    { campaign: campaignGooglePM, dailySpend: 100 },
-  ];
-
-  const spendRecordsToCreate: Array<{
-    campaignId: string;
-    date: Date;
-    amount: number;
-    notes: string | null;
-  }> = [];
-
-  for (const { campaign, dailySpend } of campaignsWithSpend) {
-    // Only create 3 spend records per campaign to speed up seeding
-    for (let i = 0; i < 3; i++) {
-      const variance = (Math.random() - 0.5) * 0.4; // ±20% variance
-      spendRecordsToCreate.push({
-        campaignId: campaign.id,
-        date: daysAgo(i),
-        amount: Math.round(dailySpend * (1 + variance) * 100) / 100,
-        notes: i === 0 ? 'Spesa odierna' : null,
-      });
-    }
-  }
-
-  await prisma.campaignSpend.createMany({ data: spendRecordsToCreate });
-  console.log(`✅ Created ${spendRecordsToCreate.length} campaign spend records`);
-
-  // ============ LEADS ============
-  console.log('Creating leads...');
-
-  const leadData = [
-    // NUOVO leads (10)
-    { name: 'Marco Rossi', status: 'NUOVO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 1, cost: 28.50 },
-    { name: 'Laura Bianchi', status: 'NUOVO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 2, cost: 32.00 },
-    { name: 'Giuseppe Verdi', status: 'NUOVO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 0, cost: 18.75 },
-    { name: 'Anna Ferrari', status: 'NUOVO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 1, cost: 22.30 },
-    { name: 'Francesco Romano', status: 'NUOVO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 3, cost: 45.00 },
-    { name: 'Chiara Colombo', status: 'NUOVO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 2, cost: 38.50 },
-    { name: 'Alessandro Ricci', status: 'NUOVO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 0, cost: 26.80 },
-    { name: 'Valentina Marino', status: 'NUOVO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 1, cost: null },
-    { name: 'Davide Greco', status: 'NUOVO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 2, cost: 19.50 },
-    { name: 'Federica Russo', status: 'NUOVO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 0, cost: null },
-    
-    // CONTATTATO leads (12)
-    { name: 'Matteo Gallo', status: 'CONTATTATO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 5, cost: 27.90, outcome: 'POSITIVO' as any },
-    { name: 'Elisa Conti', status: 'CONTATTATO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 4, cost: 31.20, outcome: 'RICHIAMARE' as any },
-    { name: 'Simone Bruno', status: 'CONTATTATO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 6, cost: 48.50, outcome: 'POSITIVO' as any },
-    { name: 'Martina Giordano', status: 'CONTATTATO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 3, cost: 17.80, outcome: 'NON_RISPONDE' as any },
-    { name: 'Andrea Mancini', status: 'CONTATTATO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 7, cost: 42.00, outcome: 'POSITIVO' as any },
-    { name: 'Giorgia Rizzo', status: 'CONTATTATO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 4, cost: 21.50, outcome: 'RICHIAMARE' as any },
-    { name: 'Luca Lombardi', status: 'CONTATTATO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 8, cost: 29.00, outcome: 'POSITIVO' as any },
-    { name: 'Sara Moretti', status: 'CONTATTATO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 5, cost: null, outcome: 'NON_RISPONDE' as any },
-    { name: 'Marco Fontana', status: 'CONTATTATO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 9, cost: 52.00, outcome: 'POSITIVO' as any },
-    { name: 'Giulia Santoro', status: 'CONTATTATO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 6, cost: 16.90, outcome: 'RICHIAMARE' as any },
-    { name: 'Paolo Mariani', status: 'CONTATTATO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 10, cost: 39.80, outcome: 'POSITIVO' as any },
-    { name: 'Elena Costa', status: 'CONTATTATO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 7, cost: 23.40, outcome: 'POSITIVO' as any },
-    
-    // IN_TRATTATIVA leads (8)
-    { name: 'Roberto De Luca', status: 'IN_TRATTATIVA' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 12, cost: 25.60, outcome: 'POSITIVO' as any, isTarget: true },
-    { name: 'Silvia Ferrara', status: 'IN_TRATTATIVA' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 10, cost: 33.40, outcome: 'POSITIVO' as any, isTarget: true },
-    { name: 'Fabio Barbieri', status: 'IN_TRATTATIVA' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 14, cost: 55.00, outcome: 'POSITIVO' as any, isTarget: true },
-    { name: 'Claudia Palmieri', status: 'IN_TRATTATIVA' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 11, cost: 44.20, outcome: 'POSITIVO' as any },
-    { name: 'Stefano Serra', status: 'IN_TRATTATIVA' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 8, cost: 18.30, outcome: 'POSITIVO' as any },
-    { name: 'Monica Villa', status: 'IN_TRATTATIVA' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 9, cost: 24.80, outcome: 'POSITIVO' as any, isTarget: true },
-    { name: 'Daniele Fabbri', status: 'IN_TRATTATIVA' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 13, cost: null, outcome: 'POSITIVO' as any },
-    { name: 'Cristina Marchetti', status: 'IN_TRATTATIVA' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 15, cost: 30.50, outcome: 'POSITIVO' as any, isTarget: true },
-    
-    // ISCRITTO leads (10)
-    { name: 'Antonio Vitale', status: 'ISCRITTO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 20, cost: 24.50, outcome: 'POSITIVO' as any },
-    { name: 'Francesca Gatti', status: 'ISCRITTO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 18, cost: 28.90, outcome: 'POSITIVO' as any },
-    { name: 'Riccardo Leone', status: 'ISCRITTO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 22, cost: 50.00, outcome: 'POSITIVO' as any },
-    { name: 'Alessia Monti', status: 'ISCRITTO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 16, cost: 41.30, outcome: 'POSITIVO' as any },
-    { name: 'Giovanni Parisi', status: 'ISCRITTO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 14, cost: 15.80, outcome: 'POSITIVO' as any },
-    { name: 'Lucia Riva', status: 'ISCRITTO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 12, cost: 20.70, outcome: 'POSITIVO' as any },
-    { name: 'Tommaso Ferretti', status: 'ISCRITTO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 25, cost: 26.20, outcome: 'POSITIVO' as any },
-    { name: 'Beatrice Caruso', status: 'ISCRITTO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 21, cost: 29.80, outcome: 'POSITIVO' as any },
-    { name: 'Nicola Pellegrini', status: 'ISCRITTO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 28, cost: 47.60, outcome: 'POSITIVO' as any },
-    { name: 'Serena Bassi', status: 'ISCRITTO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 19, cost: 43.50, outcome: 'POSITIVO' as any },
-    
-    // PERSO leads (5)
-    { name: 'Pietro Testa', status: 'PERSO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 30, cost: 27.00, outcome: 'NEGATIVO' as any },
-    { name: 'Ilaria Neri', status: 'PERSO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 25, cost: 35.40, outcome: 'NEGATIVO' as any },
-    { name: 'Emanuele Grassi', status: 'PERSO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 28, cost: 58.00, outcome: 'NEGATIVO' as any },
-    { name: 'Aurora Sartori', status: 'PERSO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 22, cost: null, outcome: 'NEGATIVO' as any },
-    { name: 'Filippo Orlando', status: 'PERSO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 18, cost: 19.20, outcome: 'NEGATIVO' as any },
-  ];
-
-  const commercials = [commercial1, commercial2, commercial3];
-  
-  // Use createMany for faster insertion
-  const leadsToCreate = leadData.map((data, i) => {
-    const commercial = commercials[i % commercials.length];
-    const contacted = data.status !== ('NUOVO' as any);
-    const enrolled = data.status === ('ISCRITTO' as any);
-    
-    return {
-      name: data.name,
-      email: `${data.name.toLowerCase().replace(' ', '.')}@email.com`,
-      phone: `+39 ${Math.floor(Math.random() * 900000000 + 300000000)}`,
-      courseId: data.course.id,
-      campaignId: data.campaign.id,
-      assignedToId: commercial.id,
-      isTarget: data.isTarget || false,
-      contacted,
-      contactedAt: contacted ? daysAgo(data.daysAgo - 1) : null,
-      contactedById: contacted ? commercial.id : null,
-      callOutcome: data.outcome || null,
-      outcomeNotes: data.outcome ? `Chiamata ${(data.outcome as string).toLowerCase().replace('_', ' ')}` : null,
-      enrolled,
-      enrolledAt: enrolled ? daysAgo(data.daysAgo - 5) : null,
-      status: data.status,
-      acquisitionCost: data.cost || null,
-      notes: data.isTarget ? 'Lead prioritario - azienda target' : null,
-      createdAt: daysAgo(data.daysAgo),
-    };
-  });
-
-  await prisma.lead.createMany({ data: leadsToCreate });
-  
-  // Fetch created leads for activities
-  const createdLeads = await prisma.lead.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: leadData.length,
-  });
-
-  console.log(`✅ Created ${leadData.length} leads`);
-
-  // ============ LEAD ACTIVITIES ============
-  console.log('Creating lead activities...');
-
-  const activitiesToCreate: Array<{
-    leadId: string;
-    userId: string;
-    type: any;
-    description: string;
-    createdAt: Date;
-  }> = [];
-
-  for (let i = 0; i < createdLeads.length; i++) {
-    const lead = createdLeads[i];
-    const commercial = commercials[i % commercials.length];
-    
-    // Creation activity
-    activitiesToCreate.push({
-      leadId: lead.id,
-      userId: marketing1.id,
-      type: 'NOTE' as any,
-      description: 'Lead acquisito dalla campagna pubblicitaria',
-      createdAt: lead.createdAt,
-    });
-
-    // If contacted, add call activity
-    if (lead.contacted && lead.contactedAt) {
-      activitiesToCreate.push({
-        leadId: lead.id,
-        userId: commercial.id,
-        type: 'CALL' as any,
-        description: `Chiamata effettuata - Esito: ${lead.callOutcome || 'N/A'}`,
-        createdAt: lead.contactedAt,
-      });
-    }
-
-    // If enrolled, add enrollment activity
-    if (lead.enrolled && lead.enrolledAt) {
-      activitiesToCreate.push({
-        leadId: lead.id,
-        userId: commercial.id,
-        type: 'ENROLLMENT' as any,
-        description: 'Cliente iscritto al corso',
-        createdAt: lead.enrolledAt,
-      });
-    }
-  }
-
-  await prisma.leadActivity.createMany({ data: activitiesToCreate });
-  console.log(`✅ Created ${activitiesToCreate.length} lead activities`);
-
-  // ============ TASKS ============
-  console.log('Creating tasks...');
-
-  const taskTemplates = [
-    { title: 'Richiamare cliente', priority: 'HIGH' as any },
-    { title: 'Inviare brochure corso', priority: 'MEDIUM' as any },
-    { title: 'Follow-up proposta', priority: 'HIGH' as any },
-    { title: 'Verificare pagamento', priority: 'MEDIUM' as any },
-    { title: 'Inviare reminder iscrizione', priority: 'LOW' as any },
-  ];
-
-  const tasksToCreate: Array<{
-    userId: string;
-    leadId: string;
-    title: string;
-    description: string;
-    dueDate: Date;
-    priority: any;
-    completed: boolean;
-    completedAt?: Date;
-  }> = [];
-
-  const pendingLeads = createdLeads.filter(l => 
-    l.status === ('CONTATTATO' as any) || l.status === ('IN_TRATTATIVA' as any)
-  );
-
-  for (let i = 0; i < pendingLeads.length; i++) {
-    const lead = pendingLeads[i];
-    const commercial = commercials[i % commercials.length];
-    const template = taskTemplates[i % taskTemplates.length];
-    
-    tasksToCreate.push({
-      userId: commercial.id,
-      leadId: lead.id,
-      title: template.title,
-      description: `${template.title} per ${lead.name}`,
-      dueDate: daysFromNow(Math.floor(Math.random() * 7) + 1),
-      priority: template.priority,
-      completed: false,
-    });
-  }
-
-  // Add some completed tasks
-  const enrolledLeads = createdLeads.filter(l => l.status === ('ISCRITTO' as any));
-  for (let i = 0; i < Math.min(5, enrolledLeads.length); i++) {
-    const commercial = commercials[i % commercials.length];
-    const enrolledLead = enrolledLeads[i];
-    
-    tasksToCreate.push({
-      userId: commercial.id,
-      leadId: enrolledLead.id,
-      title: 'Chiudere trattativa',
-      description: `Finalizzare iscrizione per ${enrolledLead.name}`,
-      dueDate: daysAgo(i + 1),
-      priority: 'HIGH' as any,
-      completed: true,
-      completedAt: daysAgo(i),
-    });
-  }
-
-  await prisma.task.createMany({ data: tasksToCreate });
-  console.log(`✅ Created ${tasksToCreate.length} tasks`);
-
-  // ============ NOTIFICATIONS ============
-  console.log('Creating notifications...');
-
-  const notifications = [
-    { userId: commercial1.id, type: 'LEAD_ASSIGNED' as any, title: 'Nuovo lead assegnato', message: 'Ti è stato assegnato un nuovo lead: Marco Rossi' },
-    { userId: commercial1.id, type: 'REMINDER' as any, title: 'Promemoria chiamata', message: 'Ricorda di richiamare Laura Bianchi oggi' },
-    { userId: commercial2.id, type: 'LEAD_ENROLLED' as any, title: 'Nuova iscrizione!', message: 'Il lead Antonio Vitale si è iscritto al corso Marketing Digitale' },
-    { userId: commercial2.id, type: 'LEAD_ASSIGNED' as any, title: 'Nuovo lead assegnato', message: 'Ti è stato assegnato un nuovo lead: Giuseppe Verdi' },
-    { userId: commercial3.id, type: 'LEAD_STATUS_CHANGED' as any, title: 'Cambio stato lead', message: 'Il lead Roberto De Luca è passato a In Trattativa' },
-    { userId: marketing1.id, type: 'CAMPAIGN_CREATED' as any, title: 'Campagna creata', message: 'La campagna Facebook Ads - Marketing Q1 2026 è stata attivata' },
-    { userId: marketing2.id, type: 'SYSTEM' as any, title: 'Report settimanale', message: 'Il report settimanale delle campagne è disponibile' },
-    { userId: admin.id, type: 'SYSTEM' as any, title: 'Nuovo utente', message: 'Un nuovo utente commerciale è stato aggiunto al sistema' },
-  ];
-
-  const notificationsToCreate = notifications.map(notif => ({
-    ...notif,
-    read: Math.random() > 0.5,
-    createdAt: daysAgo(Math.floor(Math.random() * 7)),
-  }));
-
-  await prisma.notification.createMany({ data: notificationsToCreate });
-  console.log(`✅ Created ${notifications.length} notifications`);
-
-  // ============ PROFITABILITY RECORDS ============
-  console.log('Creating profitability records...');
-
-  const currentMonth = new Date().getMonth() + 1;
-  const currentYear = new Date().getFullYear();
-
-  const profitRecords = [
-    { courseId: courseMarketing.id, revenue: 12000, expense: 1800, leads: 35, contacted: 28, enrolled: 10 },
-    { courseId: courseVendite.id, revenue: 7120, expense: 1200, leads: 28, contacted: 22, enrolled: 8 },
-    { courseId: courseLeadership.id, revenue: 10500, expense: 2100, leads: 22, contacted: 18, enrolled: 7 },
-    { courseId: courseExcel.id, revenue: 2700, expense: 600, leads: 18, contacted: 14, enrolled: 6 },
-    { courseId: coursePM.id, revenue: 8800, expense: 1600, leads: 15, contacted: 12, enrolled: 4 },
-    { courseId: coursePython.id, revenue: 4900, expense: 900, leads: 20, contacted: 16, enrolled: 5 },
-  ];
-
-  for (const record of profitRecords) {
-    await prisma.profitabilityRecord.create({
-      data: {
-        month: currentMonth,
-        year: currentYear,
-        courseId: record.courseId,
-        revenue: record.revenue,
-        totalExpense: record.expense,
-        costPerLead: record.expense / record.leads,
-        costPerConsulenza: record.expense / record.contacted,
-        costPerContract: record.expense / record.enrolled,
-        totalLeads: record.leads,
-        totalContacted: record.contacted,
-        totalEnrolled: record.enrolled,
-      },
-    });
-  }
-
-  console.log(`✅ Created ${profitRecords.length} profitability records`);
+  console.log(`✅ Created 3 essential users`);
 
   console.log('');
   console.log('🎉 Database seeded successfully!');
   console.log('');
   console.log('📊 Summary:');
-  console.log('   - 6 Users (1 Admin, 3 Commercial, 2 Marketing)');
-  console.log('   - 6 Courses');
-  console.log('   - 6 Campaigns with spend records');
-  console.log('   - 45 Leads (10 Nuovo, 12 Contattato, 8 In Trattativa, 10 Iscritto, 5 Perso)');
-  console.log('   - Lead activities, tasks, and notifications');
+  console.log('   - 3 Users (1 Admin, 1 Commercial, 1 Marketing)');
+  console.log('   - NO mock courses (import from CSV)');
+  console.log('   - NO mock leads (import from CSV)');
+  console.log('   - NO mock campaigns');
   console.log('');
-  console.log('📧 Demo accounts:');
+  console.log('📧 Default accounts:');
   console.log('   Admin:      admin@leadcrm.it / admin123');
-  console.log('   Commercial: marco.verdi@leadcrm.it / user123');
-  console.log('   Marketing:  giulia.rossi@leadcrm.it / user123');
+  console.log('   Commercial: commerciale@leadcrm.it / user123');
+  console.log('   Marketing:  marketing@leadcrm.it / user123');
+  console.log('');
+  console.log('📌 Next steps:');
+  console.log('   1. Import leads from CSV using scripts/import-final-csv.ts');
+  console.log('   2. Create campaigns via the Marketing interface');
+  console.log('   3. Create additional users via the Admin interface');
 }
 
 main()

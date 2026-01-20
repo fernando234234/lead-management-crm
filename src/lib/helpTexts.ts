@@ -36,9 +36,6 @@ export const helpTexts = {
   conversionRate: "Percentuale di lead che si sono iscritti rispetto al totale dei lead acquisiti.",
   contactRate: "Percentuale di lead contattati rispetto al totale dei lead acquisiti.",
   
-  // General
-  demoMode: "Modalità demo attiva. I dati mostrati sono fittizi a scopo dimostrativo.",
-  
   // Dashboard sections
   panoramica: "Riepilogo delle metriche principali del sistema.",
   funnel: "Visualizzazione del percorso dei lead dal primo contatto all'iscrizione.",
