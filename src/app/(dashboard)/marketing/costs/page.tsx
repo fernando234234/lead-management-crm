@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockCampaigns } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card } from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -13,7 +11,6 @@ import {
   Wallet,
   PiggyBank,
   TrendingDown,
-  TestTube,
   Calendar,
   ChevronDown,
   ChevronRight,
@@ -71,7 +68,6 @@ interface PlatformCost {
 type TimeBreakdown = "daily" | "weekly" | "monthly";
 
 export default function MarketingCostsPage() {
-  const { isDemoMode } = useDemoMode();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
@@ -79,13 +75,8 @@ export default function MarketingCostsPage() {
   const [filterPlatform, setFilterPlatform] = useState("");
 
   useEffect(() => {
-    if (isDemoMode) {
-      setCampaigns(mockCampaigns as Campaign[]);
-      setLoading(false);
-    } else {
-      fetchData();
-    }
-  }, [isDemoMode]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -248,12 +239,6 @@ export default function MarketingCostsPage() {
             Monitora la spesa delle tue campagne marketing
           </p>
         </div>
-        {isDemoMode && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-            <TestTube size={16} />
-            Demo
-          </div>
-        )}
       </div>
 
       {/* Stats Cards */}

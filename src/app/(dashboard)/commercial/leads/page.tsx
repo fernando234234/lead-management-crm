@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockLeads, mockCourses } from "@/lib/mockData";
 import {
   Pencil,
   Phone,
@@ -11,15 +9,12 @@ import {
   User,
   Search,
   X,
-  CheckCircle,
-  Clock,
-  PhoneCall,
-  PhoneOff,
-  PhoneMissed,
-  TestTube,
   Eye,
   Inbox,
   Plus,
+  CheckCircle,
+  XCircle,
+  HelpCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "@/components/ui/Pagination";
@@ -27,25 +22,51 @@ import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import EmptyState from "@/components/ui/EmptyState";
 import ExportButton from "@/components/ui/ExportButton";
 
+// Boolean display helpers
+const booleanConfig = {
+  true: { label: "Sì", color: "bg-green-100 text-green-700", icon: CheckCircle },
+  false: { label: "No", color: "bg-red-100 text-red-700", icon: XCircle },
+};
+
+// Export columns configuration for commercial leads
+const leadExportColumns = [
+  { key: "name", label: "Nome" },
+  { key: "course.name", label: "Corso" },
+  { key: "campaign.name", label: "Campagna" },
+  { key: "contacted", label: "Contattato" },
+  { key: "contactedAt", label: "Data Contatto" },
+  { key: "isTarget", label: "Target" },
+  { key: "enrolled", label: "Iscritto" },
+  { key: "enrolledAt", label: "Data Iscrizione" },
+  { key: "createdAt", label: "Data Creazione" },
+];
+
 interface Lead {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
-  status: string;
+  notes: string | null;
   contacted: boolean;
   contactedAt: string | null;
+  isTarget: boolean;
+  targetNote: string | null;
   enrolled: boolean;
   enrolledAt: string | null;
-  isTarget: boolean;
-  notes: string | null;
-  callOutcome: string | null;
-  outcomeNotes: string | null;
   createdAt: string;
   course: { id: string; name: string; price?: number } | null;
   campaign: { id: string; name: string; platform?: string } | null;
   assignedTo: { id: string; name: string; email: string } | null;
 }
+
+// Platforms
+const PLATFORMS = [
+  { id: "FACEBOOK", label: "Facebook" },
+  { id: "INSTAGRAM", label: "Instagram" },
+  { id: "LINKEDIN", label: "LinkedIn" },
+  { id: "GOOGLE_ADS", label: "Google Ads" },
+  { id: "TIKTOK", label: "TikTok" },
+];
 
 interface Course {
   id: string;
@@ -59,129 +80,52 @@ interface Campaign {
   course: { id: string; name: string };
 }
 
-const statusColors: Record<string, string> = {
-  NUOVO: "bg-blue-100 text-blue-700",
-  CONTATTATO: "bg-yellow-100 text-yellow-700",
-  IN_TRATTATIVA: "bg-purple-100 text-purple-700",
-  ISCRITTO: "bg-green-100 text-green-700",
-  PERSO: "bg-red-100 text-red-700",
-};
-
-const statusLabels: Record<string, string> = {
-  NUOVO: "Nuovo",
-  CONTATTATO: "Contattato",
-  IN_TRATTATIVA: "In Trattativa",
-  ISCRITTO: "Iscritto",
-  PERSO: "Perso",
-};
-
-const outcomeLabels: Record<string, string> = {
-  POSITIVO: "Positivo",
-  NEGATIVO: "Negativo",
-  RICHIAMARE: "Da Richiamare",
-  NON_RISPONDE: "Non Risponde",
-};
-
-const outcomeColors: Record<string, string> = {
-  POSITIVO: "bg-green-100 text-green-700",
-  NEGATIVO: "bg-red-100 text-red-700",
-  RICHIAMARE: "bg-yellow-100 text-yellow-700",
-  NON_RISPONDE: "bg-gray-100 text-gray-700",
-};
-
-// Export columns configuration for commercial leads
-const leadExportColumns = [
-  { key: "name", label: "Nome" },
-  { key: "email", label: "Email" },
-  { key: "phone", label: "Telefono" },
-  { key: "course.name", label: "Corso" },
-  { key: "status", label: "Stato" },
-  { key: "contacted", label: "Contattato" },
-  { key: "contactedAt", label: "Data Contatto" },
-  { key: "callOutcome", label: "Esito Chiamata" },
-  { key: "outcomeNotes", label: "Note Esito" },
-  { key: "enrolled", label: "Iscritto" },
-  { key: "isTarget", label: "Target" },
-  { key: "createdAt", label: "Data Creazione" },
-];
-
-const outcomeIcons: Record<string, React.ReactNode> = {
-  POSITIVO: <CheckCircle size={14} className="text-green-600" />,
-  NEGATIVO: <PhoneOff size={14} className="text-red-600" />,
-  RICHIAMARE: <PhoneCall size={14} className="text-yellow-600" />,
-  NON_RISPONDE: <PhoneMissed size={14} className="text-gray-600" />,
-};
-
 export default function CommercialLeadsPage() {
   const { data: session } = useSession();
-  const { isDemoMode } = useDemoMode();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showOutcomeModal, setShowOutcomeModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [selectedLeadForOutcome, setSelectedLeadForOutcome] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterContattato, setFilterContattato] = useState<string>("");
+  const [filterTarget, setFilterTarget] = useState<string>("");
+  const [filterIscritto, setFilterIscritto] = useState<string>("");
   const [filterCourse, setFilterCourse] = useState("");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
 
-  // Form data for editing
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    notes: "",
-    status: "NUOVO",
-    contacted: false,
-    callOutcome: "",
-    outcomeNotes: "",
-    isTarget: false,
-    enrolled: false,
-  });
-
-  // Outcome form
-  const [outcomeData, setOutcomeData] = useState({
-    callOutcome: "",
-    outcomeNotes: "",
-  });
-
   // Create lead form
   const [createFormData, setCreateFormData] = useState({
     name: "",
-    email: "",
-    phone: "",
     courseId: "",
-    campaignId: "",
+    platform: "",
     notes: "",
   });
 
-  // Demo user ID (simulating a commercial user)
-  const demoUserId = "1"; // Marco Verdi in mockData
+  // Edit form data
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    notes: "",
+    contacted: false,
+    isTarget: false,
+    targetNote: "",
+    enrolled: false,
+  });
 
   useEffect(() => {
-    if (isDemoMode) {
-      // Filter leads assigned to current user (demo: user ID "1")
-      const myLeads = mockLeads.filter(
-        (lead) => lead.assignedTo?.id === demoUserId
-      ) as Lead[];
-      setLeads(myLeads);
-      setCourses(mockCourses.map((c) => ({ id: c.id, name: c.name })));
-      setLoading(false);
-    } else {
+    if (session?.user?.id) {
       fetchData();
     }
-  }, [isDemoMode]);
+  }, [session?.user?.id]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -200,15 +144,16 @@ export default function CommercialLeadsPage() {
 
       // Filter leads assigned to current user OR created by current user
       const myLeads = leadsData.filter(
-        (lead: Lead) => 
+        (lead: Lead & { createdBy?: { id: string } }) =>
           lead.assignedTo?.id === session?.user?.id ||
-          (lead as Lead & { createdBy?: { id: string } }).createdBy?.id === session?.user?.id
+          lead.createdBy?.id === session?.user?.id
       );
       setLeads(myLeads);
       setCourses(coursesData);
       setCampaigns(campaignsData);
     } catch (error) {
       console.error("Failed to fetch data:", error);
+      toast.error("Errore nel caricamento dei dati");
     } finally {
       setLoading(false);
     }
@@ -217,13 +162,13 @@ export default function CommercialLeadsPage() {
   const filteredLeads = leads.filter((lead) => {
     if (
       search &&
-      !lead.name.toLowerCase().includes(search.toLowerCase()) &&
-      !lead.email?.toLowerCase().includes(search.toLowerCase()) &&
-      !lead.phone?.includes(search)
+      !lead.name.toLowerCase().includes(search.toLowerCase())
     ) {
       return false;
     }
-    if (filterStatus && lead.status !== filterStatus) return false;
+    if (filterContattato !== "" && lead.contacted !== (filterContattato === "true")) return false;
+    if (filterTarget !== "" && lead.isTarget !== (filterTarget === "true")) return false;
+    if (filterIscritto !== "" && lead.enrolled !== (filterIscritto === "true")) return false;
     if (filterCourse && lead.course?.id !== filterCourse) return false;
     return true;
   });
@@ -238,196 +183,47 @@ export default function CommercialLeadsPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterStatus, filterCourse]);
+  }, [search, filterContattato, filterTarget, filterIscritto, filterCourse]);
 
   const openEditModal = (lead: Lead) => {
     setEditingLead(lead);
-    setFormData({
+    setEditFormData({
       name: lead.name,
-      email: lead.email || "",
-      phone: lead.phone || "",
       notes: lead.notes || "",
-      status: lead.status,
       contacted: lead.contacted,
-      callOutcome: lead.callOutcome || "",
-      outcomeNotes: lead.outcomeNotes || "",
-      isTarget: lead.isTarget || false,
-      enrolled: lead.enrolled || false,
+      isTarget: lead.isTarget,
+      targetNote: lead.targetNote || "",
+      enrolled: lead.enrolled,
     });
-    setShowModal(true);
-  };
-
-  const openOutcomeModal = (lead: Lead) => {
-    setSelectedLeadForOutcome(lead);
-    setOutcomeData({
-      callOutcome: lead.callOutcome || "",
-      outcomeNotes: lead.outcomeNotes || "",
-    });
-    setShowOutcomeModal(true);
+    setShowEditModal(true);
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!editingLead) return;
 
-    if (isDemoMode) {
-      setLeads(
-        leads.map((l) =>
-          l.id === editingLead.id
-            ? {
-                ...l,
-                name: formData.name,
-                email: formData.email || null,
-                phone: formData.phone || null,
-                notes: formData.notes || null,
-                status: formData.status,
-                contacted: formData.contacted,
-                contactedAt: formData.contacted ? new Date().toISOString() : l.contactedAt,
-                callOutcome: formData.callOutcome || null,
-                outcomeNotes: formData.outcomeNotes || null,
-              }
-            : l
-        )
-      );
-      setShowModal(false);
-      return;
-    }
-
     try {
-      await fetch(`/api/leads/${editingLead.id}`, {
+      const response = await fetch(`/api/leads/${editingLead.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          notes: formData.notes || null,
-          status: formData.status,
-          contacted: formData.contacted,
-          callOutcome: formData.callOutcome || null,
-          outcomeNotes: formData.outcomeNotes || null,
-          isTarget: formData.isTarget,
-          enrolled: formData.enrolled,
+          name: editFormData.name,
+          notes: editFormData.notes || null,
+          contacted: editFormData.contacted,
+          isTarget: editFormData.isTarget,
+          targetNote: editFormData.targetNote || null,
+          enrolled: editFormData.enrolled,
         }),
       });
-      setShowModal(false);
+
+      if (!response.ok) throw new Error("Failed to update lead");
+      
+      toast.success("Lead aggiornato con successo");
+      setShowEditModal(false);
       fetchData();
     } catch (error) {
       console.error("Failed to update lead:", error);
-    }
-  };
-
-  const handleOutcomeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedLeadForOutcome) return;
-
-    if (isDemoMode) {
-      setLeads(
-        leads.map((l) =>
-          l.id === selectedLeadForOutcome.id
-            ? {
-                ...l,
-                contacted: true,
-                contactedAt: new Date().toISOString(),
-                callOutcome: outcomeData.callOutcome || null,
-                outcomeNotes: outcomeData.outcomeNotes || null,
-                status: l.status === "NUOVO" ? "CONTATTATO" : l.status,
-              }
-            : l
-        )
-      );
-      setShowOutcomeModal(false);
-      return;
-    }
-
-    try {
-      await fetch(`/api/leads/${selectedLeadForOutcome.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contacted: true,
-          callOutcome: outcomeData.callOutcome || null,
-          outcomeNotes: outcomeData.outcomeNotes || null,
-          status: selectedLeadForOutcome.status === "NUOVO" ? "CONTATTATO" : undefined,
-        }),
-      });
-      setShowOutcomeModal(false);
-      fetchData();
-    } catch (error) {
-      console.error("Failed to log call outcome:", error);
-    }
-  };
-
-  const handleQuickStatusUpdate = async (id: string, status: string) => {
-    if (isDemoMode) {
-      setLeads(leads.map((l) => (l.id === id ? { ...l, status } : l)));
-      return;
-    }
-
-    try {
-      await fetch(`/api/leads/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      fetchData();
-    } catch (error) {
-      console.error("Failed to update status:", error);
-    }
-  };
-
-  const markAsContacted = async (lead: Lead) => {
-    if (isDemoMode) {
-      setLeads(
-        leads.map((l) =>
-          l.id === lead.id
-            ? {
-                ...l,
-                contacted: true,
-                contactedAt: new Date().toISOString(),
-                status: l.status === "NUOVO" ? "CONTATTATO" : l.status,
-              }
-            : l
-        )
-      );
-      return;
-    }
-
-    try {
-      await fetch(`/api/leads/${lead.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contacted: true,
-          status: lead.status === "NUOVO" ? "CONTATTATO" : undefined,
-        }),
-      });
-      fetchData();
-    } catch (error) {
-      console.error("Failed to mark as contacted:", error);
-    }
-  };
-
-  const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
-    if (isDemoMode) {
-      setLeads(leads.map(l => l.id === leadId ? { ...l, ...data } : l));
-      if (detailLead?.id === leadId) {
-        setDetailLead({ ...detailLead, ...data } as Lead);
-      }
-      return;
-    }
-
-    try {
-      await fetch(`/api/leads/${leadId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      fetchData();
-    } catch (error) {
-      console.error("Failed to update lead:", error);
+      toast.error("Errore nell'aggiornamento del lead");
     }
   };
 
@@ -442,35 +238,8 @@ export default function CommercialLeadsPage() {
       toast.error("Seleziona un corso");
       return;
     }
-    if (!createFormData.campaignId) {
-      toast.error("Seleziona una campagna");
-      return;
-    }
-
-    if (isDemoMode) {
-      const newLead: Lead = {
-        id: `demo-${Date.now()}`,
-        name: createFormData.name,
-        email: createFormData.email || null,
-        phone: createFormData.phone || null,
-        status: "NUOVO",
-        contacted: false,
-        contactedAt: null,
-        enrolled: false,
-        enrolledAt: null,
-        isTarget: false,
-        notes: createFormData.notes || null,
-        callOutcome: null,
-        outcomeNotes: null,
-        createdAt: new Date().toISOString(),
-        course: courses.find(c => c.id === createFormData.courseId) ? { id: createFormData.courseId, name: courses.find(c => c.id === createFormData.courseId)!.name } : null,
-        campaign: campaigns.find(c => c.id === createFormData.campaignId) ? { id: createFormData.campaignId, name: campaigns.find(c => c.id === createFormData.campaignId)!.name } : null,
-        assignedTo: session?.user ? { id: session.user.id, name: session.user.name || "", email: session.user.email || "" } : null,
-      };
-      setLeads([newLead, ...leads]);
-      setShowCreateModal(false);
-      setCreateFormData({ name: "", email: "", phone: "", courseId: "", campaignId: "", notes: "" });
-      toast.success("Lead creato con successo!");
+    if (!createFormData.platform) {
+      toast.error("Seleziona una piattaforma");
       return;
     }
 
@@ -481,14 +250,16 @@ export default function CommercialLeadsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: createFormData.name,
-          email: createFormData.email || null,
-          phone: createFormData.phone || null,
           courseId: createFormData.courseId,
-          campaignId: createFormData.campaignId,
+          platform: createFormData.platform,
           assignedToId: session?.user?.id,
           createdById: session?.user?.id,
           notes: createFormData.notes || null,
           source: "MANUAL",
+          // Initialize with false (default)
+          contacted: false,
+          isTarget: false,
+          enrolled: false,
         }),
       });
 
@@ -497,7 +268,7 @@ export default function CommercialLeadsPage() {
       }
 
       setShowCreateModal(false);
-      setCreateFormData({ name: "", email: "", phone: "", courseId: "", campaignId: "", notes: "" });
+      setCreateFormData({ name: "", courseId: "", platform: "", notes: "" });
       toast.success("Lead creato con successo!");
       fetchData();
     } catch (error) {
@@ -508,10 +279,96 @@ export default function CommercialLeadsPage() {
     }
   };
 
+  // Quick state update
+  const handleQuickStateUpdate = async (leadId: string, field: string, value: boolean) => {
+    try {
+      const updateData: Record<string, unknown> = { [field]: value };
+      
+      // Add timestamp for true states
+      if (value) {
+        if (field === "contacted") updateData.contactedAt = new Date().toISOString();
+        if (field === "enrolled") updateData.enrolledAt = new Date().toISOString();
+      }
+
+      await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Failed to update lead state:", error);
+      toast.error("Errore nell'aggiornamento");
+    }
+  };
+
+  const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
+    try {
+      await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Failed to update lead:", error);
+    }
+  };
+
   // Filter campaigns by selected course
-  const filteredCampaigns = createFormData.courseId 
-    ? campaigns.filter(c => c.course?.id === createFormData.courseId)
+  const filteredCampaigns = createFormData.courseId
+    ? campaigns.filter((c) => c.course?.id === createFormData.courseId)
     : campaigns;
+
+  // Boolean Toggle Component
+  const BooleanToggle = ({
+    value,
+    onChange,
+    label,
+    compact = false,
+  }: {
+    value: boolean;
+    onChange: (value: boolean) => void;
+    label?: string;
+    compact?: boolean;
+  }) => {
+    if (compact) {
+      return (
+        <button
+          type="button"
+          onClick={() => onChange(!value)}
+          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+            value ? "bg-green-600" : "bg-gray-200"
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+              value ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+      );
+    }
+
+    return (
+      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+        <button
+          type="button"
+          onClick={() => onChange(!value)}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+            value ? "bg-green-600" : "bg-gray-200"
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+              value ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+    );
+  };
 
   if (loading) {
     return <div className="p-8">Caricamento...</div>;
@@ -526,12 +383,6 @@ export default function CommercialLeadsPage() {
           <p className="text-gray-500">{filteredLeads.length} lead</p>
         </div>
         <div className="flex items-center gap-3">
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Demo
-            </div>
-          )}
           <ExportButton
             data={filteredLeads}
             columns={leadExportColumns}
@@ -558,7 +409,7 @@ export default function CommercialLeadsPage() {
               />
               <input
                 type="text"
-                placeholder="Cerca per nome, email, telefono..."
+                placeholder="Cerca per nome..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
@@ -566,16 +417,31 @@ export default function CommercialLeadsPage() {
             </div>
           </div>
           <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            value={filterContattato}
+            onChange={(e) => setFilterContattato(e.target.value)}
             className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
           >
-            <option value="">Tutti gli stati</option>
-            {Object.entries(statusLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+            <option value="">Contattato: Tutti</option>
+            <option value="true">Contattato: Sì</option>
+            <option value="false">Contattato: No</option>
+          </select>
+          <select
+            value={filterTarget}
+            onChange={(e) => setFilterTarget(e.target.value)}
+            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
+          >
+            <option value="">Target: Tutti</option>
+            <option value="true">Target: Sì</option>
+            <option value="false">Target: No</option>
+          </select>
+          <select
+            value={filterIscritto}
+            onChange={(e) => setFilterIscritto(e.target.value)}
+            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
+          >
+            <option value="">Iscritto: Tutti</option>
+            <option value="true">Iscritto: Sì</option>
+            <option value="false">Iscritto: No</option>
           </select>
           <select
             value={filterCourse}
@@ -589,11 +455,13 @@ export default function CommercialLeadsPage() {
               </option>
             ))}
           </select>
-          {(search || filterStatus || filterCourse) && (
+          {(search || filterContattato || filterTarget || filterIscritto || filterCourse) && (
             <button
               onClick={() => {
                 setSearch("");
-                setFilterStatus("");
+                setFilterContattato("");
+                setFilterTarget("");
+                setFilterIscritto("");
                 setFilterCourse("");
               }}
               className="px-3 py-2 text-gray-500 hover:text-gray-700 flex items-center gap-1"
@@ -613,9 +481,10 @@ export default function CommercialLeadsPage() {
               <tr>
                 <th>Lead</th>
                 <th>Corso</th>
-                <th>Stato</th>
+                <th>Campagna</th>
                 <th className="text-center">Contattato</th>
-                <th>Esito</th>
+                <th className="text-center">Target</th>
+                <th className="text-center">Iscritto</th>
                 <th>Data</th>
                 <th>Azioni</th>
               </tr>
@@ -623,115 +492,83 @@ export default function CommercialLeadsPage() {
             <tbody>
               {paginatedLeads.map((lead, index) => (
                 <tr key={lead.id} className={index % 2 === 0 ? "" : "bg-gray-50/30"}>
-                <td className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                      <User size={20} className="text-gray-500" />
-                    </div>
-                    <div>
-                      <p className="font-medium flex items-center gap-2">
-                        {lead.name}
-                        {lead.isTarget && (
-                          <span className="px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">
-                            Target
-                          </span>
-                        )}
-                      </p>
-                      <div className="flex items-center gap-3 text-sm text-gray-500">
-                        {lead.email && (
-                          <span className="flex items-center gap-1">
-                            <Mail size={14} />
-                            {lead.email}
-                          </span>
-                        )}
-                        {lead.phone && (
-                          <span className="flex items-center gap-1">
-                            <Phone size={14} />
-                            {lead.phone}
-                          </span>
-                        )}
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                        <User size={20} className="text-gray-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{lead.name}</p>
+                        <div className="flex items-center gap-3 text-sm text-gray-500">
+                          {lead.email && (
+                            <span className="flex items-center gap-1">
+                              <Mail size={14} />
+                              {lead.email}
+                            </span>
+                          )}
+                          {lead.phone && (
+                            <span className="flex items-center gap-1">
+                              <Phone size={14} />
+                              {lead.phone}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td className="p-4">
-                  <span className="text-sm">{lead.course?.name || "-"}</span>
-                </td>
-                <td className="p-4">
-                  <select
-                    value={lead.status}
-                    onChange={(e) => handleQuickStatusUpdate(lead.id, e.target.value)}
-                    className={`px-2 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${statusColors[lead.status]}`}
-                  >
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="p-4">
-                  {lead.contacted ? (
-                    <div className="flex items-center gap-1">
-                      <CheckCircle size={20} className="text-green-500" />
-                      <span className="text-xs text-gray-500">
-                        {lead.contactedAt
-                          ? new Date(lead.contactedAt).toLocaleDateString("it-IT")
-                          : ""}
+                  </td>
+                  <td className="p-4">
+                    <span className="text-sm">{lead.course?.name || "-"}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-sm">{lead.campaign?.name || "-"}</span>
+                    {lead.campaign?.platform && (
+                      <span className="ml-1 text-xs text-gray-400">
+                        ({lead.campaign.platform})
                       </span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => markAsContacted(lead)}
-                      className="flex items-center gap-1 text-sm text-commercial hover:underline"
-                    >
-                      <Clock size={16} className="text-gray-400" />
-                      Segna contattato
-                    </button>
-                  )}
-                </td>
-                <td className="p-4">
-                  {lead.callOutcome ? (
-                    <div className="flex items-center gap-1">
-                      {outcomeIcons[lead.callOutcome]}
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs ${outcomeColors[lead.callOutcome]}`}
+                    )}
+                  </td>
+                  <td className="p-4">
+                    <BooleanToggle
+                      value={lead.contacted}
+                      onChange={(v) => handleQuickStateUpdate(lead.id, "contacted", v)}
+                      compact
+                    />
+                  </td>
+                  <td className="p-4">
+                    <BooleanToggle
+                      value={lead.isTarget}
+                      onChange={(v) => handleQuickStateUpdate(lead.id, "isTarget", v)}
+                      compact
+                    />
+                  </td>
+                  <td className="p-4">
+                    <BooleanToggle
+                      value={lead.enrolled}
+                      onChange={(v) => handleQuickStateUpdate(lead.id, "enrolled", v)}
+                      compact
+                    />
+                  </td>
+                  <td className="p-4 text-sm text-gray-500">
+                    {new Date(lead.createdAt).toLocaleDateString("it-IT")}
+                  </td>
+                  <td className="p-4">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setDetailLead(lead)}
+                        className="p-2 text-gray-500 hover:text-commercial transition"
+                        title="Dettagli"
                       >
-                        {outcomeLabels[lead.callOutcome]}
-                      </span>
+                        <Eye size={18} />
+                      </button>
+                      <button
+                        onClick={() => openEditModal(lead)}
+                        className="p-2 text-gray-500 hover:text-commercial transition"
+                        title="Modifica lead"
+                      >
+                        <Pencil size={18} />
+                      </button>
                     </div>
-                  ) : (
-                    <span className="text-gray-400 text-sm">-</span>
-                  )}
-                </td>
-                <td className="p-4 text-sm text-gray-500">
-                  {new Date(lead.createdAt).toLocaleDateString("it-IT")}
-                </td>
-                <td className="p-4">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setDetailLead(lead)}
-                      className="p-2 text-gray-500 hover:text-commercial transition"
-                      title="Dettagli"
-                    >
-                      <Eye size={18} />
-                    </button>
-                    <button
-                      onClick={() => openEditModal(lead)}
-                      className="p-2 text-gray-500 hover:text-commercial transition"
-                      title="Modifica lead"
-                    >
-                      <Pencil size={18} />
-                    </button>
-                    <button
-                      onClick={() => openOutcomeModal(lead)}
-                      className="p-2 text-gray-500 hover:text-commercial transition"
-                      title="Registra esito chiamata"
-                    >
-                      <PhoneCall size={18} />
-                    </button>
-                  </div>
-                </td>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -757,15 +594,10 @@ export default function CommercialLeadsPage() {
       </div>
 
       {/* Edit Modal */}
-      {showModal && editingLead && (
+      {showEditModal && editingLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">
-              Modifica Lead
-              {isDemoMode && (
-                <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>
-              )}
-            </h2>
+            <h2 className="text-xl font-bold mb-4">Modifica Lead</h2>
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -774,129 +606,59 @@ export default function CommercialLeadsPage() {
                 <input
                   type="text"
                   required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Telefono
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
+
+              {/* Contattato */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <BooleanToggle
+                    label="Contattato"
+                    value={editFormData.contacted}
+                    onChange={(v) => setEditFormData({ ...editFormData, contacted: v })}
                   />
                 </div>
               </div>
+
+              {/* Target */}
+              <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <BooleanToggle
+                    label="Target (In obiettivo)"
+                    value={editFormData.isTarget}
+                    onChange={(v) => setEditFormData({ ...editFormData, isTarget: v })}
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Note target..."
+                  value={editFormData.targetNote}
+                  onChange={(e) => setEditFormData({ ...editFormData, targetNote: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+
+              {/* Iscritto */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <BooleanToggle
+                    label="Iscritto"
+                    value={editFormData.enrolled}
+                    onChange={(v) => setEditFormData({ ...editFormData, enrolled: v })}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stato
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
-                >
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-wrap items-center gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.contacted}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contacted: e.target.checked })
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">Contattato</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.isTarget}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isTarget: e.target.checked })
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-orange-600 font-medium">Lead Target</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.enrolled}
-                    onChange={(e) =>
-                      setFormData({ ...formData, enrolled: e.target.checked })
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-green-600 font-medium">Iscritto</span>
-                </label>
-              </div>
-              {formData.contacted && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Esito Chiamata
-                    </label>
-                    <select
-                      value={formData.callOutcome}
-                      onChange={(e) =>
-                        setFormData({ ...formData, callOutcome: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
-                    >
-                      <option value="">Seleziona esito</option>
-                      {Object.entries(outcomeLabels).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Note Esito
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.outcomeNotes}
-                      onChange={(e) =>
-                        setFormData({ ...formData, outcomeNotes: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
-                    />
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note
+                  Note Generali
                 </label>
                 <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  value={editFormData.notes}
+                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
                   rows={3}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
                 />
@@ -904,7 +666,7 @@ export default function CommercialLeadsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => setShowEditModal(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                 >
                   Annulla
@@ -921,93 +683,22 @@ export default function CommercialLeadsPage() {
         </div>
       )}
 
-      {/* Call Outcome Modal */}
-      {showOutcomeModal && selectedLeadForOutcome && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-2">Registra Esito Chiamata</h2>
-            <p className="text-gray-500 mb-4">Lead: {selectedLeadForOutcome.name}</p>
-            <form onSubmit={handleOutcomeSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Esito della chiamata
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(outcomeLabels).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() =>
-                        setOutcomeData({ ...outcomeData, callOutcome: value })
-                      }
-                      className={`p-3 rounded-lg border-2 transition flex items-center gap-2 ${
-                        outcomeData.callOutcome === value
-                          ? "border-commercial bg-commercial/10"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      {outcomeIcons[value]}
-                      <span className="text-sm font-medium">{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note
-                </label>
-                <textarea
-                  value={outcomeData.outcomeNotes}
-                  onChange={(e) =>
-                    setOutcomeData({ ...outcomeData, outcomeNotes: e.target.value })
-                  }
-                  placeholder="Aggiungi note sulla chiamata..."
-                  rows={3}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowOutcomeModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  disabled={!outcomeData.callOutcome}
-                  className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Salva Esito
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       {/* Lead Detail Modal */}
       {detailLead && (
         <LeadDetailModal
           lead={detailLead}
           onClose={() => setDetailLead(null)}
           onUpdate={handleLeadUpdate}
-          isDemoMode={isDemoMode}
           accentColor="commercial"
         />
       )}
 
-      {/* Create Lead Modal */}
+      {/* Create Lead Modal - SIMPLIFIED (no email/phone) */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">
-                Nuovo Lead
-                {isDemoMode && (
-                  <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>
-                )}
-              </h2>
+              <h2 className="text-xl font-bold">Nuovo Lead</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
@@ -1029,32 +720,6 @@ export default function CommercialLeadsPage() {
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={createFormData.email}
-                    onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
-                    placeholder="email@esempio.it"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Telefono
-                  </label>
-                  <input
-                    type="tel"
-                    value={createFormData.phone}
-                    onChange={(e) => setCreateFormData({ ...createFormData, phone: e.target.value })}
-                    placeholder="+39 123 456 7890"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
-                  />
-                </div>
-              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Corso <span className="text-red-500">*</span>
@@ -1062,11 +727,12 @@ export default function CommercialLeadsPage() {
                 <select
                   required
                   value={createFormData.courseId}
-                  onChange={(e) => setCreateFormData({ 
-                    ...createFormData, 
-                    courseId: e.target.value,
-                    campaignId: "" // Reset campaign when course changes
-                  })}
+                  onChange={(e) =>
+                    setCreateFormData({
+                      ...createFormData,
+                      courseId: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
                 >
                   <option value="">Seleziona un corso</option>
@@ -1079,29 +745,21 @@ export default function CommercialLeadsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Campagna <span className="text-red-500">*</span>
+                  Piattaforma <span className="text-red-500">*</span>
                 </label>
                 <select
                   required
-                  value={createFormData.campaignId}
-                  onChange={(e) => setCreateFormData({ ...createFormData, campaignId: e.target.value })}
+                  value={createFormData.platform}
+                  onChange={(e) => setCreateFormData({ ...createFormData, platform: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
-                  disabled={!createFormData.courseId}
                 >
-                  <option value="">
-                    {createFormData.courseId ? "Seleziona una campagna" : "Seleziona prima un corso"}
-                  </option>
-                  {filteredCampaigns.map((campaign) => (
-                    <option key={campaign.id} value={campaign.id}>
-                      {campaign.name} ({campaign.platform})
+                  <option value="">Seleziona una piattaforma</option>
+                  {PLATFORMS.map((platform) => (
+                    <option key={platform.id} value={platform.id}>
+                      {platform.label}
                     </option>
                   ))}
                 </select>
-                {createFormData.courseId && filteredCampaigns.length === 0 && (
-                  <p className="text-sm text-amber-600 mt-1">
-                    Nessuna campagna attiva per questo corso. Contatta il marketing.
-                  </p>
-                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1126,7 +784,7 @@ export default function CommercialLeadsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating || !createFormData.name || !createFormData.courseId || !createFormData.campaignId}
+                  disabled={creating || !createFormData.name || !createFormData.courseId || !createFormData.platform}
                   className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {creating ? (

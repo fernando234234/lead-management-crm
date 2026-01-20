@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockCampaigns, mockCourses } from "@/lib/mockData";
 import toast from "react-hot-toast";
 import {
   Plus,
@@ -12,7 +10,6 @@ import {
   TrendingUp,
   Users,
   DollarSign,
-  TestTube,
   ChevronDown,
   ChevronUp,
   Calendar,
@@ -24,8 +21,7 @@ import { SpendManagementModal } from "@/components/ui/SpendManagementModal";
 
 // Platform options matching Prisma enum
 const platformOptions = [
-  { value: "FACEBOOK", label: "Facebook" },
-  { value: "INSTAGRAM", label: "Instagram" },
+  { value: "META", label: "Meta (FB/IG)" },
   { value: "LINKEDIN", label: "LinkedIn" },
   { value: "GOOGLE_ADS", label: "Google Ads" },
   { value: "TIKTOK", label: "TikTok" },
@@ -74,7 +70,6 @@ interface Campaign {
   totalSpent?: number;
   costPerLead?: number;
   leadCount?: number;
-  // For backward compatibility with metrics
   metrics?: {
     totalLeads: number;
     contactedLeads: number;
@@ -90,7 +85,6 @@ interface Course {
 }
 
 export default function MarketingCampaignsPage() {
-  const { isDemoMode } = useDemoMode();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,24 +116,8 @@ export default function MarketingCampaignsPage() {
   });
 
   useEffect(() => {
-    if (isDemoMode) {
-      // Transform mock data to new format
-      const transformedCampaigns = mockCampaigns.map((c) => ({
-        ...c,
-        platform: c.source?.toUpperCase().replace(" ", "_") || "FACEBOOK",
-        budget: c.cost || 0,
-        status: c.active ? "ACTIVE" : "COMPLETED",
-        totalSpent: c.cost || 0,
-        costPerLead: c.metrics?.totalLeads > 0 ? (c.cost || 0) / c.metrics.totalLeads : 0,
-        leadCount: c.metrics?.totalLeads || 0,
-      })) as Campaign[];
-      setCampaigns(transformedCampaigns);
-      setCourses(mockCourses.map((c) => ({ id: c.id, name: c.name })));
-      setLoading(false);
-    } else {
-      fetchData();
-    }
-  }, [isDemoMode]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -158,6 +136,7 @@ export default function MarketingCampaignsPage() {
       setCourses(coursesData);
     } catch (error) {
       console.error("Failed to fetch data:", error);
+      toast.error("Errore nel caricamento dei dati");
     } finally {
       setLoading(false);
     }
@@ -179,7 +158,7 @@ export default function MarketingCampaignsPage() {
       setEditingCampaign(null);
       setFormData({
         name: "",
-        platform: "FACEBOOK",
+        platform: "META",
         courseId: courses[0]?.id || "",
         budget: "",
         status: "ACTIVE",
@@ -198,40 +177,6 @@ export default function MarketingCampaignsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isDemoMode) {
-      const newCampaign: Campaign = {
-        id: editingCampaign?.id || String(Date.now()),
-        name: formData.name,
-        platform: formData.platform,
-        budget: parseFloat(formData.budget) || 0,
-        status: formData.status,
-        startDate: formData.startDate,
-        endDate: formData.endDate || null,
-        createdAt: editingCampaign?.createdAt || new Date().toISOString(),
-        course: courses.find((c) => c.id === formData.courseId)
-          ? { id: formData.courseId, name: courses.find((c) => c.id === formData.courseId)!.name }
-          : null,
-        totalSpent: editingCampaign?.totalSpent || 0,
-        costPerLead: editingCampaign?.costPerLead || 0,
-        leadCount: editingCampaign?.leadCount || 0,
-        metrics: editingCampaign?.metrics || {
-          totalLeads: 0,
-          contactedLeads: 0,
-          enrolledLeads: 0,
-          costPerLead: "0",
-          conversionRate: "0",
-        },
-      };
-
-      if (editingCampaign) {
-        setCampaigns(campaigns.map((c) => (c.id === editingCampaign.id ? newCampaign : c)));
-      } else {
-        setCampaigns([newCampaign, ...campaigns]);
-      }
-      setShowModal(false);
-      return;
-    }
-
     const payload = {
       name: formData.name,
       platform: formData.platform,
@@ -249,34 +194,25 @@ export default function MarketingCampaignsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        toast.success("Campagna aggiornata con successo");
       } else {
         await fetch("/api/campaigns", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        toast.success("Campagna creata con successo");
       }
       setShowModal(false);
       fetchData();
     } catch (error) {
       console.error("Failed to save campaign:", error);
+      toast.error("Errore nel salvataggio della campagna");
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Sei sicuro di voler eliminare questa campagna?")) return;
-
-    if (isDemoMode) {
-      const campaign = campaigns.find((c) => c.id === id);
-      const leadCount = campaign?.leadCount || campaign?.metrics?.totalLeads || 0;
-      if (leadCount > 0) {
-        toast.error("Impossibile eliminare: la campagna ha lead associati");
-        return;
-      }
-      setCampaigns(campaigns.filter((c) => c.id !== id));
-      toast.success("Campagna eliminata");
-      return;
-    }
 
     try {
       const res = await fetch(`/api/campaigns/${id}`, { method: "DELETE" });
@@ -341,12 +277,6 @@ export default function MarketingCampaignsPage() {
           <p className="text-gray-500">Gestisci le tue campagne pubblicitarie</p>
         </div>
         <div className="flex items-center gap-3">
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Demo
-            </div>
-          )}
           <ExportButton
             data={campaigns.map(c => ({
               ...c,
@@ -625,9 +555,6 @@ export default function MarketingCampaignsPage() {
           <div className="bg-white rounded-xl p-6 w-full max-w-lg">
             <h2 className="text-xl font-bold mb-4">
               {editingCampaign ? "Modifica Campagna" : "Nuova Campagna"}
-              {isDemoMode && (
-                <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>
-              )}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -771,7 +698,6 @@ export default function MarketingCampaignsPage() {
             setSelectedCampaignForSpend(null);
           }}
           onUpdate={fetchData}
-          isDemoMode={isDemoMode}
         />
       )}
     </div>

@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       id: campaign.id,
       name: campaign.name,
       platform: campaign.platform,
-      courseName: campaign.course.name,
+      courseName: campaign.course?.name || "N/D",
     }));
 
     const formattedCourses = courses.map((course) => ({

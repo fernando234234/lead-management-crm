@@ -2,16 +2,14 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockCampaigns } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
-import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { PieChart } from "@/components/charts/PieChart";
 import { BarChart } from "@/components/charts/BarChart";
-import { Megaphone, Users, Euro, TrendingUp, TestTube } from "lucide-react";
+import { Megaphone, Users, Euro, TrendingUp } from "lucide-react";
 import { HelpIcon } from "@/components/ui/HelpIcon";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { marketingTourSteps } from "@/lib/tourSteps";
+import toast from "react-hot-toast";
 
 interface Campaign {
   id: string;
@@ -64,32 +62,14 @@ const PLATFORM_CHART_COLORS: Record<string, string> = {
 
 export default function MarketingDashboard() {
   const { data: session } = useSession();
-  const { isDemoMode } = useDemoMode();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState<string | null>(null);
-  const [endDate, setEndDate] = useState<string | null>(null);
-
-  // Mock user ID for demo mode (Giulia Rossi - marketing user)
-  const DEMO_USER_ID = "5";
-
-  const handleDateChange = (start: string | null, end: string | null) => {
-    setStartDate(start);
-    setEndDate(end);
-  };
 
   useEffect(() => {
-    if (isDemoMode) {
-      // Filter mock campaigns by demo user
-      const demoCampaigns = mockCampaigns.filter(
-        (campaign) => campaign.createdBy?.id === DEMO_USER_ID
-      ) as Campaign[];
-      setCampaigns(demoCampaigns);
-      setLoading(false);
-    } else if (session?.user?.id) {
+    if (session?.user?.id) {
       fetchCampaigns();
     }
-  }, [isDemoMode, session?.user?.id]);
+  }, [session?.user?.id]);
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -99,6 +79,7 @@ export default function MarketingDashboard() {
       setCampaigns(data.campaigns || data || []);
     } catch (error) {
       console.error("Failed to fetch campaigns:", error);
+      toast.error("Errore nel caricamento delle campagne");
     } finally {
       setLoading(false);
     }
@@ -171,12 +152,6 @@ export default function MarketingDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard Marketing</h1>
           <p className="text-gray-500">Campagne, costi e performance</p>
         </div>
-        {isDemoMode && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-            <TestTube size={16} />
-            Modalita Demo
-          </div>
-        )}
       </div>
 
       {/* Onboarding Tour */}

@@ -27,83 +27,112 @@ model User {
 }
 
 model Course {
-  id          String     @id @default(cuid())
+  id          String           @id @default(cuid())
   name        String
   description String?
-  price       Decimal    @db.Decimal(10, 2)
+  price       Decimal          @db.Decimal(10, 2)
   startDate   DateTime?
   endDate     DateTime?
-  active      Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  campaigns   Campaign[]
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  campaigns   MasterCampaign[]
+  legacyCampaigns Campaign[]
   leads       Lead[]
 }
 
 model Lead {
-  id              String         @id @default(cuid())
+  id              String       @id @default(cuid())
   name            String
   email           String?
   phone           String?
   courseId        String
-  isTarget        Boolean        @default(false)
   notes           String?
-  contacted       Boolean        @default(false)
+  
+  // Binary Statuses (Default: No/False)
+  contacted       Boolean      @default(false)
   contactedAt     DateTime?
   contactedById   String?
-  callOutcome     CallOutcome?
-  outcomeNotes    String?
-  enrolled        Boolean        @default(false)
+  
+  isTarget        Boolean      @default(false)
+  targetNote      String?
+  
+  enrolled        Boolean      @default(false)
   enrolledAt      DateTime?
-  appointmentDate DateTime?
-  appointmentNotes String?
-  assignedToId    String?
+  
+  // Relations
   campaignId      String?
+  assignedToId    String?
   createdById     String?
-  acquisitionCost Decimal?       @db.Decimal(10, 2)
-  revenue         Decimal?       @db.Decimal(10, 2)
-  source          LeadSource     @default(MANUAL)
-  status          LeadStatus     @default(NUOVO)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  assignedTo      User?          @relation("AssignedTo", fields: [assignedToId], references: [id])
-  campaign        Campaign?      @relation(fields: [campaignId], references: [id])
-  contactedBy     User?          @relation("ContactedBy", fields: [contactedById], references: [id])
-  createdBy       User?          @relation("CreatedBy", fields: [createdById], references: [id])
-  course          Course         @relation(fields: [courseId], references: [id])
-  activities      LeadActivity[]
-  tasks           Task[]
+  
+  // Metrics
+  acquisitionCost Decimal?     @db.Decimal(10, 2)
+  revenue         Decimal?     @db.Decimal(10, 2)
+  source          LeadSource   @default(MANUAL)
+  status          LeadStatus   @default(NUOVO) // Legacy/Migration compatibility
+  
+  // Timestamps
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  // Metadata
+  appointmentDate  DateTime?
+  appointmentNotes String?
+  callOutcome      CallOutcome?
+  outcomeNotes     String?
+
+  // Relations
+  assignedTo       User?          @relation("AssignedTo", fields: [assignedToId], references: [id])
+  campaign         Campaign?      @relation(fields: [campaignId], references: [id])
+  contactedBy      User?          @relation("ContactedBy", fields: [contactedById], references: [id])
+  course           Course         @relation(fields: [courseId], references: [id])
+  createdBy        User?          @relation("CreatedBy", fields: [createdById], references: [id])
+  activities       LeadActivity[]
+  tasks            Task[]
 
   @@index([courseId])
   @@index([campaignId])
   @@index([assignedToId])
   @@index([createdById])
-  @@index([status])
-  @@index([contacted])
-  @@index([enrolled])
   @@index([source])
-  @@index([isTarget])
+}
+
+model MasterCampaign {
+  id          String     @id @default(cuid())
+  name        String     // e.g. "Summer Excel Sale"
+  courseId    String
+  status      String     @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  course      Course     @relation(fields: [courseId], references: [id])
+  campaigns   Campaign[] // Platform variants (Meta, Google, etc)
 }
 
 model Campaign {
-  id           String          @id @default(cuid())
-  name         String
-  platform     Platform
-  courseId     String
-  createdById  String
-  budget       Decimal         @default(0) @db.Decimal(10, 2)
-  status       CampaignStatus  @default(ACTIVE)
-  startDate    DateTime        @default(now())
-  endDate      DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  course       Course          @relation(fields: [courseId], references: [id])
-  createdBy    User            @relation("CampaignCreator", fields: [createdById], references: [id])
-  spendRecords CampaignSpend[]
-  leads        Lead[]
+  id               String          @id @default(cuid())
+  masterCampaignId String?
+  name             String          // e.g. "Meta - Summer Excel"
+  platform         Platform
+  budget           Decimal         @default(0) @db.Decimal(10, 2)
+  status           CampaignStatus  @default(ACTIVE)
+  startDate        DateTime        @default(now())
+  endDate          DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  createdById      String
+  
+  masterCampaign   MasterCampaign? @relation(fields: [masterCampaignId], references: [id])
+  createdBy        User            @relation("CampaignCreator", fields: [createdById], references: [id])
+  spendRecords     CampaignSpend[]
+  leads            Lead[]
+  
+  // Legacy fields kept optional for migration if needed, but we're shifting to MasterCampaign
+  courseId         String? 
+  course           Course?         @relation(fields: [courseId], references: [id])
 
   @@index([platform])
-  @@index([courseId])
+  @@index([masterCampaignId])
   @@index([createdById])
   @@index([status])
 }
@@ -199,18 +228,18 @@ model Task {
 }
 
 model Goal {
-  id              String   @id @default(cuid())
-  userId          String
-  month           Int      // 1-12
-  year            Int      // e.g., 2024
-  targetLeads     Int      @default(0)     // Target number of leads to contact
-  targetEnrolled  Int      @default(0)     // Target number of enrollments
-  targetCalls     Int      @default(0)     // Target number of calls
-  targetRevenue   Decimal  @default(0) @db.Decimal(10, 2)  // Target revenue
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  userId         String
+  month          Int
+  year           Int
+  targetLeads    Int      @default(0)
+  targetEnrolled Int      @default(0)
+  targetCalls    Int      @default(0)
+  targetRevenue  Decimal  @default(0) @db.Decimal(10, 2)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, month, year])
   @@index([userId])
@@ -239,10 +268,9 @@ enum CallOutcome {
 }
 
 enum Platform {
-  FACEBOOK
-  INSTAGRAM
-  LINKEDIN
+  META          // Facebook + Instagram
   GOOGLE_ADS
+  LINKEDIN
   TIKTOK
 }
 
@@ -266,12 +294,12 @@ enum ActivityType {
 
 enum NotificationType {
   LEAD_ASSIGNED
-  LEAD_CREATED
   LEAD_STATUS_CHANGED
   LEAD_ENROLLED
   CAMPAIGN_CREATED
   REMINDER
   SYSTEM
+  LEAD_CREATED
 }
 
 enum TaskPriority {

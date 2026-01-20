@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockCourses, mockLeads } from "@/lib/mockData";
-import { BookOpen, Calendar, Users, TestTube, Euro } from "lucide-react";
+import { BookOpen, Calendar, Users, Euro } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -29,33 +27,13 @@ interface Lead {
 }
 
 export default function CommercialCoursesPage() {
-  const { isDemoMode } = useDemoMode();
   const [courses, setCourses] = useState<Course[]>([]);
   const [myLeadCounts, setMyLeadCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
-  // Demo user ID (simulating a commercial user)
-  const demoUserId = "1"; // Marco Verdi in mockData
-
   useEffect(() => {
-    if (isDemoMode) {
-      setCourses(mockCourses as Course[]);
-
-      // Calculate my lead count per course
-      const counts: Record<string, number> = {};
-      mockLeads
-        .filter((lead) => lead.assignedTo?.id === demoUserId)
-        .forEach((lead) => {
-          if (lead.course?.id) {
-            counts[lead.course.id] = (counts[lead.course.id] || 0) + 1;
-          }
-        });
-      setMyLeadCounts(counts);
-      setLoading(false);
-    } else {
-      fetchData();
-    }
-  }, [isDemoMode]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -122,12 +100,6 @@ export default function CommercialCoursesPage() {
             Visualizza i corsi e i tuoi lead per ciascun corso
           </p>
         </div>
-        {isDemoMode && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-            <TestTube size={16} />
-            Demo
-          </div>
-        )}
       </div>
 
       {/* Courses Table */}

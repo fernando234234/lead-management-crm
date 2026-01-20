@@ -83,24 +83,46 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Find course by name (case-insensitive)
-          let courseId = defaultCourse.id;
+          // Find or create course by name
+          let courseId = "";
           if (lead.courseName) {
-            const foundCourseId = courseMap.get(lead.courseName.toLowerCase().trim());
+            const courseNameClean = lead.courseName.trim();
+            const foundCourseId = courseMap.get(courseNameClean.toLowerCase());
+            
             if (foundCourseId) {
               courseId = foundCourseId;
             } else {
-              // Try partial match
+              // Try partial match first to avoid duplicates with slight variations
               const partialMatch = Array.from(courseMap.entries()).find(([name]) =>
-                name.includes(lead.courseName!.toLowerCase().trim()) ||
-                lead.courseName!.toLowerCase().trim().includes(name)
+                name.includes(courseNameClean.toLowerCase()) ||
+                courseNameClean.toLowerCase().includes(name)
               );
+              
               if (partialMatch) {
                 courseId = partialMatch[1];
+              } else {
+                // Create new course (Condition 2: Extract courses from CSV)
+                const newCourse = await prisma.course.create({
+                  data: {
+                    name: courseNameClean,
+                    price: 0, // Default price, can be updated later
+                    active: true,
+                  }
+                });
+                courseId = newCourse.id;
+                // Add to map to reuse for subsequent rows
+                courseMap.set(courseNameClean.toLowerCase(), newCourse.id);
               }
-              // If no match found, use default course and add a warning
-              // (we don't fail the import for this)
             }
+          } else if (defaultCourse) {
+             // Fallback only if no course name provided at all
+             courseId = defaultCourse.id;
+          } else {
+             errors.push({
+               row: rowNumber,
+               message: "Nome corso mancante e nessun corso di default disponibile",
+             });
+             continue;
           }
 
           // Find campaign by name (case-insensitive)

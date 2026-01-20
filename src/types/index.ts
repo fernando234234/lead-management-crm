@@ -1,7 +1,10 @@
 // User roles
 export type UserRole = 'admin' | 'commercial' | 'marketing';
 
-// Lead status from your notes
+// Tri-state for lead fields (Contattato, Target, Iscritto)
+export type TriState = 'SI' | 'NO' | 'ND';
+
+// Legacy lead status (kept for migration compatibility)
 export type LeadStatus = 'nuovo' | 'contattato' | 'in_trattativa' | 'iscritto' | 'perso';
 export type ContactOutcome = 'positivo' | 'negativo' | 'richiamre' | 'non_risponde';
 
@@ -39,21 +42,30 @@ export interface Lead {
   courseId: string;
   course?: Course;
   
-  // Lead tracking (TARGET, NOTE)
-  target: boolean;
+  // Notes
   notes?: string;
   
-  // Contact status (CONTATTATO -> SI/NO)
-  contacted: boolean;
+  // Tri-state fields: SI (yes), NO (no), ND (not determined)
+  contattatoStato: TriState;
+  contattatoAt?: Date;
+  contattatoById?: string;
+  contattatoNote?: string;
+  
+  targetStato: TriState;
+  targetNote?: string;
+  
+  iscrittoStato: TriState;
+  iscrittoAt?: Date;
+  iscrittoNote?: string;
+  
+  // Legacy fields (kept for migration compatibility)
+  target?: boolean;
+  contacted?: boolean;
   contactedAt?: Date;
   contactedBy?: string;
-  
-  // Call outcome (TEL PER ESITO -> SAPERE ESITO)
   callOutcome?: ContactOutcome;
   outcomeNotes?: string;
-  
-  // Enrolled status (ISCRITTO -> SI/NO)
-  enrolled: boolean;
+  enrolled?: boolean;
   enrolledAt?: Date;
   
   // Assigned commercial

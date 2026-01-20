@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
 import { useDataFilter, getDataSourceParam } from "@/contexts/DataFilterContext";
 import { 
   Users, 
@@ -10,7 +9,6 @@ import {
   Euro, 
   Target,
   Calendar,
-  TestTube,
   FileSpreadsheet,
   ArrowDown,
   ArrowUp,
@@ -81,7 +79,6 @@ const courseExportColumns = [
 ];
 
 export default function DashboardCommercialePage() {
-  const { isDemoMode } = useDemoMode();
   const { dataSource } = useDataFilter();
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -107,7 +104,7 @@ export default function DashboardCommercialePage() {
 
   useEffect(() => {
     fetchData();
-  }, [isDemoMode, dataSource]);
+  }, [dataSource]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -474,12 +471,6 @@ export default function DashboardCommercialePage() {
             onChange={handleDateChange}
             presets
           />
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Demo
-            </div>
-          )}
         </div>
       </div>
 

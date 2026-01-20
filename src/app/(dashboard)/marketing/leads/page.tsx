@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockCampaigns, mockLeads } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import {
   Users,
@@ -11,7 +9,6 @@ import {
   Megaphone,
   TrendingUp,
   Euro,
-  TestTube,
   ChevronDown,
   ChevronRight,
   Pencil,
@@ -20,6 +17,13 @@ import {
   Square,
   Minus,
   Zap,
+  CheckCircle,
+  XCircle,
+  HelpCircle,
+  Plus,
+  X,
+  Phone,
+  Mail,
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
@@ -28,12 +32,16 @@ import { BulkCostModal } from "@/components/ui/BulkCostModal";
 import { QuickDistributeCostModal } from "@/components/ui/QuickDistributeCostModal";
 import toast from "react-hot-toast";
 
+// Tri-state type (removed, using boolean)
+
 // Export columns configuration
 const leadExportColumns = [
   { key: "name", label: "Nome" },
   { key: "email", label: "Email" },
   { key: "phone", label: "Telefono" },
-  { key: "status", label: "Stato" },
+  { key: "contacted", label: "Contattato" },
+  { key: "isTarget", label: "Target" },
+  { key: "enrolled", label: "Iscritto" },
   { key: "campaign.name", label: "Campagna" },
   { key: "campaign.platform", label: "Piattaforma" },
   { key: "acquisitionCost", label: "Costo Acquisizione" },
@@ -42,29 +50,16 @@ const leadExportColumns = [
 
 // Platform options
 const platformOptions = [
-  { value: "FACEBOOK", label: "Facebook" },
-  { value: "INSTAGRAM", label: "Instagram" },
+  { value: "META", label: "Meta (FB/IG)" },
   { value: "LINKEDIN", label: "LinkedIn" },
   { value: "GOOGLE_ADS", label: "Google Ads" },
   { value: "TIKTOK", label: "TikTok" },
 ];
 
-// Status options for leads
-const statusOptions = [
-  { value: "", label: "Tutti gli stati" },
-  { value: "NUOVO", label: "Nuovo" },
-  { value: "CONTATTATO", label: "Contattato" },
-  { value: "IN_TRATTATIVA", label: "In Trattativa" },
-  { value: "ISCRITTO", label: "Iscritto" },
-  { value: "PERSO", label: "Perso" },
-];
-
-const statusColors: Record<string, string> = {
-  NUOVO: "bg-blue-100 text-blue-700",
-  CONTATTATO: "bg-yellow-100 text-yellow-700",
-  IN_TRATTATIVA: "bg-purple-100 text-purple-700",
-  ISCRITTO: "bg-green-100 text-green-700",
-  PERSO: "bg-red-100 text-red-700",
+// Boolean display helpers
+const booleanConfig = {
+  true: { label: "Sì", color: "bg-green-100 text-green-700", icon: CheckCircle },
+  false: { label: "No", color: "bg-red-100 text-red-700", icon: XCircle },
 };
 
 interface Lead {
@@ -72,15 +67,13 @@ interface Lead {
   name: string;
   email: string | null;
   phone: string | null;
-  status: string;
+  notes: string | null;
   contacted: boolean;
   contactedAt: string | null;
+  isTarget: boolean;
+  targetNote: string | null;
   enrolled: boolean;
   enrolledAt: string | null;
-  isTarget: boolean;
-  notes: string | null;
-  callOutcome: string | null;
-  outcomeNotes: string | null;
   acquisitionCost: number;
   createdAt: string;
   campaign: {
@@ -110,6 +103,11 @@ interface Campaign {
   id: string;
   name: string;
   platform: string;
+  status?: string;
+  course?: {
+    id: string;
+    name: string;
+  };
   totalSpent?: number;
   cost?: number;
   leadCount?: number;
@@ -130,13 +128,14 @@ interface GroupedLeads {
 }
 
 export default function MarketingLeadsPage() {
-  const { isDemoMode } = useDemoMode();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCampaign, setFilterCampaign] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterContattato, setFilterContattato] = useState<string>("");
+  const [filterTarget, setFilterTarget] = useState<string>("");
+  const [filterIscritto, setFilterIscritto] = useState<string>("");
   const [filterWithoutCost, setFilterWithoutCost] = useState(false);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   
@@ -144,13 +143,26 @@ export default function MarketingLeadsPage() {
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // Create form data
+  const [createFormData, setCreateFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    courseId: "",
+    campaignId: "",
+    notes: "",
+  });
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    status: "NUOVO",
     notes: "",
+    contacted: false,
     isTarget: false,
+    enrolled: false,
     acquisitionCost: "",
   });
   
@@ -163,16 +175,73 @@ export default function MarketingLeadsPage() {
     campaign: Campaign;
     leads: Lead[];
   } | null>(null);
+  
+  // Available courses (derived from campaigns)
+  const availableCourses = useMemo(() => {
+    const courseMap = new Map();
+    campaigns.forEach(c => {
+      if (c.course) {
+        courseMap.set(c.course.id, c.course.name);
+      }
+    });
+    return Array.from(courseMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [campaigns]);
+
+  // Filter campaigns for create modal based on selected course
+  const filteredCreateCampaigns = useMemo(() => {
+    if (!createFormData.courseId) return campaigns;
+    return campaigns.filter(c => c.course?.id === createFormData.courseId && c.status === "ACTIVE");
+  }, [campaigns, createFormData.courseId]);
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!createFormData.name || !createFormData.courseId || !createFormData.campaignId) {
+      toast.error("Compila tutti i campi obbligatori");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createFormData.name,
+          email: createFormData.email || null,
+          phone: createFormData.phone || null,
+          courseId: createFormData.courseId,
+          campaignId: createFormData.campaignId,
+          notes: createFormData.notes || null,
+          source: "MANUAL", // Created by marketer manually
+          createdById: "marketing-user", // Should be session user id really
+          contattatoStato: "ND",
+          targetStato: "ND",
+          iscrittoStato: "ND",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create lead");
+
+      toast.success("Lead creato con successo");
+      setShowCreateModal(false);
+      setCreateFormData({
+        name: "",
+        email: "",
+        phone: "",
+        courseId: "",
+        campaignId: "",
+        notes: "",
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Failed to create lead:", error);
+      toast.error("Errore nella creazione del lead");
+    }
+  };
 
   useEffect(() => {
-    if (isDemoMode) {
-      setLeads(mockLeads as Lead[]);
-      setCampaigns(mockCampaigns as Campaign[]);
-      setLoading(false);
-    } else {
-      fetchData();
-    }
-  }, [isDemoMode]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -191,6 +260,7 @@ export default function MarketingLeadsPage() {
       setCampaigns(campaignsData);
     } catch (error) {
       console.error("Failed to fetch data:", error);
+      toast.error("Errore nel caricamento dei dati");
     } finally {
       setLoading(false);
     }
@@ -205,11 +275,13 @@ export default function MarketingLeadsPage() {
         (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesCampaign =
         !filterCampaign || lead.campaign?.id === filterCampaign;
-      const matchesStatus = !filterStatus || lead.status === filterStatus;
+      const matchesContattato = filterContattato === "" || lead.contacted === (filterContattato === "true");
+      const matchesTarget = filterTarget === "" || lead.isTarget === (filterTarget === "true");
+      const matchesIscritto = filterIscritto === "" || lead.enrolled === (filterIscritto === "true");
       const matchesWithoutCost = !filterWithoutCost || !lead.acquisitionCost || lead.acquisitionCost === 0;
-      return matchesSearch && matchesCampaign && matchesStatus && matchesWithoutCost;
+      return matchesSearch && matchesCampaign && matchesContattato && matchesTarget && matchesIscritto && matchesWithoutCost;
     });
-  }, [leads, searchTerm, filterCampaign, filterStatus, filterWithoutCost]);
+  }, [leads, searchTerm, filterCampaign, filterContattato, filterTarget, filterIscritto, filterWithoutCost]);
 
   // Group leads by campaign
   const groupedLeads = useMemo((): GroupedLeads[] => {
@@ -267,7 +339,7 @@ export default function MarketingLeadsPage() {
       totalLeads: costMetrics.totalLeads,
       leadsWithCost: costMetrics.leadsWithCost,
       totalCost: costMetrics.totalCost,
-      avgCpl: costMetrics.cplEffettivo,  // Use correct CPL (only divide by leads WITH cost)
+      avgCpl: costMetrics.cplEffettivo,
       costCoverage: costMetrics.coverage,
       uniqueCampaigns,
     };
@@ -275,10 +347,6 @@ export default function MarketingLeadsPage() {
 
   const getPlatformLabel = (platform: string) => {
     return platformOptions.find((p) => p.value === platform)?.label || platform;
-  };
-
-  const getStatusLabel = (status: string) => {
-    return statusOptions.find((s) => s.value === status)?.label || status;
   };
 
   const toggleCampaignExpanded = (campaignId: string) => {
@@ -321,10 +389,8 @@ export default function MarketingLeadsPage() {
     setSelectedLeads((prev) => {
       const newSet = new Set(prev);
       if (allSelected) {
-        // Deselect all from this campaign
         campaignLeadIds.forEach((id) => newSet.delete(id));
       } else {
-        // Select all from this campaign
         campaignLeadIds.forEach((id) => newSet.add(id));
       }
       return newSet;
@@ -339,17 +405,6 @@ export default function MarketingLeadsPage() {
   const handleBulkSetCost = async (cost: number) => {
     const leadIds = Array.from(selectedLeads);
     
-    if (isDemoMode) {
-      setLeads(
-        leads.map((l) =>
-          selectedLeads.has(l.id) ? { ...l, acquisitionCost: cost } : l
-        )
-      );
-      clearSelection();
-      setShowBulkCostModal(false);
-      return;
-    }
-
     try {
       await fetch("/api/leads/bulk", {
         method: "POST",
@@ -362,27 +417,17 @@ export default function MarketingLeadsPage() {
       });
       clearSelection();
       setShowBulkCostModal(false);
+      toast.success("Costi aggiornati con successo");
       fetchData();
     } catch (error) {
       console.error("Failed to set bulk cost:", error);
+      toast.error("Errore nell'aggiornamento dei costi");
     }
   };
 
   const handleBulkDistributeCost = async (totalBudget: number) => {
     const leadIds = Array.from(selectedLeads);
-    const costPerLead = totalBudget / leadIds.length;
     
-    if (isDemoMode) {
-      setLeads(
-        leads.map((l) =>
-          selectedLeads.has(l.id) ? { ...l, acquisitionCost: costPerLead } : l
-        )
-      );
-      clearSelection();
-      setShowBulkCostModal(false);
-      return;
-    }
-
     try {
       await fetch("/api/leads/bulk", {
         method: "POST",
@@ -395,26 +440,16 @@ export default function MarketingLeadsPage() {
       });
       clearSelection();
       setShowBulkCostModal(false);
+      toast.success("Costi distribuiti con successo");
       fetchData();
     } catch (error) {
       console.error("Failed to distribute cost:", error);
+      toast.error("Errore nella distribuzione dei costi");
     }
   };
 
   // Handle quick period-wise distribution
   const handleQuickDistribute = async (distributions: { leadId: string; cost: number }[]) => {
-    if (isDemoMode) {
-      const costMap = new Map(distributions.map(d => [d.leadId, d.cost]));
-      setLeads(
-        leads.map((l) =>
-          costMap.has(l.id) ? { ...l, acquisitionCost: costMap.get(l.id)! } : l
-        )
-      );
-      setQuickDistributeCampaign(null);
-      toast.success("Costi distribuiti con successo!");
-      return;
-    }
-
     try {
       const response = await fetch("/api/leads/bulk", {
         method: "POST",
@@ -439,16 +474,31 @@ export default function MarketingLeadsPage() {
     }
   };
 
-  // Open edit modal
+  // Handle lead update from detail modal
+  const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
+    try {
+      await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Failed to update lead:", error);
+      toast.error("Errore nell'aggiornamento del lead");
+    }
+  };
+
   const openEditModal = (lead: Lead) => {
     setEditingLead(lead);
     setFormData({
       name: lead.name,
       email: lead.email || "",
       phone: lead.phone || "",
-      status: lead.status,
       notes: lead.notes || "",
+      contacted: lead.contacted,
       isTarget: lead.isTarget,
+      enrolled: lead.enrolled,
       acquisitionCost: lead.acquisitionCost ? String(lead.acquisitionCost) : "",
     });
     setShowEditModal(true);
@@ -463,27 +513,6 @@ export default function MarketingLeadsPage() {
       ? parseFloat(formData.acquisitionCost) 
       : null;
 
-    if (isDemoMode) {
-      setLeads(
-        leads.map((l) =>
-          l.id === editingLead.id
-            ? {
-                ...l,
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone,
-                status: formData.status,
-                notes: formData.notes,
-                isTarget: formData.isTarget,
-                acquisitionCost: acquisitionCostValue || 0,
-              }
-            : l
-        )
-      );
-      setShowEditModal(false);
-      return;
-    }
-
     try {
       await fetch(`/api/leads/${editingLead.id}`, {
         method: "PUT",
@@ -492,39 +521,70 @@ export default function MarketingLeadsPage() {
           name: formData.name,
           email: formData.email || null,
           phone: formData.phone || null,
-          status: formData.status,
           notes: formData.notes || null,
+          contacted: formData.contacted,
           isTarget: formData.isTarget,
+          enrolled: formData.enrolled,
           acquisitionCost: acquisitionCostValue,
         }),
       });
       setShowEditModal(false);
+      toast.success("Lead aggiornato con successo");
       fetchData();
     } catch (error) {
       console.error("Failed to update lead:", error);
+      toast.error("Errore nell'aggiornamento del lead");
     }
   };
 
-  // Handle lead update from detail modal
-  const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
-    if (isDemoMode) {
-      setLeads(leads.map((l) => (l.id === leadId ? { ...l, ...data } : l)));
-      if (detailLead?.id === leadId) {
-        setDetailLead({ ...detailLead, ...data } as Lead);
-      }
-      return;
-    }
+  // Boolean Toggle Component
+  const BooleanToggle = ({
+    value,
+    onChange,
+    label,
+  }: {
+    value: boolean;
+    onChange: (value: boolean) => void;
+    label: string;
+  }) => {
+    return (
+      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <label className="text-sm font-medium text-gray-700">
+          {label}
+        </label>
+        <button
+          type="button"
+          onClick={() => onChange(!value)}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+            value ? "bg-green-600" : "bg-gray-200"
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+              value ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+    );
+  };
 
-    try {
-      await fetch(`/api/leads/${leadId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      fetchData();
-    } catch (error) {
-      console.error("Failed to update lead:", error);
+  // Render boolean badge
+  const BooleanBadge = ({ value }: { value: boolean }) => {
+    if (value) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+          <CheckCircle size={12} />
+          Sì
+        </span>
+      );
     }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+        <XCircle size={12} />
+        No
+      </span>
+    );
   };
 
   if (loading) {
@@ -540,17 +600,18 @@ export default function MarketingLeadsPage() {
           <p className="text-gray-500">Visualizza i lead raggruppati per campagna</p>
         </div>
         <div className="flex items-center gap-3">
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Demo
-            </div>
-          )}
           <ExportButton
             data={filteredLeads}
             columns={leadExportColumns}
             filename="lead_campagne_export"
           />
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-marketing text-white rounded-lg hover:opacity-90 transition font-medium"
+          >
+            <Plus size={18} />
+            Nuovo Lead
+          </button>
         </div>
       </div>
 
@@ -619,15 +680,31 @@ export default function MarketingLeadsPage() {
             ))}
           </select>
           <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            value={filterContattato}
+            onChange={(e) => setFilterContattato(e.target.value)}
             className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
           >
-            {statusOptions.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
+            <option value="">Contattato: Tutti</option>
+            <option value="true">Contattato: Sì</option>
+            <option value="false">Contattato: No</option>
+          </select>
+          <select
+            value={filterTarget}
+            onChange={(e) => setFilterTarget(e.target.value)}
+            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
+          >
+            <option value="">Target: Tutti</option>
+            <option value="true">Target: Sì</option>
+            <option value="false">Target: No</option>
+          </select>
+          <select
+            value={filterIscritto}
+            onChange={(e) => setFilterIscritto(e.target.value)}
+            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
+          >
+            <option value="">Iscritto: Tutti</option>
+            <option value="true">Iscritto: Sì</option>
+            <option value="false">Iscritto: No</option>
           </select>
           <label className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
             <input
@@ -786,7 +863,9 @@ export default function MarketingLeadsPage() {
                       </th>
                       <th className="p-3 font-medium">Nome</th>
                       <th className="p-3 font-medium">Email</th>
-                      <th className="p-3 font-medium">Stato</th>
+                      <th className="p-3 font-medium">Contattato</th>
+                      <th className="p-3 font-medium">Target</th>
+                      <th className="p-3 font-medium">Iscritto</th>
                       <th className="p-3 font-medium">Data</th>
                       <th className="p-3 font-medium">Costo Acq.</th>
                       <th className="p-3 font-medium">Azioni</th>
@@ -812,25 +891,16 @@ export default function MarketingLeadsPage() {
                             )}
                           </button>
                         </td>
-                        <td className="p-3 font-medium">
-                          <div className="flex items-center gap-2">
-                            {lead.name}
-                            {lead.isTarget && (
-                              <span className="px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">
-                                Target
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-3 text-gray-600">{lead.email}</td>
+                        <td className="p-3 font-medium">{lead.name}</td>
+                        <td className="p-3 text-gray-600">{lead.email || "-"}</td>
                         <td className="p-3">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              statusColors[lead.status] || "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {getStatusLabel(lead.status)}
-                          </span>
+                          <BooleanBadge value={lead.contacted} />
+                        </td>
+                        <td className="p-3">
+                          <BooleanBadge value={lead.isTarget} />
+                        </td>
+                        <td className="p-3">
+                          <BooleanBadge value={lead.enrolled} />
                         </td>
                         <td className="p-3 text-gray-600">
                           {new Date(lead.createdAt).toLocaleDateString("it-IT")}
@@ -880,12 +950,7 @@ export default function MarketingLeadsPage() {
       {showEditModal && editingLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">
-              Modifica Lead
-              {isDemoMode && (
-                <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>
-              )}
-            </h2>
+            <h2 className="text-xl font-bold mb-4">Modifica Lead</h2>
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -923,22 +988,26 @@ export default function MarketingLeadsPage() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stato
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                >
-                  {statusOptions.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
+              
+              {/* Boolean toggles */}
+              <div className="space-y-4 pt-2">
+                <BooleanToggle
+                  label="Contattato"
+                  value={formData.contacted}
+                  onChange={(value) => setFormData({ ...formData, contacted: value })}
+                />
+                <BooleanToggle
+                  label="Target (In obiettivo)"
+                  value={formData.isTarget}
+                  onChange={(value) => setFormData({ ...formData, isTarget: value })}
+                />
+                <BooleanToggle
+                  label="Iscritto"
+                  value={formData.enrolled}
+                  onChange={(value) => setFormData({ ...formData, enrolled: value })}
+                />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Costo Acquisizione (€)
@@ -955,18 +1024,6 @@ export default function MarketingLeadsPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   Costo effettivo per acquisire questo lead
                 </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isTarget"
-                  checked={formData.isTarget}
-                  onChange={(e) => setFormData({ ...formData, isTarget: e.target.checked })}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="isTarget" className="text-sm text-gray-700">
-                  Lead Target (prioritario)
-                </label>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -999,13 +1056,142 @@ export default function MarketingLeadsPage() {
         </div>
       )}
 
+      {/* Create Lead Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Nuovo Lead</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={createFormData.name}
+                  onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={createFormData.email}
+                    onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefono
+                  </label>
+                  <input
+                    type="tel"
+                    value={createFormData.phone}
+                    onChange={(e) => setCreateFormData({ ...createFormData, phone: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Corso <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={createFormData.courseId}
+                  onChange={(e) => setCreateFormData({ 
+                    ...createFormData, 
+                    courseId: e.target.value,
+                    campaignId: "" // Reset campaign when course changes
+                  })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                >
+                  <option value="">Seleziona un corso</option>
+                  {availableCourses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Campagna <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={createFormData.campaignId}
+                  onChange={(e) => setCreateFormData({ ...createFormData, campaignId: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                  disabled={!createFormData.courseId}
+                >
+                  <option value="">
+                    {createFormData.courseId ? "Seleziona una campagna" : "Seleziona prima un corso"}
+                  </option>
+                  {filteredCreateCampaigns.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {campaign.name} ({campaign.platform})
+                    </option>
+                  ))}
+                </select>
+                {createFormData.courseId && filteredCreateCampaigns.length === 0 && (
+                  <p className="text-sm text-amber-600 mt-1">
+                    Nessuna campagna attiva per questo corso.
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note
+                </label>
+                <textarea
+                  value={createFormData.notes}
+                  onChange={(e) => setCreateFormData({ ...createFormData, notes: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  disabled={!createFormData.name || !createFormData.courseId || !createFormData.campaignId}
+                  className="flex-1 px-4 py-2 bg-marketing text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                >
+                  Crea Lead
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Lead Detail Modal */}
       {detailLead && (
         <LeadDetailModal
           lead={detailLead}
           onClose={() => setDetailLead(null)}
           onUpdate={handleLeadUpdate}
-          isDemoMode={isDemoMode}
           accentColor="marketing"
         />
       )}

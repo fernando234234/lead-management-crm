@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockLeads } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import { PieChart, BarChart, LineChart } from "@/components/charts";
 import {
@@ -11,7 +9,6 @@ import {
   UserCheck,
   Target,
   PhoneMissed,
-  TestTube,
 } from "lucide-react";
 
 interface Lead {
@@ -56,60 +53,12 @@ const outcomeLabels: Record<string, string> = {
 // Order: POSITIVO (green), NEGATIVO (red), RICHIAMARE (yellow), NON_RISPONDE (gray)
 
 export default function CommercialStatsPage() {
-  const { isDemoMode } = useDemoMode();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Demo user ID (simulating a commercial user)
-  const demoUserId = "1"; // Marco Verdi in mockData
-
   useEffect(() => {
-    if (isDemoMode) {
-      // Filter leads assigned to current user
-      const myLeads = mockLeads.filter(
-        (lead) => lead.assignedTo?.id === demoUserId
-      );
-
-      // Calculate stats
-      const leadsByStatus: Record<string, number> = {};
-      const callOutcomes: Record<string, number> = {};
-
-      myLeads.forEach((lead) => {
-        leadsByStatus[lead.status] = (leadsByStatus[lead.status] || 0) + 1;
-        if (lead.callOutcome) {
-          callOutcomes[lead.callOutcome] = (callOutcomes[lead.callOutcome] || 0) + 1;
-        }
-      });
-
-      const totalLeads = myLeads.length;
-      const contactedLeads = myLeads.filter((l) => l.contacted).length;
-      const enrolledLeads = myLeads.filter((l) => l.enrolled).length;
-      const conversionRate =
-        totalLeads > 0
-          ? ((enrolledLeads / totalLeads) * 100).toFixed(1)
-          : "0.0";
-
-      // Generate fake monthly data for demo
-      const months = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu"];
-      const leadsByMonth = months.map((month, i) => ({
-        month,
-        count: Math.floor(Math.random() * 15) + 5 + i * 2,
-      }));
-
-      setStats({
-        totalLeads,
-        contactedLeads,
-        enrolledLeads,
-        conversionRate,
-        leadsByStatus,
-        callOutcomes,
-        leadsByMonth,
-      });
-      setLoading(false);
-    } else {
-      fetchStats();
-    }
-  }, [isDemoMode]);
+    fetchStats();
+  }, []);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -179,12 +128,6 @@ export default function CommercialStatsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Le Mie Statistiche</h1>
           <p className="text-gray-500">Panoramica delle tue performance</p>
         </div>
-        {isDemoMode && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-            <TestTube size={16} />
-            Demo
-          </div>
-        )}
       </div>
 
       {/* Stats Cards */}

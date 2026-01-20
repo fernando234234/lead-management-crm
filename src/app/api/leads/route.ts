@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { createNotification } from "@/lib/notifications";
+import { createNotification, createNotificationForRole } from "@/lib/notifications";
 
 // GET /api/leads - Fetch leads with visibility rules based on user role
 // - ADMIN: sees all leads
@@ -129,11 +129,37 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // If campaignId is provided, fetch campaign to get the marketer who owns it
+    // 1. Check for Duplicate (Homonym + Same Course)
+    // "quando un commerciale aggiunge un lead - se omonimo E sullo stesso cors, lascialo fare ma admin riceve un alltrt"
+    const existingLead = await prisma.lead.findFirst({
+      where: {
+        name: { equals: body.name, mode: "insensitive" },
+        courseId: body.courseId
+      }
+    });
+
+    let campaignId = body.campaignId;
     let campaignOwnerId: string | null = null;
-    if (body.campaignId) {
+
+    // 2. Resolve Campaign if not provided but Platform is (Condition 9)
+    if (!campaignId && body.courseId && body.platform) {
+      // Find most recent active campaign for this course and platform
+      const campaign = await prisma.campaign.findFirst({
+        where: {
+          courseId: body.courseId,
+          platform: body.platform, 
+          status: "ACTIVE"
+        },
+        orderBy: { createdAt: "desc" }
+      });
+      
+      if (campaign) {
+        campaignId = campaign.id;
+        campaignOwnerId = campaign.createdById;
+      }
+    } else if (campaignId) {
       const campaign = await prisma.campaign.findUnique({
-        where: { id: body.campaignId },
+        where: { id: campaignId },
         select: { createdById: true, name: true },
       });
       campaignOwnerId = campaign?.createdById || null;
@@ -145,14 +171,18 @@ export async function POST(request: NextRequest) {
         email: body.email || null,
         phone: body.phone || null,
         courseId: body.courseId,
-        campaignId: body.campaignId || null,
+        campaignId: campaignId || null,
         assignedToId: body.assignedToId || null,
         createdById: body.createdById || null,
-        isTarget: body.isTarget ?? false,
         notes: body.notes || null,
-        status: body.status || "NUOVO",
         source: body.source || "MANUAL",
         acquisitionCost: body.acquisitionCost ?? null,
+        // Binary fields (default false)
+        contacted: body.contacted ?? false,
+        isTarget: body.isTarget ?? false,
+        enrolled: body.enrolled ?? false,
+        // Legacy fields for backwards compatibility (no longer needed but keeping clean)
+        status: body.status || "NUOVO",
       },
       include: {
         course: { select: { id: true, name: true } },
@@ -161,6 +191,17 @@ export async function POST(request: NextRequest) {
         createdBy: { select: { id: true, name: true } },
       },
     });
+
+    // 3. Duplicate Alert for Admin (Condition 10)
+    if (existingLead) {
+      await createNotificationForRole(
+        "ADMIN",
+        "SYSTEM",
+        "Possibile Duplicato Lead",
+        `Attenzione: Il lead "${body.name}" è stato creato ma esiste già un lead con lo stesso nome per questo corso.`,
+        `/admin/leads/${lead.id}`
+      );
+    }
 
     // Notifica il commerciale quando gli viene assegnato un lead
     if (body.assignedToId) {

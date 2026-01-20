@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockCourses } from "@/lib/mockData";
 import toast from "react-hot-toast";
-import { Plus, Pencil, Trash2, BookOpen, TestTube } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 
 interface Course {
@@ -22,7 +20,6 @@ interface Course {
 }
 
 export default function AdminCoursesPage() {
-  const { isDemoMode } = useDemoMode();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -48,13 +45,8 @@ export default function AdminCoursesPage() {
   );
 
   useEffect(() => {
-    if (isDemoMode) {
-      setCourses(mockCourses as Course[]);
-      setLoading(false);
-    } else {
-      fetchCourses();
-    }
-  }, [isDemoMode]);
+    fetchCourses();
+  }, []);
 
   const fetchCourses = async () => {
     setLoading(true);
@@ -96,27 +88,6 @@ export default function AdminCoursesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (isDemoMode) {
-      const newCourse: Course = {
-        id: editingCourse?.id || String(Date.now()),
-        name: formData.name,
-        description: formData.description || null,
-        price: parseFloat(formData.price),
-        startDate: formData.startDate || null,
-        endDate: formData.endDate || null,
-        active: formData.active,
-        _count: editingCourse?._count || { leads: 0, campaigns: 0 },
-      };
-
-      if (editingCourse) {
-        setCourses(courses.map(c => c.id === editingCourse.id ? newCourse : c));
-      } else {
-        setCourses([newCourse, ...courses]);
-      }
-      setShowModal(false);
-      return;
-    }
 
     const payload = {
       name: formData.name,
@@ -150,16 +121,6 @@ export default function AdminCoursesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Sei sicuro di voler eliminare questo corso?")) return;
-    
-    if (isDemoMode) {
-      const course = courses.find(c => c.id === id);
-      if (course && course._count.leads > 0) {
-        toast.error("Impossibile eliminare: corso con lead associati");
-        return;
-      }
-      setCourses(courses.filter(c => c.id !== id));
-      return;
-    }
 
     try {
       const res = await fetch(`/api/courses/${id}`, { method: "DELETE" });
@@ -187,21 +148,13 @@ export default function AdminCoursesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Gestione Corsi</h1>
           <p className="text-gray-500">Crea, modifica ed elimina i corsi disponibili</p>
         </div>
-        <div className="flex items-center gap-3">
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Demo
-            </div>
-          )}
-          <button
-            onClick={() => openModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-admin text-white rounded-lg hover:opacity-90 transition"
-          >
-            <Plus size={20} />
-            Nuovo Corso
-          </button>
-        </div>
+        <button
+          onClick={() => openModal()}
+          className="flex items-center gap-2 px-4 py-2 bg-admin text-white rounded-lg hover:opacity-90 transition"
+        >
+          <Plus size={20} />
+          Nuovo Corso
+        </button>
       </div>
 
       {/* Courses Table */}
@@ -292,7 +245,6 @@ export default function AdminCoursesPage() {
           <div className="bg-white rounded-xl p-6 w-full max-w-lg">
             <h2 className="text-xl font-bold mb-4">
               {editingCourse ? "Modifica Corso" : "Nuovo Corso"}
-              {isDemoMode && <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

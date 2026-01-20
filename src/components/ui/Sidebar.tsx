@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
 import { useDataFilter } from "@/contexts/DataFilterContext";
 import { cn } from "@/lib/utils";
 import {
@@ -16,7 +15,6 @@ import {
   Settings,
   LogOut,
   User,
-  TestTube,
   Menu,
   X,
   Columns3,
@@ -85,7 +83,6 @@ export function Sidebar({ role }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { isDemoMode } = useDemoMode();
   const { dataSource } = useDataFilter();
   const config = roleConfig[role];
 
@@ -125,19 +122,8 @@ export function Sidebar({ role }: SidebarProps) {
         </button>
       </div>
 
-      {/* Demo Mode Indicator */}
-      {isDemoMode && (
-        <div className="mx-4 mt-4 px-3 py-2.5 bg-purple-900/30 border border-purple-500/30 rounded-xl">
-          <div className="flex items-center gap-2 text-purple-300 text-sm">
-            <TestTube size={16} />
-            <span className="font-medium">Modalita Demo</span>
-          </div>
-          <p className="text-xs text-purple-400/80 mt-1">Dati di esempio attivi</p>
-        </div>
-      )}
-
       {/* Data Source Filter Indicator */}
-      {!isDemoMode && dataSource !== "all" && (
+      {dataSource !== "all" && (
         <div className={cn(
           "mx-4 mt-4 px-3 py-2.5 rounded-xl",
           dataSource === "legacy" 

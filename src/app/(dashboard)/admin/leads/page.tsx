@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockLeads, mockCourses, mockUsers, mockCampaigns } from "@/lib/mockData";
 import toast from "react-hot-toast";
 import {
   Plus,
@@ -17,7 +15,6 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  TestTube,
   Eye,
   UserPlus,
   RefreshCw,
@@ -35,18 +32,30 @@ import ImportModal from "@/components/ui/ImportModal";
 import EmptyState from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
 
+type TriState = "SI" | "NO" | "ND";
+
 interface Lead {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
+  notes: string | null;
+  // New tri-state fields
+  contattatoStato: TriState;
+  contattatoAt: string | null;
+  contattatoNote: string | null;
+  targetStato: TriState;
+  targetNote: string | null;
+  iscrittoStato: TriState;
+  iscrittoAt: string | null;
+  iscrittoNote: string | null;
+  // Legacy fields
   status: string;
   contacted: boolean;
   contactedAt: string | null;
   enrolled: boolean;
   enrolledAt: string | null;
   isTarget: boolean;
-  notes: string | null;
   callOutcome: string | null;
   outcomeNotes: string | null;
   acquisitionCost?: number | null;
@@ -108,7 +117,6 @@ const leadExportColumns = [
 ];
 
 export default function AdminLeadsPage() {
-  const { isDemoMode } = useDemoMode();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -155,17 +163,8 @@ export default function AdminLeadsPage() {
   });
 
   useEffect(() => {
-    if (isDemoMode) {
-      // Use mock data
-      setLeads(mockLeads as Lead[]);
-      setCourses(mockCourses.map(c => ({ id: c.id, name: c.name })));
-      setCampaigns(mockCampaigns.map(c => ({ id: c.id, name: c.name, platform: c.platform })));
-      setCommercials(mockUsers.filter(u => u.role === "COMMERCIAL"));
-      setLoading(false);
-    } else {
-      fetchData();
-    }
-  }, [isDemoMode]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -261,37 +260,6 @@ export default function AdminLeadsPage() {
   // Bulk Actions
   const handleBulkAssign = async (data: { assignedToId: string } | { distribute: true }) => {
     const leadIds = Array.from(selectedLeads);
-    
-    if (isDemoMode) {
-      // Demo mode: simulate assignment
-      if ("distribute" in data && data.distribute) {
-        // Round-robin distribution
-        const updatedLeads = [...leads];
-        leadIds.forEach((leadId, index) => {
-          const commercial = commercials[index % commercials.length];
-          const leadIndex = updatedLeads.findIndex(l => l.id === leadId);
-          if (leadIndex !== -1) {
-            updatedLeads[leadIndex] = {
-              ...updatedLeads[leadIndex],
-              assignedTo: { id: commercial.id, name: commercial.name, email: commercial.email || "" },
-            };
-          }
-        });
-        setLeads(updatedLeads);
-      } else if ("assignedToId" in data) {
-        const commercial = commercials.find(c => c.id === data.assignedToId);
-        if (commercial) {
-          const updatedLeads = leads.map(lead =>
-            selectedLeads.has(lead.id)
-              ? { ...lead, assignedTo: { id: commercial.id, name: commercial.name, email: commercial.email || "" } }
-              : lead
-          );
-          setLeads(updatedLeads);
-        }
-      }
-      clearSelection();
-      return;
-    }
 
     try {
       const response = await fetch("/api/leads/bulk", {
@@ -317,16 +285,6 @@ export default function AdminLeadsPage() {
 
   const handleBulkStatusChange = async (status: string) => {
     const leadIds = Array.from(selectedLeads);
-    
-    if (isDemoMode) {
-      const updatedLeads = leads.map(lead =>
-        selectedLeads.has(lead.id) ? { ...lead, status } : lead
-      );
-      setLeads(updatedLeads);
-      clearSelection();
-      setShowBulkStatusDropdown(false);
-      return;
-    }
 
     try {
       const response = await fetch("/api/leads/bulk", {
@@ -353,12 +311,6 @@ export default function AdminLeadsPage() {
 
   const handleBulkDelete = async () => {
     const leadIds = Array.from(selectedLeads);
-    
-    if (isDemoMode) {
-      setLeads(leads.filter(lead => !selectedLeads.has(lead.id)));
-      clearSelection();
-      return;
-    }
 
     try {
       const response = await fetch("/api/leads/bulk", {
@@ -449,37 +401,6 @@ export default function AdminLeadsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (isDemoMode) {
-      // In demo mode, just update local state
-      const newLead: Lead = {
-        id: editingLead?.id || String(Date.now()),
-        name: formData.name,
-        email: formData.email || null,
-        phone: formData.phone || null,
-        status: formData.status,
-        contacted: formData.contacted,
-        contactedAt: formData.contacted ? new Date().toISOString() : null,
-        enrolled: formData.enrolled,
-        enrolledAt: formData.enrolled ? new Date().toISOString() : null,
-        isTarget: formData.isTarget,
-        notes: formData.notes || null,
-        callOutcome: formData.callOutcome || null,
-        outcomeNotes: formData.outcomeNotes || null,
-        createdAt: editingLead?.createdAt || new Date().toISOString(),
-        course: courses.find(c => c.id === formData.courseId) ? { id: formData.courseId, name: courses.find(c => c.id === formData.courseId)!.name, price: 0 } : null,
-        campaign: null,
-        assignedTo: commercials.find(c => c.id === formData.assignedToId) ? { id: formData.assignedToId, name: commercials.find(c => c.id === formData.assignedToId)!.name, email: "" } : null,
-      };
-
-      if (editingLead) {
-        setLeads(leads.map(l => l.id === editingLead.id ? newLead : l));
-      } else {
-        setLeads([newLead, ...leads]);
-      }
-      setShowModal(false);
-      return;
-    }
 
     // Campaign is required
     if (!formData.campaignId) {
@@ -526,11 +447,6 @@ export default function AdminLeadsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Sei sicuro di voler eliminare questo lead?")) return;
-    
-    if (isDemoMode) {
-      setLeads(leads.filter(l => l.id !== id));
-      return;
-    }
 
     try {
       await fetch(`/api/leads/${id}`, { method: "DELETE" });
@@ -541,11 +457,6 @@ export default function AdminLeadsPage() {
   };
 
   const handleQuickStatusUpdate = async (id: string, status: string) => {
-    if (isDemoMode) {
-      setLeads(leads.map(l => l.id === id ? { ...l, status } : l));
-      return;
-    }
-
     try {
       await fetch(`/api/leads/${id}`, {
         method: "PUT",
@@ -559,14 +470,6 @@ export default function AdminLeadsPage() {
   };
 
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
-    if (isDemoMode) {
-      setLeads(leads.map(l => l.id === leadId ? { ...l, ...data } : l));
-      if (detailLead?.id === leadId) {
-        setDetailLead({ ...detailLead, ...data } as Lead);
-      }
-      return;
-    }
-
     try {
       await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
@@ -592,12 +495,6 @@ export default function AdminLeadsPage() {
           <p className="text-gray-500">{filteredLeads.length} lead totali</p>
         </div>
         <div className="flex items-center gap-3">
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Demo
-            </div>
-          )}
           <ExportButton
             data={filteredLeads}
             columns={leadExportColumns}
@@ -908,7 +805,6 @@ export default function AdminLeadsPage() {
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 id="lead-form-title" className="text-xl font-bold mb-4">
               {editingLead ? "Modifica Lead" : "Nuovo Lead"}
-              {isDemoMode && <span className="ml-2 text-sm font-normal text-purple-600">(Demo)</span>}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               {/* Basic Info */}
@@ -1147,7 +1043,6 @@ export default function AdminLeadsPage() {
           lead={detailLead}
           onClose={() => setDetailLead(null)}
           onUpdate={handleLeadUpdate}
-          isDemoMode={isDemoMode}
           accentColor="admin"
         />
       )}
@@ -1210,7 +1105,6 @@ export default function AdminLeadsPage() {
           }}
           courses={courses}
           campaigns={campaigns}
-          isDemoMode={isDemoMode}
         />
       )}
     </div>

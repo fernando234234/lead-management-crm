@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockLeads } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { FunnelChart } from "@/components/charts/FunnelChart";
@@ -14,7 +12,6 @@ import {
   Phone,
   UserCheck,
   Target,
-  TestTube,
   PhoneCall,
   Star,
   ArrowRight,
@@ -33,23 +30,37 @@ import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { commercialTourSteps } from "@/lib/tourSteps";
 import Link from "next/link";
 import { GoalsProgress } from "@/components/ui/GoalsProgress";
+import toast from "react-hot-toast";
+
+// Tri-state type
+type TriState = "SI" | "NO" | "ND";
 
 interface Lead {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  status: string;
-  contacted: boolean;
-  contactedAt: string | null;
-  enrolled: boolean;
-  enrolledAt: string | null;
-  callOutcome: string | null;
-  isTarget: boolean;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  contattatoStato: TriState;
+  contattatoAt: string | null;
+  contattatoNote: string | null;
+  targetStato: TriState;
+  targetNote: string | null;
+  iscrittoStato: TriState;
+  iscrittoAt: string | null;
+  iscrittoNote: string | null;
   createdAt: string;
   updatedAt?: string;
   course?: { id: string; name: string };
   campaign?: { id: string; name: string };
+  // Legacy fields for compatibility during migration
+  status?: string;
+  contacted?: boolean;
+  contactedAt?: string | null;
+  enrolled?: boolean;
+  enrolledAt?: string | null;
+  isTarget?: boolean;
+  callOutcome?: string | null;
 }
 
 interface Activity {
@@ -68,32 +79,19 @@ interface Activity {
   };
 }
 
-const statusLabels: Record<string, string> = {
-  NUOVO: "Nuovo",
-  CONTATTATO: "Contattato",
-  IN_TRATTATIVA: "In Trattativa",
-  ISCRITTO: "Iscritto",
-  PERSO: "Perso",
-};
-
-const outcomeLabels: Record<string, string> = {
-  POSITIVO: "Positivo",
-  NEGATIVO: "Negativo",
-  RICHIAMARE: "Da Richiamare",
-  NON_RISPONDE: "Non Risponde",
+const triStateLabels: Record<TriState, string> = {
+  SI: "Sì",
+  NO: "No",
+  ND: "N/D",
 };
 
 export default function CommercialDashboard() {
   const { data: session } = useSession();
-  const { isDemoMode } = useDemoMode();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
-
-  // Mock user ID for demo mode (Marco Verdi - commercial user)
-  const DEMO_USER_ID = "1";
 
   const handleDateChange = (start: string | null, end: string | null) => {
     setStartDate(start);
@@ -127,70 +125,10 @@ export default function CommercialDashboard() {
   }, [leads, startDate, endDate]);
 
   useEffect(() => {
-    if (isDemoMode) {
-      // Filter mock leads assigned to demo user
-      const demoLeads = mockLeads.filter(
-        (lead) => lead.assignedTo?.id === DEMO_USER_ID
-      ) as Lead[];
-      setLeads(demoLeads);
-
-      // Generate mock activities
-      const mockActivities: Activity[] = [
-        {
-          id: "1",
-          type: "ENROLLMENT",
-          description: "Marco Bianchi iscritto al corso Marketing Digitale",
-          leadId: "1",
-          leadName: "Marco Bianchi",
-          userId: DEMO_USER_ID,
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: "2",
-          type: "CALL",
-          description: "Chiamato Anna Ferrari - esito positivo",
-          leadId: "2",
-          leadName: "Anna Ferrari",
-          userId: DEMO_USER_ID,
-          createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          metadata: { callOutcome: "POSITIVO" },
-        },
-        {
-          id: "3",
-          type: "STATUS_CHANGE",
-          description: "Luca Verdi spostato a In Trattativa",
-          leadId: "3",
-          leadName: "Luca Verdi",
-          userId: DEMO_USER_ID,
-          createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-          metadata: { newStatus: "IN_TRATTATIVA" },
-        },
-        {
-          id: "4",
-          type: "CALL",
-          description: "Chiamato Sara Rossi - da richiamare",
-          leadId: "4",
-          leadName: "Sara Rossi",
-          userId: DEMO_USER_ID,
-          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          metadata: { callOutcome: "RICHIAMARE" },
-        },
-        {
-          id: "5",
-          type: "LEAD_CREATED",
-          description: "Creato lead Paolo Neri",
-          leadId: "5",
-          leadName: "Paolo Neri",
-          userId: DEMO_USER_ID,
-          createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-        },
-      ];
-      setActivities(mockActivities);
-      setLoading(false);
-    } else if (session?.user?.id) {
+    if (session?.user?.id) {
       fetchData();
     }
-  }, [isDemoMode, session?.user?.id]);
+  }, [session?.user?.id]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -209,9 +147,25 @@ export default function CommercialDashboard() {
       }
     } catch (error) {
       console.error("Failed to fetch data:", error);
+      toast.error("Errore nel caricamento dei dati");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to check if lead is contacted (using tri-state)
+  const isContacted = (lead: Lead): boolean => {
+    return lead.contattatoStato === "SI" || lead.contacted === true;
+  };
+
+  // Helper function to check if lead is enrolled (using tri-state)
+  const isEnrolled = (lead: Lead): boolean => {
+    return lead.iscrittoStato === "SI" || lead.enrolled === true;
+  };
+
+  // Helper function to check if lead is target (using tri-state)
+  const isTargetLead = (lead: Lead): boolean => {
+    return lead.targetStato === "SI" || lead.isTarget === true;
   };
 
   // Calculate stats dynamically based on filtered leads
@@ -220,31 +174,35 @@ export default function CommercialDashboard() {
     today.setHours(0, 0, 0, 0);
 
     const contactedToday = filteredLeads.filter((lead) => {
-      if (!lead.contactedAt) return false;
-      const contactDate = new Date(lead.contactedAt);
-      contactDate.setHours(0, 0, 0, 0);
-      return contactDate.getTime() === today.getTime();
+      const contactDate = lead.contattatoAt || lead.contactedAt;
+      if (!contactDate) return false;
+      const date = new Date(contactDate);
+      date.setHours(0, 0, 0, 0);
+      return date.getTime() === today.getTime();
     }).length;
 
+    // Pending callbacks - leads that have been contacted but need follow-up
     const pendingCallbacks = filteredLeads.filter((lead) => {
-      if (lead.callOutcome !== "RICHIAMARE" || !lead.contactedAt) return false;
-      const contactDate = new Date(lead.contactedAt);
-      const hoursSinceContact =
-        (Date.now() - contactDate.getTime()) / (1000 * 60 * 60);
+      if (lead.callOutcome !== "RICHIAMARE") return false;
+      const contactDate = lead.contattatoAt || lead.contactedAt;
+      if (!contactDate) return false;
+      const date = new Date(contactDate);
+      const hoursSinceContact = (Date.now() - date.getTime()) / (1000 * 60 * 60);
       return hoursSinceContact > 48;
     }).length;
 
     const targetLeads = filteredLeads.filter(
-      (lead) => lead.isTarget && !lead.contacted
+      (lead) => isTargetLead(lead) && !isContacted(lead)
     ).length;
 
-    const enrolled = filteredLeads.filter((lead) => lead.enrolled).length;
+    const enrolled = filteredLeads.filter((lead) => isEnrolled(lead)).length;
+    const contacted = filteredLeads.filter((lead) => isContacted(lead)).length;
     const conversionRate =
       filteredLeads.length > 0
         ? ((enrolled / filteredLeads.length) * 100).toFixed(1)
         : "0";
 
-    // Calculate comparison with last month (simplified for demo)
+    // Calculate comparison with last month
     const lastMonthLeads = leads.filter((lead) => {
       const createdDate = new Date(lead.createdAt);
       const oneMonthAgo = new Date();
@@ -253,7 +211,7 @@ export default function CommercialDashboard() {
       twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
       return createdDate >= twoMonthsAgo && createdDate < oneMonthAgo;
     });
-    const lastMonthEnrolled = lastMonthLeads.filter((l) => l.enrolled).length;
+    const lastMonthEnrolled = lastMonthLeads.filter((l) => isEnrolled(l)).length;
     const enrolledTrend =
       lastMonthEnrolled > 0
         ? Math.round(((enrolled - lastMonthEnrolled) / lastMonthEnrolled) * 100)
@@ -263,7 +221,7 @@ export default function CommercialDashboard() {
 
     return {
       totalLeads: filteredLeads.length,
-      contacted: filteredLeads.filter((lead) => lead.contacted).length,
+      contacted,
       contactedToday,
       enrolled,
       conversionRate,
@@ -277,44 +235,36 @@ export default function CommercialDashboard() {
   const funnelData = useMemo(() => {
     const statusCounts = {
       assegnati: filteredLeads.length,
-      contattati: filteredLeads.filter((l) => l.contacted).length,
-      inTrattativa: filteredLeads.filter((l) => l.status === "IN_TRATTATIVA")
-        .length,
-      iscritti: filteredLeads.filter((l) => l.enrolled).length,
+      contattati: filteredLeads.filter((l) => isContacted(l)).length,
+      inTarget: filteredLeads.filter((l) => isTargetLead(l)).length,
+      iscritti: filteredLeads.filter((l) => isEnrolled(l)).length,
     };
 
     return [
       { name: "Assegnati", value: statusCounts.assegnati, color: "#3B82F6" },
       { name: "Contattati", value: statusCounts.contattati, color: "#8B5CF6" },
-      {
-        name: "In Trattativa",
-        value: statusCounts.inTrattativa,
-        color: "#F59E0B",
-      },
+      { name: "In Target", value: statusCounts.inTarget, color: "#F59E0B" },
       { name: "Iscritti", value: statusCounts.iscritti, color: "#10B981" },
     ];
   }, [filteredLeads]);
 
-  // Status distribution for pie chart
+  // Status distribution for pie chart (tri-state based)
   const statusDistribution = useMemo(() => {
-    const counts: Record<string, number> = {};
-    filteredLeads.forEach((lead) => {
-      counts[lead.status] = (counts[lead.status] || 0) + 1;
-    });
-
-    const colors: Record<string, string> = {
-      NUOVO: "#3B82F6",
-      CONTATTATO: "#F59E0B",
-      IN_TRATTATIVA: "#8B5CF6",
-      ISCRITTO: "#10B981",
-      PERSO: "#EF4444",
+    const counts = {
+      nonContattati: filteredLeads.filter((l) => l.contattatoStato === "ND" || (!l.contattatoStato && !l.contacted)).length,
+      contattatiInAttesa: filteredLeads.filter((l) => isContacted(l) && l.iscrittoStato !== "SI" && !l.enrolled).length,
+      inTarget: filteredLeads.filter((l) => isTargetLead(l) && !isEnrolled(l)).length,
+      iscritti: filteredLeads.filter((l) => isEnrolled(l)).length,
+      nonTarget: filteredLeads.filter((l) => l.targetStato === "NO").length,
     };
 
-    return Object.entries(counts).map(([status, count]) => ({
-      name: statusLabels[status] || status,
-      value: count,
-      color: colors[status] || "#6B7280",
-    }));
+    return [
+      { name: "Non Contattati", value: counts.nonContattati, color: "#3B82F6" },
+      { name: "Contattati", value: counts.contattatiInAttesa, color: "#F59E0B" },
+      { name: "In Target", value: counts.inTarget, color: "#8B5CF6" },
+      { name: "Iscritti", value: counts.iscritti, color: "#10B981" },
+      { name: "Non Target", value: counts.nonTarget, color: "#EF4444" },
+    ].filter(item => item.value > 0);
   }, [filteredLeads]);
 
   // Performance trend data (last 30 days)
@@ -331,15 +281,17 @@ export default function CommercialDashboard() {
       nextDate.setDate(nextDate.getDate() + 1);
 
       const contacted = leads.filter((lead) => {
-        if (!lead.contactedAt) return false;
-        const contactDate = new Date(lead.contactedAt);
-        return contactDate >= date && contactDate < nextDate;
+        const contactDate = lead.contattatoAt || lead.contactedAt;
+        if (!contactDate) return false;
+        const d = new Date(contactDate);
+        return d >= date && d < nextDate;
       }).length;
 
       const enrolled = leads.filter((lead) => {
-        if (!lead.enrolledAt) return false;
-        const enrollDate = new Date(lead.enrolledAt);
-        return enrollDate >= date && enrollDate < nextDate;
+        const enrollDate = lead.iscrittoAt || lead.enrolledAt;
+        if (!enrollDate) return false;
+        const d = new Date(enrollDate);
+        return d >= date && d < nextDate;
       }).length;
 
       data.push({
@@ -363,19 +315,22 @@ export default function CommercialDashboard() {
     return filteredLeads
       .filter((lead) => {
         // Overdue callbacks (callback requested > 48h ago)
-        if (lead.callOutcome === "RICHIAMARE" && lead.contactedAt) {
-          const contactDate = new Date(lead.contactedAt).getTime();
-          if (now - contactDate > fortyEightHours) return true;
+        if (lead.callOutcome === "RICHIAMARE") {
+          const contactDate = lead.contattatoAt || lead.contactedAt;
+          if (contactDate) {
+            const date = new Date(contactDate).getTime();
+            if (now - date > fortyEightHours) return true;
+          }
         }
 
-        // Not contacted for 48h+ (status is NUOVO)
-        if (!lead.contacted && lead.status === "NUOVO") {
+        // Not contacted for 48h+ 
+        if (!isContacted(lead)) {
           const createdDate = new Date(lead.createdAt).getTime();
           if (now - createdDate > fortyEightHours) return true;
         }
 
         // Target leads not contacted
-        if (lead.isTarget && !lead.contacted) return true;
+        if (isTargetLead(lead) && !isContacted(lead)) return true;
 
         return false;
       })
@@ -384,16 +339,19 @@ export default function CommercialDashboard() {
         let reason = "";
         let priority: "high" | "medium" | "low" = "medium";
 
-        if (lead.callOutcome === "RICHIAMARE" && lead.contactedAt) {
-          const hours = Math.floor(
-            (now - new Date(lead.contactedAt).getTime()) / (1000 * 60 * 60)
-          );
-          reason = `Callback scaduto da ${hours}h`;
-          priority = "high";
-        } else if (lead.isTarget && !lead.contacted) {
+        if (lead.callOutcome === "RICHIAMARE") {
+          const contactDate = lead.contattatoAt || lead.contactedAt;
+          if (contactDate) {
+            const hours = Math.floor(
+              (now - new Date(contactDate).getTime()) / (1000 * 60 * 60)
+            );
+            reason = `Callback scaduto da ${hours}h`;
+            priority = "high";
+          }
+        } else if (isTargetLead(lead) && !isContacted(lead)) {
           reason = "Lead Target non contattato";
           priority = "high";
-        } else if (!lead.contacted) {
+        } else if (!isContacted(lead)) {
           const hours = Math.floor(
             (now - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60)
           );
@@ -474,12 +432,6 @@ export default function CommercialDashboard() {
             onChange={handleDateChange}
             presets
           />
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Modalita Demo
-            </div>
-          )}
         </div>
       </div>
 
@@ -580,46 +532,7 @@ export default function CommercialDashboard() {
         </div>
         
         {/* Monthly Goals Progress - Compact version */}
-        {!isDemoMode && <GoalsProgress compact />}
-        {isDemoMode && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Target size={18} className="text-commercial" />
-              <span className="font-semibold text-sm text-gray-900">
-                Obiettivi Gennaio
-              </span>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Phone size={14} className="text-gray-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: "65%" }} />
-                  </div>
-                </div>
-                <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">65%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <UserCheck size={14} className="text-gray-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 transition-all duration-500" style={{ width: "40%" }} />
-                  </div>
-                </div>
-                <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">40%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp size={14} className="text-gray-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-yellow-500 transition-all duration-500" style={{ width: "55%" }} />
-                  </div>
-                </div>
-                <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">55%</span>
-              </div>
-            </div>
-          </div>
-        )}
+        <GoalsProgress compact />
       </div>
 
       {/* Charts Row */}
@@ -707,11 +620,8 @@ export default function CommercialDashboard() {
                     }`}
                   >
                     {lead.priority === "high" ? (
-                      <AlertTriangle
-                        size={14}
-                        className="text-red-600"
-                      />
-                    ) : lead.isTarget ? (
+                      <AlertTriangle size={14} className="text-red-600" />
+                    ) : isTargetLead(lead) ? (
                       <Star size={14} className="text-orange-500" />
                     ) : (
                       <Clock size={14} className="text-yellow-600" />
@@ -804,7 +714,8 @@ export default function CommercialDashboard() {
                 <th className="px-6 py-3 font-medium">Data</th>
                 <th className="px-6 py-3 font-medium">Nome</th>
                 <th className="px-6 py-3 font-medium">Corso</th>
-                <th className="px-6 py-3 font-medium">Stato</th>
+                <th className="px-6 py-3 font-medium">Contattato</th>
+                <th className="px-6 py-3 font-medium">Target</th>
                 <th className="px-6 py-3 font-medium">Azioni</th>
               </tr>
             </thead>
@@ -812,7 +723,7 @@ export default function CommercialDashboard() {
               {filteredLeads
                 .filter(
                   (lead) =>
-                    !lead.contacted || lead.callOutcome === "RICHIAMARE"
+                    !isContacted(lead) || lead.callOutcome === "RICHIAMARE"
                 )
                 .slice(0, 8)
                 .map((lead, index) => (
@@ -826,22 +737,15 @@ export default function CommercialDashboard() {
                       {new Date(lead.createdAt).toLocaleDateString("it-IT")}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">
-                          {lead.name}
-                        </span>
-                        {lead.isTarget && (
-                          <span className="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-700 rounded">
-                            Target
-                          </span>
-                        )}
-                      </div>
+                      <span className="font-medium text-gray-900">
+                        {lead.name}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-gray-600">
                       {lead.course?.name || "-"}
                     </td>
                     <td className="px-6 py-4">
-                      {!lead.contacted ? (
+                      {!isContacted(lead) ? (
                         <Tooltip
                           content="Lead non ancora contattato"
                           position="top"
@@ -860,8 +764,23 @@ export default function CommercialDashboard() {
                           </span>
                         </Tooltip>
                       ) : (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                          {statusLabels[lead.status] || lead.status}
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                          Sì
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {isTargetLead(lead) ? (
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
+                          Target
+                        </span>
+                      ) : lead.targetStato === "NO" ? (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                          No
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                          N/D
                         </span>
                       )}
                     </td>
@@ -876,10 +795,10 @@ export default function CommercialDashboard() {
                   </tr>
                 ))}
               {filteredLeads.filter(
-                (lead) => !lead.contacted || lead.callOutcome === "RICHIAMARE"
+                (lead) => !isContacted(lead) || lead.callOutcome === "RICHIAMARE"
               ).length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                     <CheckCircle
                       size={32}
                       className="mx-auto mb-2 text-green-500"

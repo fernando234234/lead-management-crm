@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
 import { Search, X, Users, BookOpen, Megaphone, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -47,29 +46,6 @@ interface GlobalSearchProps {
   role: "admin" | "commercial" | "marketing";
 }
 
-// Demo data for demo mode
-const demoResults: SearchResults = {
-  leads: [
-    { id: "demo-lead-1", name: "Marco Rossi", email: "marco.rossi@email.com", courseName: "Corso React", status: "NUOVO" },
-    { id: "demo-lead-2", name: "Laura Bianchi", email: "laura.b@email.com", courseName: "Corso Node.js", status: "CONTATTATO" },
-    { id: "demo-lead-3", name: "Giuseppe Verdi", email: "g.verdi@email.com", courseName: "Corso Full Stack", status: "IN_TRATTATIVA" },
-  ],
-  campaigns: [
-    { id: "demo-campaign-1", name: "Summer Promo 2024", platform: "FACEBOOK", courseName: "Corso React" },
-    { id: "demo-campaign-2", name: "LinkedIn B2B", platform: "LINKEDIN", courseName: "Corso Node.js" },
-  ],
-  courses: [
-    { id: "demo-course-1", name: "Corso React", price: 1500, active: true },
-    { id: "demo-course-2", name: "Corso Node.js", price: 1200, active: true },
-    { id: "demo-course-3", name: "Corso Full Stack", price: 2500, active: true },
-  ],
-  users: [
-    { id: "demo-user-1", name: "Admin Demo", email: "admin@demo.com", role: "ADMIN" },
-    { id: "demo-user-2", name: "Marco Commerciale", email: "marco@demo.com", role: "COMMERCIAL" },
-    { id: "demo-user-3", name: "Sara Marketing", email: "sara@demo.com", role: "MARKETING" },
-  ],
-};
-
 export function GlobalSearch({ role }: GlobalSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -81,7 +57,6 @@ export function GlobalSearch({ role }: GlobalSearchProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { data: session } = useSession();
-  const { isDemoMode } = useDemoMode();
 
   const isAdmin = role === "admin";
 
@@ -131,33 +106,6 @@ export function GlobalSearch({ role }: GlobalSearchProps) {
 
     setIsLoading(true);
 
-    if (isDemoMode) {
-      // Filter demo data based on query
-      await new Promise(resolve => setTimeout(resolve, 300)); // Simulate delay
-      const q = searchQuery.toLowerCase();
-      const filteredResults: SearchResults = {
-        leads: demoResults.leads.filter(l => 
-          l.name.toLowerCase().includes(q) || 
-          l.email?.toLowerCase().includes(q) ||
-          l.courseName.toLowerCase().includes(q)
-        ).slice(0, 5),
-        campaigns: demoResults.campaigns.filter(c => 
-          c.name.toLowerCase().includes(q) ||
-          c.platform.toLowerCase().includes(q)
-        ).slice(0, 5),
-        courses: demoResults.courses.filter(c => 
-          c.name.toLowerCase().includes(q)
-        ).slice(0, 5),
-        users: isAdmin ? demoResults.users?.filter(u => 
-          u.name.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q)
-        ).slice(0, 5) : undefined,
-      };
-      setResults(filteredResults);
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const response = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
       if (response.ok) {
@@ -169,7 +117,7 @@ export function GlobalSearch({ role }: GlobalSearchProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [isDemoMode, isAdmin]);
+  }, []);
 
   // Debounced search
   useEffect(() => {

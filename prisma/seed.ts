@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, LeadStatus, CallOutcome, Platform, CampaignStatus, ActivityType, NotificationType, TaskPriority } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -52,7 +52,7 @@ async function main() {
       email: 'admin@leadcrm.it',
       name: 'Admin Sistema',
       password: adminPassword,
-      role: UserRole.ADMIN,
+      role: 'ADMIN' as any,
     },
   });
 
@@ -61,7 +61,7 @@ async function main() {
       email: 'marco.verdi@leadcrm.it',
       name: 'Marco Verdi',
       password: userPassword,
-      role: UserRole.COMMERCIAL,
+      role: 'COMMERCIAL' as any,
     },
   });
 
@@ -70,7 +70,7 @@ async function main() {
       email: 'sara.martini@leadcrm.it',
       name: 'Sara Martini',
       password: userPassword,
-      role: UserRole.COMMERCIAL,
+      role: 'COMMERCIAL' as any,
     },
   });
 
@@ -79,7 +79,7 @@ async function main() {
       email: 'luca.pazzi@leadcrm.it',
       name: 'Luca Pazzi',
       password: userPassword,
-      role: UserRole.COMMERCIAL,
+      role: 'COMMERCIAL' as any,
     },
   });
 
@@ -88,7 +88,7 @@ async function main() {
       email: 'giulia.rossi@leadcrm.it',
       name: 'Giulia Rossi',
       password: userPassword,
-      role: UserRole.MARKETING,
+      role: 'MARKETING' as any,
     },
   });
 
@@ -97,7 +97,7 @@ async function main() {
       email: 'andrea.bianchi@leadcrm.it',
       name: 'Andrea Bianchi',
       password: userPassword,
-      role: UserRole.MARKETING,
+      role: 'MARKETING' as any,
     },
   });
 
@@ -180,11 +180,11 @@ async function main() {
   const campaignFbMarketing = await prisma.campaign.create({
     data: {
       name: 'Facebook Ads - Marketing Q1 2026',
-      platform: Platform.FACEBOOK,
+      platform: 'META' as any,
       courseId: courseMarketing.id,
       createdById: marketing1.id,
       budget: 2500,
-      status: CampaignStatus.ACTIVE,
+      status: 'ACTIVE' as any,
       startDate: daysAgo(30),
     },
   });
@@ -192,11 +192,11 @@ async function main() {
   const campaignGoogleVendite = await prisma.campaign.create({
     data: {
       name: 'Google Ads - Vendite B2B',
-      platform: Platform.GOOGLE_ADS,
+      platform: 'GOOGLE_ADS' as any,
       courseId: courseVendite.id,
       createdById: marketing1.id,
       budget: 1800,
-      status: CampaignStatus.ACTIVE,
+      status: 'ACTIVE' as any,
       startDate: daysAgo(25),
     },
   });
@@ -204,11 +204,11 @@ async function main() {
   const campaignLinkedinLeadership = await prisma.campaign.create({
     data: {
       name: 'LinkedIn B2B - Leadership Manager',
-      platform: Platform.LINKEDIN,
+      platform: 'LINKEDIN' as any,
       courseId: courseLeadership.id,
       createdById: marketing2.id,
       budget: 3500,
-      status: CampaignStatus.ACTIVE,
+      status: 'ACTIVE' as any,
       startDate: daysAgo(20),
     },
   });
@@ -216,11 +216,11 @@ async function main() {
   const campaignInstagramExcel = await prisma.campaign.create({
     data: {
       name: 'Instagram - Excel per Tutti',
-      platform: Platform.INSTAGRAM,
+      platform: 'META' as any,
       courseId: courseExcel.id,
       createdById: marketing2.id,
       budget: 800,
-      status: CampaignStatus.ACTIVE,
+      status: 'ACTIVE' as any,
       startDate: daysAgo(15),
     },
   });
@@ -228,11 +228,11 @@ async function main() {
   const campaignTiktokPython = await prisma.campaign.create({
     data: {
       name: 'TikTok - Python Giovani Pro',
-      platform: Platform.TIKTOK,
+      platform: 'TIKTOK' as any,
       courseId: coursePython.id,
       createdById: marketing1.id,
       budget: 1200,
-      status: CampaignStatus.ACTIVE,
+      status: 'ACTIVE' as any,
       startDate: daysAgo(10),
     },
   });
@@ -240,11 +240,11 @@ async function main() {
   const campaignGooglePM = await prisma.campaign.create({
     data: {
       name: 'Google Ads - PMP Certification',
-      platform: Platform.GOOGLE_ADS,
+      platform: 'GOOGLE_ADS' as any,
       courseId: coursePM.id,
       createdById: marketing2.id,
       budget: 2800,
-      status: CampaignStatus.ACTIVE,
+      status: 'ACTIVE' as any,
       startDate: daysAgo(18),
     },
   });
@@ -291,59 +291,59 @@ async function main() {
 
   const leadData = [
     // NUOVO leads (10)
-    { name: 'Marco Rossi', status: LeadStatus.NUOVO, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 1, cost: 28.50 },
-    { name: 'Laura Bianchi', status: LeadStatus.NUOVO, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 2, cost: 32.00 },
-    { name: 'Giuseppe Verdi', status: LeadStatus.NUOVO, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 0, cost: 18.75 },
-    { name: 'Anna Ferrari', status: LeadStatus.NUOVO, course: coursePython, campaign: campaignTiktokPython, daysAgo: 1, cost: 22.30 },
-    { name: 'Francesco Romano', status: LeadStatus.NUOVO, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 3, cost: 45.00 },
-    { name: 'Chiara Colombo', status: LeadStatus.NUOVO, course: coursePM, campaign: campaignGooglePM, daysAgo: 2, cost: 38.50 },
-    { name: 'Alessandro Ricci', status: LeadStatus.NUOVO, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 0, cost: 26.80 },
-    { name: 'Valentina Marino', status: LeadStatus.NUOVO, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 1, cost: null },
-    { name: 'Davide Greco', status: LeadStatus.NUOVO, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 2, cost: 19.50 },
-    { name: 'Federica Russo', status: LeadStatus.NUOVO, course: coursePython, campaign: campaignTiktokPython, daysAgo: 0, cost: null },
+    { name: 'Marco Rossi', status: 'NUOVO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 1, cost: 28.50 },
+    { name: 'Laura Bianchi', status: 'NUOVO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 2, cost: 32.00 },
+    { name: 'Giuseppe Verdi', status: 'NUOVO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 0, cost: 18.75 },
+    { name: 'Anna Ferrari', status: 'NUOVO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 1, cost: 22.30 },
+    { name: 'Francesco Romano', status: 'NUOVO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 3, cost: 45.00 },
+    { name: 'Chiara Colombo', status: 'NUOVO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 2, cost: 38.50 },
+    { name: 'Alessandro Ricci', status: 'NUOVO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 0, cost: 26.80 },
+    { name: 'Valentina Marino', status: 'NUOVO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 1, cost: null },
+    { name: 'Davide Greco', status: 'NUOVO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 2, cost: 19.50 },
+    { name: 'Federica Russo', status: 'NUOVO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 0, cost: null },
     
     // CONTATTATO leads (12)
-    { name: 'Matteo Gallo', status: LeadStatus.CONTATTATO, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 5, cost: 27.90, outcome: CallOutcome.POSITIVO },
-    { name: 'Elisa Conti', status: LeadStatus.CONTATTATO, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 4, cost: 31.20, outcome: CallOutcome.RICHIAMARE },
-    { name: 'Simone Bruno', status: LeadStatus.CONTATTATO, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 6, cost: 48.50, outcome: CallOutcome.POSITIVO },
-    { name: 'Martina Giordano', status: LeadStatus.CONTATTATO, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 3, cost: 17.80, outcome: CallOutcome.NON_RISPONDE },
-    { name: 'Andrea Mancini', status: LeadStatus.CONTATTATO, course: coursePM, campaign: campaignGooglePM, daysAgo: 7, cost: 42.00, outcome: CallOutcome.POSITIVO },
-    { name: 'Giorgia Rizzo', status: LeadStatus.CONTATTATO, course: coursePython, campaign: campaignTiktokPython, daysAgo: 4, cost: 21.50, outcome: CallOutcome.RICHIAMARE },
-    { name: 'Luca Lombardi', status: LeadStatus.CONTATTATO, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 8, cost: 29.00, outcome: CallOutcome.POSITIVO },
-    { name: 'Sara Moretti', status: LeadStatus.CONTATTATO, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 5, cost: null, outcome: CallOutcome.NON_RISPONDE },
-    { name: 'Marco Fontana', status: LeadStatus.CONTATTATO, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 9, cost: 52.00, outcome: CallOutcome.POSITIVO },
-    { name: 'Giulia Santoro', status: LeadStatus.CONTATTATO, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 6, cost: 16.90, outcome: CallOutcome.RICHIAMARE },
-    { name: 'Paolo Mariani', status: LeadStatus.CONTATTATO, course: coursePM, campaign: campaignGooglePM, daysAgo: 10, cost: 39.80, outcome: CallOutcome.POSITIVO },
-    { name: 'Elena Costa', status: LeadStatus.CONTATTATO, course: coursePython, campaign: campaignTiktokPython, daysAgo: 7, cost: 23.40, outcome: CallOutcome.POSITIVO },
+    { name: 'Matteo Gallo', status: 'CONTATTATO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 5, cost: 27.90, outcome: 'POSITIVO' as any },
+    { name: 'Elisa Conti', status: 'CONTATTATO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 4, cost: 31.20, outcome: 'RICHIAMARE' as any },
+    { name: 'Simone Bruno', status: 'CONTATTATO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 6, cost: 48.50, outcome: 'POSITIVO' as any },
+    { name: 'Martina Giordano', status: 'CONTATTATO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 3, cost: 17.80, outcome: 'NON_RISPONDE' as any },
+    { name: 'Andrea Mancini', status: 'CONTATTATO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 7, cost: 42.00, outcome: 'POSITIVO' as any },
+    { name: 'Giorgia Rizzo', status: 'CONTATTATO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 4, cost: 21.50, outcome: 'RICHIAMARE' as any },
+    { name: 'Luca Lombardi', status: 'CONTATTATO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 8, cost: 29.00, outcome: 'POSITIVO' as any },
+    { name: 'Sara Moretti', status: 'CONTATTATO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 5, cost: null, outcome: 'NON_RISPONDE' as any },
+    { name: 'Marco Fontana', status: 'CONTATTATO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 9, cost: 52.00, outcome: 'POSITIVO' as any },
+    { name: 'Giulia Santoro', status: 'CONTATTATO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 6, cost: 16.90, outcome: 'RICHIAMARE' as any },
+    { name: 'Paolo Mariani', status: 'CONTATTATO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 10, cost: 39.80, outcome: 'POSITIVO' as any },
+    { name: 'Elena Costa', status: 'CONTATTATO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 7, cost: 23.40, outcome: 'POSITIVO' as any },
     
     // IN_TRATTATIVA leads (8)
-    { name: 'Roberto De Luca', status: LeadStatus.IN_TRATTATIVA, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 12, cost: 25.60, outcome: CallOutcome.POSITIVO, isTarget: true },
-    { name: 'Silvia Ferrara', status: LeadStatus.IN_TRATTATIVA, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 10, cost: 33.40, outcome: CallOutcome.POSITIVO, isTarget: true },
-    { name: 'Fabio Barbieri', status: LeadStatus.IN_TRATTATIVA, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 14, cost: 55.00, outcome: CallOutcome.POSITIVO, isTarget: true },
-    { name: 'Claudia Palmieri', status: LeadStatus.IN_TRATTATIVA, course: coursePM, campaign: campaignGooglePM, daysAgo: 11, cost: 44.20, outcome: CallOutcome.POSITIVO },
-    { name: 'Stefano Serra', status: LeadStatus.IN_TRATTATIVA, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 8, cost: 18.30, outcome: CallOutcome.POSITIVO },
-    { name: 'Monica Villa', status: LeadStatus.IN_TRATTATIVA, course: coursePython, campaign: campaignTiktokPython, daysAgo: 9, cost: 24.80, outcome: CallOutcome.POSITIVO, isTarget: true },
-    { name: 'Daniele Fabbri', status: LeadStatus.IN_TRATTATIVA, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 13, cost: null, outcome: CallOutcome.POSITIVO },
-    { name: 'Cristina Marchetti', status: LeadStatus.IN_TRATTATIVA, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 15, cost: 30.50, outcome: CallOutcome.POSITIVO, isTarget: true },
+    { name: 'Roberto De Luca', status: 'IN_TRATTATIVA' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 12, cost: 25.60, outcome: 'POSITIVO' as any, isTarget: true },
+    { name: 'Silvia Ferrara', status: 'IN_TRATTATIVA' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 10, cost: 33.40, outcome: 'POSITIVO' as any, isTarget: true },
+    { name: 'Fabio Barbieri', status: 'IN_TRATTATIVA' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 14, cost: 55.00, outcome: 'POSITIVO' as any, isTarget: true },
+    { name: 'Claudia Palmieri', status: 'IN_TRATTATIVA' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 11, cost: 44.20, outcome: 'POSITIVO' as any },
+    { name: 'Stefano Serra', status: 'IN_TRATTATIVA' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 8, cost: 18.30, outcome: 'POSITIVO' as any },
+    { name: 'Monica Villa', status: 'IN_TRATTATIVA' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 9, cost: 24.80, outcome: 'POSITIVO' as any, isTarget: true },
+    { name: 'Daniele Fabbri', status: 'IN_TRATTATIVA' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 13, cost: null, outcome: 'POSITIVO' as any },
+    { name: 'Cristina Marchetti', status: 'IN_TRATTATIVA' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 15, cost: 30.50, outcome: 'POSITIVO' as any, isTarget: true },
     
     // ISCRITTO leads (10)
-    { name: 'Antonio Vitale', status: LeadStatus.ISCRITTO, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 20, cost: 24.50, outcome: CallOutcome.POSITIVO },
-    { name: 'Francesca Gatti', status: LeadStatus.ISCRITTO, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 18, cost: 28.90, outcome: CallOutcome.POSITIVO },
-    { name: 'Riccardo Leone', status: LeadStatus.ISCRITTO, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 22, cost: 50.00, outcome: CallOutcome.POSITIVO },
-    { name: 'Alessia Monti', status: LeadStatus.ISCRITTO, course: coursePM, campaign: campaignGooglePM, daysAgo: 16, cost: 41.30, outcome: CallOutcome.POSITIVO },
-    { name: 'Giovanni Parisi', status: LeadStatus.ISCRITTO, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 14, cost: 15.80, outcome: CallOutcome.POSITIVO },
-    { name: 'Lucia Riva', status: LeadStatus.ISCRITTO, course: coursePython, campaign: campaignTiktokPython, daysAgo: 12, cost: 20.70, outcome: CallOutcome.POSITIVO },
-    { name: 'Tommaso Ferretti', status: LeadStatus.ISCRITTO, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 25, cost: 26.20, outcome: CallOutcome.POSITIVO },
-    { name: 'Beatrice Caruso', status: LeadStatus.ISCRITTO, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 21, cost: 29.80, outcome: CallOutcome.POSITIVO },
-    { name: 'Nicola Pellegrini', status: LeadStatus.ISCRITTO, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 28, cost: 47.60, outcome: CallOutcome.POSITIVO },
-    { name: 'Serena Bassi', status: LeadStatus.ISCRITTO, course: coursePM, campaign: campaignGooglePM, daysAgo: 19, cost: 43.50, outcome: CallOutcome.POSITIVO },
+    { name: 'Antonio Vitale', status: 'ISCRITTO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 20, cost: 24.50, outcome: 'POSITIVO' as any },
+    { name: 'Francesca Gatti', status: 'ISCRITTO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 18, cost: 28.90, outcome: 'POSITIVO' as any },
+    { name: 'Riccardo Leone', status: 'ISCRITTO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 22, cost: 50.00, outcome: 'POSITIVO' as any },
+    { name: 'Alessia Monti', status: 'ISCRITTO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 16, cost: 41.30, outcome: 'POSITIVO' as any },
+    { name: 'Giovanni Parisi', status: 'ISCRITTO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 14, cost: 15.80, outcome: 'POSITIVO' as any },
+    { name: 'Lucia Riva', status: 'ISCRITTO' as any, course: coursePython, campaign: campaignTiktokPython, daysAgo: 12, cost: 20.70, outcome: 'POSITIVO' as any },
+    { name: 'Tommaso Ferretti', status: 'ISCRITTO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 25, cost: 26.20, outcome: 'POSITIVO' as any },
+    { name: 'Beatrice Caruso', status: 'ISCRITTO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 21, cost: 29.80, outcome: 'POSITIVO' as any },
+    { name: 'Nicola Pellegrini', status: 'ISCRITTO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 28, cost: 47.60, outcome: 'POSITIVO' as any },
+    { name: 'Serena Bassi', status: 'ISCRITTO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 19, cost: 43.50, outcome: 'POSITIVO' as any },
     
     // PERSO leads (5)
-    { name: 'Pietro Testa', status: LeadStatus.PERSO, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 30, cost: 27.00, outcome: CallOutcome.NEGATIVO },
-    { name: 'Ilaria Neri', status: LeadStatus.PERSO, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 25, cost: 35.40, outcome: CallOutcome.NEGATIVO },
-    { name: 'Emanuele Grassi', status: LeadStatus.PERSO, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 28, cost: 58.00, outcome: CallOutcome.NEGATIVO },
-    { name: 'Aurora Sartori', status: LeadStatus.PERSO, course: coursePM, campaign: campaignGooglePM, daysAgo: 22, cost: null, outcome: CallOutcome.NEGATIVO },
-    { name: 'Filippo Orlando', status: LeadStatus.PERSO, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 18, cost: 19.20, outcome: CallOutcome.NEGATIVO },
+    { name: 'Pietro Testa', status: 'PERSO' as any, course: courseMarketing, campaign: campaignFbMarketing, daysAgo: 30, cost: 27.00, outcome: 'NEGATIVO' as any },
+    { name: 'Ilaria Neri', status: 'PERSO' as any, course: courseVendite, campaign: campaignGoogleVendite, daysAgo: 25, cost: 35.40, outcome: 'NEGATIVO' as any },
+    { name: 'Emanuele Grassi', status: 'PERSO' as any, course: courseLeadership, campaign: campaignLinkedinLeadership, daysAgo: 28, cost: 58.00, outcome: 'NEGATIVO' as any },
+    { name: 'Aurora Sartori', status: 'PERSO' as any, course: coursePM, campaign: campaignGooglePM, daysAgo: 22, cost: null, outcome: 'NEGATIVO' as any },
+    { name: 'Filippo Orlando', status: 'PERSO' as any, course: courseExcel, campaign: campaignInstagramExcel, daysAgo: 18, cost: 19.20, outcome: 'NEGATIVO' as any },
   ];
 
   const commercials = [commercial1, commercial2, commercial3];
@@ -351,8 +351,8 @@ async function main() {
   // Use createMany for faster insertion
   const leadsToCreate = leadData.map((data, i) => {
     const commercial = commercials[i % commercials.length];
-    const contacted = data.status !== LeadStatus.NUOVO;
-    const enrolled = data.status === LeadStatus.ISCRITTO;
+    const contacted = data.status !== ('NUOVO' as any);
+    const enrolled = data.status === ('ISCRITTO' as any);
     
     return {
       name: data.name,
@@ -366,7 +366,7 @@ async function main() {
       contactedAt: contacted ? daysAgo(data.daysAgo - 1) : null,
       contactedById: contacted ? commercial.id : null,
       callOutcome: data.outcome || null,
-      outcomeNotes: data.outcome ? `Chiamata ${data.outcome.toLowerCase().replace('_', ' ')}` : null,
+      outcomeNotes: data.outcome ? `Chiamata ${(data.outcome as string).toLowerCase().replace('_', ' ')}` : null,
       enrolled,
       enrolledAt: enrolled ? daysAgo(data.daysAgo - 5) : null,
       status: data.status,
@@ -392,7 +392,7 @@ async function main() {
   const activitiesToCreate: Array<{
     leadId: string;
     userId: string;
-    type: ActivityType;
+    type: any;
     description: string;
     createdAt: Date;
   }> = [];
@@ -405,7 +405,7 @@ async function main() {
     activitiesToCreate.push({
       leadId: lead.id,
       userId: marketing1.id,
-      type: ActivityType.NOTE,
+      type: 'NOTE' as any,
       description: 'Lead acquisito dalla campagna pubblicitaria',
       createdAt: lead.createdAt,
     });
@@ -415,7 +415,7 @@ async function main() {
       activitiesToCreate.push({
         leadId: lead.id,
         userId: commercial.id,
-        type: ActivityType.CALL,
+        type: 'CALL' as any,
         description: `Chiamata effettuata - Esito: ${lead.callOutcome || 'N/A'}`,
         createdAt: lead.contactedAt,
       });
@@ -426,7 +426,7 @@ async function main() {
       activitiesToCreate.push({
         leadId: lead.id,
         userId: commercial.id,
-        type: ActivityType.ENROLLMENT,
+        type: 'ENROLLMENT' as any,
         description: 'Cliente iscritto al corso',
         createdAt: lead.enrolledAt,
       });
@@ -440,11 +440,11 @@ async function main() {
   console.log('Creating tasks...');
 
   const taskTemplates = [
-    { title: 'Richiamare cliente', priority: TaskPriority.HIGH },
-    { title: 'Inviare brochure corso', priority: TaskPriority.MEDIUM },
-    { title: 'Follow-up proposta', priority: TaskPriority.HIGH },
-    { title: 'Verificare pagamento', priority: TaskPriority.MEDIUM },
-    { title: 'Inviare reminder iscrizione', priority: TaskPriority.LOW },
+    { title: 'Richiamare cliente', priority: 'HIGH' as any },
+    { title: 'Inviare brochure corso', priority: 'MEDIUM' as any },
+    { title: 'Follow-up proposta', priority: 'HIGH' as any },
+    { title: 'Verificare pagamento', priority: 'MEDIUM' as any },
+    { title: 'Inviare reminder iscrizione', priority: 'LOW' as any },
   ];
 
   const tasksToCreate: Array<{
@@ -453,13 +453,13 @@ async function main() {
     title: string;
     description: string;
     dueDate: Date;
-    priority: TaskPriority;
+    priority: any;
     completed: boolean;
     completedAt?: Date;
   }> = [];
 
   const pendingLeads = createdLeads.filter(l => 
-    l.status === LeadStatus.CONTATTATO || l.status === LeadStatus.IN_TRATTATIVA
+    l.status === ('CONTATTATO' as any) || l.status === ('IN_TRATTATIVA' as any)
   );
 
   for (let i = 0; i < pendingLeads.length; i++) {
@@ -479,7 +479,7 @@ async function main() {
   }
 
   // Add some completed tasks
-  const enrolledLeads = createdLeads.filter(l => l.status === LeadStatus.ISCRITTO);
+  const enrolledLeads = createdLeads.filter(l => l.status === ('ISCRITTO' as any));
   for (let i = 0; i < Math.min(5, enrolledLeads.length); i++) {
     const commercial = commercials[i % commercials.length];
     const enrolledLead = enrolledLeads[i];
@@ -490,7 +490,7 @@ async function main() {
       title: 'Chiudere trattativa',
       description: `Finalizzare iscrizione per ${enrolledLead.name}`,
       dueDate: daysAgo(i + 1),
-      priority: TaskPriority.HIGH,
+      priority: 'HIGH' as any,
       completed: true,
       completedAt: daysAgo(i),
     });
@@ -503,14 +503,14 @@ async function main() {
   console.log('Creating notifications...');
 
   const notifications = [
-    { userId: commercial1.id, type: NotificationType.LEAD_ASSIGNED, title: 'Nuovo lead assegnato', message: 'Ti è stato assegnato un nuovo lead: Marco Rossi' },
-    { userId: commercial1.id, type: NotificationType.REMINDER, title: 'Promemoria chiamata', message: 'Ricorda di richiamare Laura Bianchi oggi' },
-    { userId: commercial2.id, type: NotificationType.LEAD_ENROLLED, title: 'Nuova iscrizione!', message: 'Il lead Antonio Vitale si è iscritto al corso Marketing Digitale' },
-    { userId: commercial2.id, type: NotificationType.LEAD_ASSIGNED, title: 'Nuovo lead assegnato', message: 'Ti è stato assegnato un nuovo lead: Giuseppe Verdi' },
-    { userId: commercial3.id, type: NotificationType.LEAD_STATUS_CHANGED, title: 'Cambio stato lead', message: 'Il lead Roberto De Luca è passato a In Trattativa' },
-    { userId: marketing1.id, type: NotificationType.CAMPAIGN_CREATED, title: 'Campagna creata', message: 'La campagna Facebook Ads - Marketing Q1 2026 è stata attivata' },
-    { userId: marketing2.id, type: NotificationType.SYSTEM, title: 'Report settimanale', message: 'Il report settimanale delle campagne è disponibile' },
-    { userId: admin.id, type: NotificationType.SYSTEM, title: 'Nuovo utente', message: 'Un nuovo utente commerciale è stato aggiunto al sistema' },
+    { userId: commercial1.id, type: 'LEAD_ASSIGNED' as any, title: 'Nuovo lead assegnato', message: 'Ti è stato assegnato un nuovo lead: Marco Rossi' },
+    { userId: commercial1.id, type: 'REMINDER' as any, title: 'Promemoria chiamata', message: 'Ricorda di richiamare Laura Bianchi oggi' },
+    { userId: commercial2.id, type: 'LEAD_ENROLLED' as any, title: 'Nuova iscrizione!', message: 'Il lead Antonio Vitale si è iscritto al corso Marketing Digitale' },
+    { userId: commercial2.id, type: 'LEAD_ASSIGNED' as any, title: 'Nuovo lead assegnato', message: 'Ti è stato assegnato un nuovo lead: Giuseppe Verdi' },
+    { userId: commercial3.id, type: 'LEAD_STATUS_CHANGED' as any, title: 'Cambio stato lead', message: 'Il lead Roberto De Luca è passato a In Trattativa' },
+    { userId: marketing1.id, type: 'CAMPAIGN_CREATED' as any, title: 'Campagna creata', message: 'La campagna Facebook Ads - Marketing Q1 2026 è stata attivata' },
+    { userId: marketing2.id, type: 'SYSTEM' as any, title: 'Report settimanale', message: 'Il report settimanale delle campagne è disponibile' },
+    { userId: admin.id, type: 'SYSTEM' as any, title: 'Nuovo utente', message: 'Un nuovo utente commerciale è stato aggiunto al sistema' },
   ];
 
   const notificationsToCreate = notifications.map(notif => ({

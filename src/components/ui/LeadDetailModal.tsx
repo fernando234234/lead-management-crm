@@ -11,36 +11,45 @@ import {
   Target,
   MessageSquare,
   PhoneCall,
-  ArrowRight,
   CheckCircle,
-  Clock,
+  XCircle,
+  HelpCircle,
   Loader2,
   FileText,
   Edit2,
   Bell,
+  Megaphone,
 } from "lucide-react";
 import ActivityTimeline from "./ActivityTimeline";
 import TaskModal from "./TaskModal";
+
+// Tri-state type (removed)
 
 interface Lead {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
-  status: string;
+  notes: string | null;
+  // Binary States
   contacted: boolean;
   contactedAt: string | null;
+  isTarget: boolean;
+  targetNote: string | null;
   enrolled: boolean;
   enrolledAt: string | null;
-  isTarget: boolean;
-  notes: string | null;
-  callOutcome: string | null;
-  outcomeNotes: string | null;
+  
+  // Relations
   createdAt: string;
   updatedAt?: string;
   course: { id: string; name: string; price?: number } | null;
   campaign: { id: string; name: string; platform?: string } | null;
   assignedTo: { id: string; name: string; email: string } | null;
+  
+  // Legacy fields (optional)
+  status?: string;
+  callOutcome?: string | null;
+  outcomeNotes?: string | null;
 }
 
 interface Activity {
@@ -60,48 +69,29 @@ interface LeadDetailModalProps {
   lead: Lead;
   onClose: () => void;
   onUpdate?: (leadId: string, data: Partial<Lead>) => Promise<void>;
-  isDemoMode?: boolean;
   accentColor?: string;
 }
 
-const statusColors: Record<string, string> = {
-  NUOVO: "bg-blue-100 text-blue-700",
-  CONTATTATO: "bg-yellow-100 text-yellow-700",
-  IN_TRATTATIVA: "bg-purple-100 text-purple-700",
-  ISCRITTO: "bg-green-100 text-green-700",
-  PERSO: "bg-red-100 text-red-700",
-};
-
-const statusLabels: Record<string, string> = {
-  NUOVO: "Nuovo",
-  CONTATTATO: "Contattato",
-  IN_TRATTATIVA: "In Trattativa",
-  ISCRITTO: "Iscritto",
-  PERSO: "Perso",
-};
-
-const outcomeLabels: Record<string, string> = {
-  POSITIVO: "Positivo",
-  NEGATIVO: "Negativo",
-  RICHIAMARE: "Da Richiamare",
-  NON_RISPONDE: "Non Risponde",
+// Tri-state display config
+const triStateConfig = {
+  SI: { label: "Sì", color: "bg-green-100 text-green-700", icon: CheckCircle, iconColor: "text-green-500" },
+  NO: { label: "No", color: "bg-red-100 text-red-700", icon: XCircle, iconColor: "text-red-500" },
+  ND: { label: "N/D", color: "bg-gray-100 text-gray-500", icon: HelpCircle, iconColor: "text-gray-400" },
 };
 
 export default function LeadDetailModal({
   lead,
   onClose,
   onUpdate,
-  isDemoMode = false,
   accentColor = "blue-600",
 }: LeadDetailModalProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [quickNote, setQuickNote] = useState("");
-  const [showStatusChange, setShowStatusChange] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
-  
+
   // Accessibility refs
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -110,20 +100,15 @@ export default function LeadDetailModal({
 
   // Focus trap and keyboard handling
   useEffect(() => {
-    // Store the previously focused element
     previousActiveElement.current = document.activeElement as HTMLElement;
-    
-    // Focus the close button when modal opens
     closeButtonRef.current?.focus();
 
-    // Handle ESC key
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
         return;
       }
-      
-      // Focus trap
+
       if (e.key === "Tab" && modalRef.current) {
         const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -142,51 +127,16 @@ export default function LeadDetailModal({
     };
 
     document.addEventListener("keydown", handleKeyDown);
-    
-    // Prevent body scroll when modal is open
     document.body.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
-      // Return focus to the previously focused element
       previousActiveElement.current?.focus();
     };
   }, [onClose]);
 
   const fetchActivities = useCallback(async () => {
-    if (isDemoMode) {
-      // Mock activities for demo mode
-      setActivities([
-        {
-          id: "demo-1",
-          type: "NOTE",
-          description: "Prima chiamata effettuata, interessato al corso",
-          metadata: null,
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-          user: { id: "1", name: "Marco Verdi", email: "marco@example.com" },
-        },
-        {
-          id: "demo-2",
-          type: "CALL",
-          description: "Chiamata di follow-up, richiesta preventivo",
-          metadata: { duration: "15", outcome: "Positivo" },
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          user: { id: "1", name: "Marco Verdi", email: "marco@example.com" },
-        },
-        {
-          id: "demo-3",
-          type: "STATUS_CHANGE",
-          description: "Stato cambiato da NUOVO a CONTATTATO",
-          metadata: null,
-          createdAt: new Date(Date.now() - 172800000).toISOString(),
-          user: { id: "1", name: "Marco Verdi", email: "marco@example.com" },
-        },
-      ]);
-      setIsLoadingActivities(false);
-      return;
-    }
-
     try {
       const res = await fetch(`/api/leads/${lead.id}/activities`);
       if (res.ok) {
@@ -198,7 +148,7 @@ export default function LeadDetailModal({
     } finally {
       setIsLoadingActivities(false);
     }
-  }, [lead.id, isDemoMode]);
+  }, [lead.id]);
 
   useEffect(() => {
     fetchActivities();
@@ -209,19 +159,6 @@ export default function LeadDetailModal({
     description: string;
     metadata?: Record<string, unknown>;
   }) => {
-    if (isDemoMode) {
-      const newActivity: Activity = {
-        id: `demo-${Date.now()}`,
-        type: activity.type,
-        description: activity.description,
-        metadata: activity.metadata || null,
-        createdAt: new Date().toISOString(),
-        user: { id: "1", name: "Demo User", email: "demo@example.com" },
-      };
-      setActivities([newActivity, ...activities]);
-      return;
-    }
-
     try {
       const res = await fetch(`/api/leads/${lead.id}/activities`, {
         method: "POST",
@@ -252,37 +189,50 @@ export default function LeadDetailModal({
     }
   };
 
-  const handleStatusChange = async (newStatus: string) => {
+  const handleBooleanChange = async (field: string, value: boolean) => {
     if (!onUpdate) return;
     setIsSubmitting(true);
     try {
-      await onUpdate(lead.id, { status: newStatus });
+      const updateData: Record<string, unknown> = { [field]: value };
+      
+      // Add timestamp for true states
+      if (value) {
+        if (field === "contacted") updateData.contactedAt = new Date().toISOString();
+        if (field === "enrolled") updateData.enrolledAt = new Date().toISOString();
+      }
+      
+      await onUpdate(lead.id, updateData as Partial<Lead>);
+      
+      // Log activity
+      const fieldLabels: Record<string, string> = {
+        contacted: "Contattato",
+        isTarget: "Target",
+        enrolled: "Iscritto",
+      };
       await handleAddActivity({
         type: "STATUS_CHANGE",
-        description: `Stato cambiato da ${statusLabels[lead.status]} a ${statusLabels[newStatus]}`,
+        description: `${fieldLabels[field]} cambiato a ${value ? "Sì" : "No"}`,
       });
-      setShowStatusChange(false);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleLogCall = async () => {
-    const outcome = prompt("Esito della chiamata (Positivo, Negativo, Da richiamare, Non risponde):");
-    if (!outcome) return;
-    
     const notes = prompt("Note sulla chiamata:");
+    if (!notes) return;
+
     await handleAddActivity({
       type: "CALL",
-      description: notes || `Chiamata registrata - Esito: ${outcome}`,
-      metadata: { outcome },
+      description: notes,
     });
 
-    if (onUpdate && lead.status === "NUOVO") {
-      await onUpdate(lead.id, { 
-        status: "CONTATTATO",
+    // Auto-set contacted to true if not already
+    if (!lead.contacted && onUpdate) {
+      await onUpdate(lead.id, {
         contacted: true,
-      });
+        contactedAt: new Date().toISOString(),
+      } as Partial<Lead>);
     }
   };
 
@@ -293,12 +243,6 @@ export default function LeadDetailModal({
     priority: "HIGH" | "MEDIUM" | "LOW";
     leadId: string | null;
   }) => {
-    if (isDemoMode) {
-      // In demo mode, just close the modal
-      setShowTaskModal(false);
-      return;
-    }
-
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -309,55 +253,115 @@ export default function LeadDetailModal({
       throw new Error("Failed to create task");
     }
 
-    // Log activity for task creation
     await handleAddActivity({
       type: "NOTE",
       description: `Promemoria creato: ${taskData.title}`,
     });
   };
 
+  // Boolean display component
+  const BooleanStateDisplay = ({
+    label,
+    value,
+    field,
+    date,
+    note,
+  }: {
+    label: string;
+    value: boolean;
+    field: string;
+    date?: string | null;
+    note?: string | null;
+  }) => {
+    return (
+      <div className="p-3 bg-white rounded-lg border">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-gray-600">{label}</span>
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => handleBooleanChange(field, true)}
+              disabled={isSubmitting}
+              className={`p-1.5 rounded-md transition ${
+                value
+                  ? "bg-green-100 text-green-700 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+              title="Sì"
+            >
+              <CheckCircle size={16} />
+            </button>
+            <button
+              onClick={() => handleBooleanChange(field, false)}
+              disabled={isSubmitting}
+              className={`p-1.5 rounded-md transition ${
+                !value
+                  ? "bg-red-100 text-red-700 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+              title="No"
+            >
+              <XCircle size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {value ? (
+            <span className="text-sm font-medium text-green-600 px-2 py-0.5 rounded bg-green-50 flex items-center gap-1">
+              <CheckCircle size={14} /> Sì
+            </span>
+          ) : (
+            <span className="text-sm font-medium text-red-600 px-2 py-0.5 rounded bg-red-50 flex items-center gap-1">
+              <XCircle size={14} /> No
+            </span>
+          )}
+          {date && value && (
+            <span className="text-xs text-gray-400">
+              {new Date(date).toLocaleDateString("it-IT")}
+            </span>
+          )}
+        </div>
+        {note && (
+          <p className="text-xs text-gray-500 mt-1">{note}</p>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby={modalTitleId}
       onClick={(e) => {
-        // Close on backdrop click
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div 
+      <div
         ref={modalRef}
         className="bg-white rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center" aria-hidden="true">
+            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
               <User size={28} className="text-gray-500" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 id={modalTitleId} className="text-xl font-bold text-gray-900">{lead.name}</h2>
-                {lead.isTarget && (
-                  <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full flex items-center gap-1">
-                    <Target size={12} aria-hidden="true" />
-                    <span>Target</span>
-                  </span>
-                )}
-              </div>
+              <h2 id={modalTitleId} className="text-xl font-bold text-gray-900">
+                {lead.name}
+              </h2>
               <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
                 {lead.email && (
                   <span className="flex items-center gap-1">
-                    <Mail size={14} aria-hidden="true" />
-                    <span>{lead.email}</span>
+                    <Mail size={14} />
+                    {lead.email}
                   </span>
                 )}
                 {lead.phone && (
                   <span className="flex items-center gap-1">
-                    <Phone size={14} aria-hidden="true" />
-                    <span>{lead.phone}</span>
+                    <Phone size={14} />
+                    {lead.phone}
                   </span>
                 )}
               </div>
@@ -366,10 +370,10 @@ export default function LeadDetailModal({
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-gray-400"
-            aria-label="Chiudi dettagli lead"
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Chiudi"
           >
-            <X size={24} aria-hidden="true" />
+            <X size={24} />
           </button>
         </div>
 
@@ -378,55 +382,42 @@ export default function LeadDetailModal({
           {/* Left side - Lead details */}
           <div className="w-1/2 p-6 overflow-y-auto border-r">
             {/* Quick Actions */}
-            <div className="flex flex-wrap gap-2 mb-6" role="group" aria-label="Azioni rapide">
+            <div className="flex flex-wrap gap-2 mb-6">
               <button
                 onClick={() => setShowQuickNote(true)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition focus:outline-none focus:ring-2 focus:ring-${accentColor}`}
-                aria-label="Aggiungi nota al lead"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition`}
               >
-                <MessageSquare size={18} aria-hidden="true" />
+                <MessageSquare size={18} />
                 Aggiungi Nota
               </button>
               <button
                 onClick={handleLogCall}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition focus:outline-none focus:ring-2 focus:ring-${accentColor}`}
-                aria-label="Registra una chiamata"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition`}
               >
-                <PhoneCall size={18} aria-hidden="true" />
+                <PhoneCall size={18} />
                 Registra Chiamata
               </button>
               <button
-                onClick={() => setShowStatusChange(true)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition focus:outline-none focus:ring-2 focus:ring-${accentColor}`}
-                aria-label="Cambia stato del lead"
-              >
-                <ArrowRight size={18} aria-hidden="true" />
-                Cambia Stato
-              </button>
-              <button
                 onClick={() => setShowTaskModal(true)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition focus:outline-none focus:ring-2 focus:ring-${accentColor}`}
-                aria-label="Crea promemoria per questo lead"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition`}
               >
-                <Bell size={18} aria-hidden="true" />
+                <Bell size={18} />
                 Promemoria
               </button>
             </div>
 
             {/* Quick Note Input */}
             {showQuickNote && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg border" role="region" aria-label="Aggiungi nota">
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
                 <div className="flex items-start gap-2">
-                  <FileText size={20} className="text-gray-400 mt-1" aria-hidden="true" />
+                  <FileText size={20} className="text-gray-400 mt-1" />
                   <div className="flex-1">
-                    <label htmlFor="quick-note" className="sr-only">Scrivi una nota</label>
                     <textarea
-                      id="quick-note"
                       value={quickNote}
                       onChange={(e) => setQuickNote(e.target.value)}
                       placeholder="Scrivi una nota..."
                       rows={3}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                       autoFocus
                     />
                     <div className="flex justify-end gap-2 mt-2">
@@ -435,24 +426,16 @@ export default function LeadDetailModal({
                           setShowQuickNote(false);
                           setQuickNote("");
                         }}
-                        className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900 focus:outline-none focus:underline"
+                        className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900"
                       >
                         Annulla
                       </button>
                       <button
                         onClick={handleQuickNoteSubmit}
                         disabled={isSubmitting || !quickNote.trim()}
-                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        aria-busy={isSubmitting}
+                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                       >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                            <span className="sr-only">Salvataggio in corso...</span>
-                          </>
-                        ) : (
-                          "Salva"
-                        )}
+                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Salva"}
                       </button>
                     </div>
                   </div>
@@ -460,96 +443,35 @@ export default function LeadDetailModal({
               </div>
             )}
 
-            {/* Status Change Dropdown */}
-            {showStatusChange && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-                <p className="text-sm font-medium mb-2">Cambia stato del lead:</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <button
-                      key={value}
-                      onClick={() => handleStatusChange(value)}
-                      disabled={isSubmitting || value === lead.status}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
-                        value === lead.status
-                          ? "opacity-50 cursor-not-allowed"
-                          : "hover:opacity-80"
-                      } ${statusColors[value]}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setShowStatusChange(false)}
-                  className="mt-2 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Annulla
-                </button>
-              </div>
-            )}
-
             {/* Lead Info Cards */}
             <div className="space-y-4">
-              {/* Status & Progress */}
+              {/* Tri-State Status Cards */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-sm font-medium text-gray-500 mb-3">
-                  Stato e Progressi
+                  Stato Lead
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Stato Attuale</p>
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusColors[lead.status]}`}
-                    >
-                      {statusLabels[lead.status]}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Contattato</p>
-                    <div className="flex items-center gap-2">
-                      {lead.contacted ? (
-                        <>
-                          <CheckCircle size={18} className="text-green-500" />
-                          <span className="text-sm text-green-700">
-                            {lead.contactedAt
-                              ? new Date(lead.contactedAt).toLocaleDateString("it-IT")
-                              : "Si"}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Clock size={18} className="text-gray-400" />
-                          <span className="text-sm text-gray-500">Non ancora</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  {lead.callOutcome && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">Esito Chiamata</p>
-                      <span className="text-sm font-medium">
-                        {outcomeLabels[lead.callOutcome]}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Iscritto</p>
-                    <div className="flex items-center gap-2">
-                      {lead.enrolled ? (
-                        <>
-                          <CheckCircle size={18} className="text-green-500" />
-                          <span className="text-sm text-green-700">
-                            {lead.enrolledAt
-                              ? new Date(lead.enrolledAt).toLocaleDateString("it-IT")
-                              : "Si"}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-sm text-gray-500">No</span>
-                      )}
-                    </div>
-                  </div>
+                <div className="space-y-3">
+                  <BooleanStateDisplay
+                    label="Contattato"
+                    value={lead.contacted}
+                    field="contacted"
+                    date={lead.contactedAt}
+                    note={null}
+                  />
+                  <BooleanStateDisplay
+                    label="Target (In obiettivo)"
+                    value={lead.isTarget}
+                    field="isTarget"
+                    date={null}
+                    note={lead.targetNote}
+                  />
+                  <BooleanStateDisplay
+                    label="Iscritto"
+                    value={lead.enrolled}
+                    field="enrolled"
+                    date={lead.enrolledAt}
+                    note={null}
+                  />
                 </div>
               </div>
 
@@ -578,7 +500,7 @@ export default function LeadDetailModal({
                   )}
                   {lead.campaign && (
                     <div className="flex items-start gap-3">
-                      <Target size={18} className="text-gray-400 mt-0.5" />
+                      <Megaphone size={18} className="text-gray-400 mt-0.5" />
                       <div>
                         <p className="text-xs text-gray-400">Campagna</p>
                         <p className="text-sm font-medium">{lead.campaign.name}</p>
@@ -596,9 +518,7 @@ export default function LeadDetailModal({
                       <div>
                         <p className="text-xs text-gray-400">Assegnato a</p>
                         <p className="text-sm font-medium">{lead.assignedTo.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {lead.assignedTo.email}
-                        </p>
+                        <p className="text-xs text-gray-500">{lead.assignedTo.email}</p>
                       </div>
                     </div>
                   )}
@@ -608,24 +528,8 @@ export default function LeadDetailModal({
               {/* Notes */}
               {lead.notes && (
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">
-                    Note
-                  </h3>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {lead.notes}
-                  </p>
-                </div>
-              )}
-
-              {/* Outcome Notes */}
-              {lead.outcomeNotes && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">
-                    Note Esito
-                  </h3>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {lead.outcomeNotes}
-                  </p>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Note</h3>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{lead.notes}</p>
                 </div>
               )}
 
@@ -672,17 +576,10 @@ export default function LeadDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t bg-gray-50">
-          <div className="text-sm text-gray-600">
-            {isDemoMode && (
-              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
-                Modalita Demo
-              </span>
-            )}
-          </div>
+        <div className="flex items-center justify-end p-4 border-t bg-gray-50">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:text-gray-900 transition focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 rounded-lg"
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 transition rounded-lg"
           >
             Chiudi
           </button>
@@ -695,7 +592,7 @@ export default function LeadDetailModal({
         onClose={() => setShowTaskModal(false)}
         onSave={handleCreateTask}
         preselectedLeadId={lead.id}
-        leads={[{ id: lead.id, name: lead.name, status: lead.status }]}
+        leads={[{ id: lead.id, name: lead.name, status: lead.contacted ? "Contattato" : "Nuovo" }]}
       />
     </div>
   );

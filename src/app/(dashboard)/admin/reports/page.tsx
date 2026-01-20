@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockStats, mockLeads, mockCampaigns, mockCourses, mockUsers } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import { PieChart } from "@/components/charts/PieChart";
 import { BarChart } from "@/components/charts/BarChart";
@@ -17,7 +15,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  TestTube,
   BarChart3,
   Facebook,
   Linkedin,
@@ -156,7 +153,6 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 export default function ReportsPage() {
-  const { isDemoMode } = useDemoMode();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,17 +178,8 @@ export default function ReportsPage() {
   });
 
   useEffect(() => {
-    if (isDemoMode) {
-      setStats(mockStats as Stats);
-      setLeads(mockLeads as Lead[]);
-      setCampaigns(mockCampaigns as Campaign[]);
-      setCourses(mockCourses as Course[]);
-      setUsers(mockUsers as User[]);
-      setLoading(false);
-    } else {
-      fetchAllData();
-    }
-  }, [isDemoMode]);
+    fetchAllData();
+  }, []);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -548,12 +535,6 @@ export default function ReportsPage() {
           </h1>
           <p className="text-gray-500">Analisi dettagliata delle performance</p>
         </div>
-        {isDemoMode && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-            <TestTube size={16} />
-            Modalità Demo
-          </div>
-        )}
       </div>
 
       {/* Section 1: Overview Stats */}

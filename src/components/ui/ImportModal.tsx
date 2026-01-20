@@ -27,7 +27,6 @@ interface ImportModalProps {
   onImportComplete: (result: { success: number; errors: number }) => void;
   courses: { id: string; name: string }[];
   campaigns: { id: string; name: string }[];
-  isDemoMode?: boolean;
 }
 
 type Step = "upload" | "mapping" | "preview" | "importing" | "complete";
@@ -49,7 +48,6 @@ export default function ImportModal({
   onImportComplete,
   courses,
   campaigns,
-  isDemoMode = false,
 }: ImportModalProps) {
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
@@ -159,23 +157,6 @@ export default function ImportModal({
 
     setStep("importing");
     setImportProgress(0);
-
-    if (isDemoMode) {
-      // Simulate import in demo mode
-      const total = validatedData.validLeads.length;
-      for (let i = 0; i <= total; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        setImportProgress(Math.round((i / total) * 100));
-      }
-
-      const result = {
-        success: total,
-        errors: [] as { row: number; message: string }[],
-      };
-      setImportResult(result);
-      setStep("complete");
-      return;
-    }
 
     try {
       const response = await fetch("/api/leads/import", {

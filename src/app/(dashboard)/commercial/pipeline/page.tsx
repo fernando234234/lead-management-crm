@@ -2,21 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockLeads, mockCourses, mockCampaigns } from "@/lib/mockData";
 import { KanbanBoard } from "@/components/ui/KanbanBoard";
 import {
   LayoutGrid,
   List,
   X,
-  TestTube,
   Users,
   CheckCircle,
   Clock,
   XCircle,
   TrendingUp,
   Phone,
-  Mail,
   User,
   Pencil,
   PhoneCall,
@@ -93,7 +89,6 @@ const outcomeIcons: Record<string, React.ReactNode> = {
 
 export default function CommercialPipelinePage() {
   const { data: session } = useSession();
-  const { isDemoMode } = useDemoMode();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -112,21 +107,9 @@ export default function CommercialPipelinePage() {
     outcomeNotes: "",
   });
 
-  // Demo user ID (simulating a commercial user)
-  const demoUserId = "1"; // Marco Verdi in mockData
-
   useEffect(() => {
-    if (isDemoMode) {
-      // Filter leads assigned to current user
-      const myLeads = mockLeads.filter((lead) => lead.assignedTo?.id === demoUserId) as Lead[];
-      setLeads(myLeads);
-      setCourses(mockCourses.map((c) => ({ id: c.id, name: c.name })));
-      setCampaigns(mockCampaigns.map((c) => ({ id: c.id, name: c.name })));
-      setLoading(false);
-    } else {
-      fetchData();
-    }
-  }, [isDemoMode]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -167,17 +150,15 @@ export default function CommercialPipelinePage() {
       prev.map((lead) => (lead.id === leadId ? { ...lead, status: newStatus } : lead))
     );
 
-    if (!isDemoMode) {
-      try {
-        await fetch(`/api/leads/${leadId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: newStatus }),
-        });
-      } catch (error) {
-        console.error("Failed to update status:", error);
-        fetchData();
-      }
+    try {
+      await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      fetchData();
     }
   };
 
@@ -208,13 +189,6 @@ export default function CommercialPipelinePage() {
       outcomeNotes: outcomeData.outcomeNotes || null,
       status: selectedLead.status === "NUOVO" ? "CONTATTATO" : selectedLead.status,
     };
-
-    if (isDemoMode) {
-      setLeads((prev) => prev.map((l) => (l.id === selectedLead.id ? updatedLead : l)));
-      setSelectedLead(updatedLead);
-      setShowOutcomeModal(false);
-      return;
-    }
 
     try {
       await fetch(`/api/leads/${selectedLead.id}`, {
@@ -262,12 +236,6 @@ export default function CommercialPipelinePage() {
           <p className="text-gray-500">{filteredLeads.length} lead assegnati a te</p>
         </div>
         <div className="flex items-center gap-3">
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Demo
-            </div>
-          )}
           {/* View Toggle */}
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button

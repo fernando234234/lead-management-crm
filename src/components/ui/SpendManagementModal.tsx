@@ -36,7 +36,6 @@ interface SpendManagementModalProps {
   campaign: Campaign;
   onClose: () => void;
   onUpdate: () => void;
-  isDemoMode?: boolean;
 }
 
 type TabType = "records" | "add" | "recurring" | "bulk";
@@ -45,7 +44,6 @@ export function SpendManagementModal({
   campaign,
   onClose,
   onUpdate,
-  isDemoMode = false,
 }: SpendManagementModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>("records");
   const [spendRecords, setSpendRecords] = useState<SpendRecord[]>(
@@ -84,8 +82,6 @@ export function SpendManagementModal({
 
   // Fetch spend records
   const fetchRecords = async () => {
-    if (isDemoMode) return;
-    
     try {
       const res = await fetch(`/api/campaigns/${campaign.id}/spend`);
       const data = await res.json();
@@ -109,27 +105,6 @@ export function SpendManagementModal({
 
     setLoading(true);
     try {
-      if (isDemoMode) {
-        const newRecord: SpendRecord = {
-          id: editingRecord?.id || `demo-${Date.now()}`,
-          date: singleForm.date,
-          amount: parseFloat(singleForm.amount),
-          notes: singleForm.notes || null,
-        };
-        
-        if (editingRecord) {
-          setSpendRecords(spendRecords.map(r => 
-            r.id === editingRecord.id ? newRecord : r
-          ));
-        } else {
-          setSpendRecords([newRecord, ...spendRecords]);
-        }
-        
-        toast.success(editingRecord ? "Spesa modificata!" : "Spesa aggiunta!");
-        resetSingleForm();
-        return;
-      }
-
       const res = await fetch(`/api/campaigns/${campaign.id}/spend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -181,12 +156,6 @@ export function SpendManagementModal({
 
     setLoading(true);
     try {
-      if (isDemoMode) {
-        setSpendRecords(spendRecords.filter(r => r.id !== recordId));
-        toast.success("Spesa eliminata!");
-        return;
-      }
-
       const res = await fetch(`/api/campaigns/${campaign.id}/spend?recordId=${recordId}`, {
         method: "DELETE",
       });
@@ -243,26 +212,6 @@ export function SpendManagementModal({
     try {
       const amount = parseFloat(recurringForm.amount);
       
-      if (isDemoMode) {
-        const newRecords = dates.map((date, i) => ({
-          id: `demo-${Date.now()}-${i}`,
-          date,
-          amount,
-          notes: recurringForm.notes || null,
-        }));
-        setSpendRecords([...newRecords, ...spendRecords]);
-        toast.success(`${dates.length} spese create!`);
-        setRecurringForm({
-          startDate: new Date().toISOString().split("T")[0],
-          endDate: "",
-          amount: "",
-          frequency: "daily",
-          notes: "",
-        });
-        setActiveTab("records");
-        return;
-      }
-
       // Create all records
       for (const date of dates) {
         await fetch(`/api/campaigns/${campaign.id}/spend`, {
@@ -351,20 +300,6 @@ export function SpendManagementModal({
 
     setLoading(true);
     try {
-      if (isDemoMode) {
-        const newRecords = entries.map((entry, i) => ({
-          id: `demo-${Date.now()}-${i}`,
-          date: entry.date,
-          amount: entry.amount,
-          notes: entry.notes,
-        }));
-        setSpendRecords([...newRecords, ...spendRecords]);
-        toast.success(`${entries.length} spese importate!`);
-        setBulkText("");
-        setActiveTab("records");
-        return;
-      }
-
       for (const entry of entries) {
         await fetch(`/api/campaigns/${campaign.id}/spend`, {
           method: "POST",

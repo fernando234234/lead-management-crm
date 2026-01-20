@@ -92,3 +92,24 @@ export const adminCommercialDashboardTourSteps: TourStep[] = [
   },
 ];
 
+export const marketingTourSteps: TourStep[] = [
+  {
+    target: "[data-tour='stats-grid']",
+    title: "Benvenuto nella Dashboard Marketing!",
+    content: "Qui vedi una panoramica delle tue campagne: campagne attive, lead generati, spesa totale e costo per lead.",
+    placement: "bottom",
+  },
+  {
+    target: "[data-tour='campaigns-overview']",
+    title: "Panoramica Campagne",
+    content: "Visualizza la distribuzione della spesa per piattaforma e confronta le performance delle campagne attive.",
+    placement: "bottom",
+  },
+  {
+    target: "[data-tour='roi-section']",
+    title: "Analisi ROI",
+    content: "Monitora ricavi vs spesa, costi per tipo (lead, consulenza, contratto) e il ROI complessivo delle tue campagne.",
+    placement: "top",
+  },
+];
+

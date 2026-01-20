@@ -43,10 +43,16 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    // Ottieni il lead attuale per confrontare i cambiamenti
     const currentLead = await prisma.lead.findUnique({
       where: { id },
-      select: { status: true, assignedToId: true, name: true, contacted: true, enrolled: true },
+      select: { 
+        status: true, 
+        assignedToId: true, 
+        name: true, 
+        contacted: true, 
+        enrolled: true,
+        isTarget: true,
+      },
     });
 
     // Build update data
@@ -58,37 +64,31 @@ export async function PUT(
     if (body.courseId !== undefined) updateData.courseId = body.courseId;
     if (body.campaignId !== undefined) updateData.campaignId = body.campaignId;
     if (body.assignedToId !== undefined) updateData.assignedToId = body.assignedToId;
-    if (body.isTarget !== undefined) updateData.isTarget = body.isTarget;
     if (body.notes !== undefined) updateData.notes = body.notes;
-    if (body.status !== undefined) {
-      updateData.status = body.status;
-      // Auto-set enrolled=true when status changes to ISCRITTO
-      if (body.status === "ISCRITTO") {
-        updateData.enrolled = true;
-        if (!body.enrolledAt) {
-          updateData.enrolledAt = new Date();
-        }
-      }
-    }
     
-    // Contact tracking
+    // Binary fields
     if (body.contacted !== undefined) {
       updateData.contacted = body.contacted;
-      if (body.contacted && !body.contactedAt) {
+      if (body.contacted && !currentLead?.contacted) {
         updateData.contactedAt = new Date();
       }
     }
     if (body.contactedById !== undefined) updateData.contactedById = body.contactedById;
-    if (body.callOutcome !== undefined) updateData.callOutcome = body.callOutcome;
-    if (body.outcomeNotes !== undefined) updateData.outcomeNotes = body.outcomeNotes;
     
-    // Enrollment tracking
+    if (body.isTarget !== undefined) updateData.isTarget = body.isTarget;
+    if (body.targetNote !== undefined) updateData.targetNote = body.targetNote;
+    
     if (body.enrolled !== undefined) {
       updateData.enrolled = body.enrolled;
-      if (body.enrolled && !body.enrolledAt) {
+      if (body.enrolled && !currentLead?.enrolled) {
         updateData.enrolledAt = new Date();
       }
     }
+    
+    // Legacy support
+    if (body.status !== undefined) updateData.status = body.status;
+    if (body.callOutcome !== undefined) updateData.callOutcome = body.callOutcome;
+    if (body.outcomeNotes !== undefined) updateData.outcomeNotes = body.outcomeNotes;
     
     // Acquisition cost tracking (for Marketing)
     if (body.acquisitionCost !== undefined) {
@@ -131,17 +131,6 @@ export async function PUT(
         });
       }
 
-      // Call outcome update (even if already contacted)
-      if (body.callOutcome && currentLead?.contacted) {
-        activities.push({
-          leadId: id,
-          userId: session.user.id,
-          type: 'CALL' as ActivityType,
-          description: `Chiamata registrata - Esito: ${body.callOutcome}`,
-          metadata: { callOutcome: body.callOutcome, outcomeNotes: body.outcomeNotes },
-        });
-      }
-
       // Enrollment
       if (body.enrolled && !currentLead?.enrolled) {
         activities.push({
@@ -170,8 +159,8 @@ export async function PUT(
       }
     }
 
-    // Notifica quando lo status cambia a ISCRITTO
-    if (body.status === "ISCRITTO" && currentLead?.status !== "ISCRITTO") {
+    // Notifica quando status cambia a ISCRITTO o enrolled diventa true
+    if ((body.status === "ISCRITTO" && currentLead?.status !== "ISCRITTO") || (body.enrolled && !currentLead?.enrolled)) {
       // Notifica gli admin
       await createNotificationForRole(
         "ADMIN",

@@ -7,7 +7,7 @@
  * Usage: npx ts-node scripts/import-legacy-data.ts [--dry-run]
  */
 
-import { PrismaClient, LeadStatus, LeadSource, UserRole, Platform, CampaignStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import XLSX from 'xlsx';
 import path from 'path';
 import fs from 'fs';
@@ -91,15 +91,15 @@ function normalizeCourse(rawName: string | null): string | null {
 /**
  * Derive lead status from Excel columns
  */
-function deriveStatus(leadValidi: string, contattati: string, iscrizioni: string): LeadStatus {
+function deriveStatus(leadValidi: string, contattati: string, iscrizioni: string): any {
   const isValid = leadValidi?.toUpperCase() === 'SI';
   const isContacted = contattati?.toUpperCase() === 'SI';
   const isEnrolled = iscrizioni?.toUpperCase() === 'SI';
 
-  if (!isValid) return LeadStatus.PERSO;
-  if (isEnrolled) return LeadStatus.ISCRITTO;
-  if (isContacted) return LeadStatus.CONTATTATO;
-  return LeadStatus.NUOVO;
+  if (!isValid) return 'PERSO';
+  if (isEnrolled) return 'ISCRITTO';
+  if (isContacted) return 'CONTATTATO';
+  return 'NUOVO';
 }
 
 /**
@@ -179,7 +179,7 @@ async function main() {
         email: 'admin@leadcrm.it',
         name: 'Admin',
         password: hashedPassword,
-        role: UserRole.ADMIN,
+        role: 'ADMIN',
       },
     });
   }
@@ -196,7 +196,7 @@ async function main() {
           email: user.email,
           name: user.name,
           password: hashedPassword,
-          role: UserRole.COMMERCIAL,
+          role: 'COMMERCIAL',
         },
       });
       userMap.set(user.name, created.id);
@@ -245,11 +245,11 @@ async function main() {
     const campaign = await prisma.campaign.create({
       data: {
         name: 'Legacy Import',
-        platform: Platform.FACEBOOK, // Default
+        platform: 'META' as any, // Default
         courseId: firstCourseId,
         createdById: adminUser.id,
         budget: 0,
-        status: CampaignStatus.COMPLETED,
+        status: 'COMPLETED',
       },
     });
     legacyCampaignId = campaign.id;
@@ -365,7 +365,7 @@ async function main() {
       campaignId: legacyCampaignId,
       acquisitionCost: parsed.spesaAds > 0 ? parsed.spesaAds : null,
       revenue: parsed.ricavi > 0 ? parsed.ricavi : null,
-      source: LeadSource.LEGACY_IMPORT,
+      source: 'LEGACY_IMPORT',
       status,
       createdAt,
       updatedAt: createdAt,

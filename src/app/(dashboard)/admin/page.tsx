@@ -1,15 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
 import { useDataFilter, getDataSourceParam } from "@/contexts/DataFilterContext";
-import { mockStats } from "@/lib/mockData";
+import toast from "react-hot-toast";
 import { StatCard } from "@/components/ui/StatCard";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { PieChart } from "@/components/charts/PieChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { BarChart } from "@/components/charts/BarChart";
-import { UsersRound, BookOpen, Megaphone, Euro, UserCheck, TestTube, Users, AlertTriangle } from "lucide-react";
+import { UsersRound, BookOpen, Megaphone, Euro, UserCheck, Users, AlertTriangle } from "lucide-react";
 import { HelpIcon } from "@/components/ui/HelpIcon";
 import { helpTexts } from "@/lib/helpTexts";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
@@ -86,7 +85,6 @@ const STATUS_CHART_COLORS = [
 ];
 
 export default function AdminDashboard() {
-  const { isDemoMode } = useDemoMode();
   const { dataSource } = useDataFilter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,15 +162,8 @@ export default function AdminDashboard() {
   }, [stats?.topCampaigns]);
 
   useEffect(() => {
-    if (isDemoMode) {
-      // Use mock data
-      setStats(mockStats as Stats);
-      setLoading(false);
-    } else {
-      // Fetch real data
-      fetchStats();
-    }
-  }, [isDemoMode, dataSource]);
+    fetchStats();
+  }, [dataSource]);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -216,20 +207,12 @@ export default function AdminDashboard() {
           <p className="text-gray-500">Panoramica completa del sistema</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-3">
           <DateRangeFilter
             startDate={startDate}
             endDate={endDate}
             onChange={handleDateChange}
             presets
           />
-          {isDemoMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-              <TestTube size={16} />
-              Modalita Demo
-            </div>
-          )}
-          </div>
           <p className="text-xs text-gray-500">Il filtro date si applica ai lead recenti</p>
         </div>
       </div>

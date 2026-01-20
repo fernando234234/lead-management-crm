@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { mockCampaigns, mockLeads, mockStats } from "@/lib/mockData";
 import { StatCard } from "@/components/ui/StatCard";
 import { LineChart } from "@/components/charts/LineChart";
 import { BarChart } from "@/components/charts/BarChart";
@@ -16,7 +14,6 @@ import {
   Euro,
   DollarSign,
   BarChart3,
-  TestTube,
   ArrowUp,
   ArrowDown,
   Minus,
@@ -100,7 +97,6 @@ interface CampaignPerformance {
 }
 
 export default function MarketingROIPage() {
-  const { isDemoMode } = useDemoMode();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,14 +105,8 @@ export default function MarketingROIPage() {
   const [filterPlatform, setFilterPlatform] = useState("");
 
   useEffect(() => {
-    if (isDemoMode) {
-      setCampaigns(mockCampaigns as Campaign[]);
-      setLeads(mockLeads as Lead[]);
-      setLoading(false);
-    } else {
-      fetchData();
-    }
-  }, [isDemoMode]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -373,12 +363,6 @@ export default function MarketingROIPage() {
             Analizza il ritorno sugli investimenti delle campagne
           </p>
         </div>
-        {isDemoMode && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-            <TestTube size={16} />
-            Demo
-          </div>
-        )}
       </div>
 
       {/* Stats Cards - Row 1: Revenue & ROI */}

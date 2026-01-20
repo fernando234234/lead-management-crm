@@ -9,12 +9,9 @@ import {
   AlertCircle,
   Calendar,
   Loader2,
-  ClipboardList,
 } from "lucide-react";
-import { useDemoMode } from "@/contexts/DemoModeContext";
 import TaskList from "@/components/ui/TaskList";
 import TaskModal from "@/components/ui/TaskModal";
-import EmptyState from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 
 interface Task {
@@ -47,70 +44,7 @@ const filterOptions: { value: FilterType; label: string; icon: React.ElementType
   { value: "completed", label: "Completate", icon: CheckCircle },
 ];
 
-// Demo tasks
-const demoTasks: Task[] = [
-  {
-    id: "demo-1",
-    title: "Richiamare Marco per preventivo",
-    description: "Ha richiesto info sul corso di marketing",
-    dueDate: new Date().toISOString(),
-    completed: false,
-    completedAt: null,
-    priority: "HIGH",
-    lead: { id: "lead-1", name: "Marco Rossi", status: "CONTATTATO" },
-  },
-  {
-    id: "demo-2",
-    title: "Inviare brochure a Laura",
-    description: null,
-    dueDate: new Date(Date.now() + 86400000).toISOString(),
-    completed: false,
-    completedAt: null,
-    priority: "MEDIUM",
-    lead: { id: "lead-2", name: "Laura Bianchi", status: "IN_TRATTATIVA" },
-  },
-  {
-    id: "demo-3",
-    title: "Follow-up corso web design",
-    description: "Verificare interesse dopo call di ieri",
-    dueDate: new Date(Date.now() - 86400000).toISOString(),
-    completed: false,
-    completedAt: null,
-    priority: "HIGH",
-    lead: { id: "lead-3", name: "Giovanni Verdi", status: "CONTATTATO" },
-  },
-  {
-    id: "demo-4",
-    title: "Preparare offerta speciale",
-    description: "Sconto 10% per iscrizione anticipata",
-    dueDate: new Date(Date.now() + 172800000).toISOString(),
-    completed: false,
-    completedAt: null,
-    priority: "LOW",
-    lead: null,
-  },
-  {
-    id: "demo-5",
-    title: "Chiamata completata con successo",
-    description: "Il lead ha confermato interesse",
-    dueDate: new Date(Date.now() - 172800000).toISOString(),
-    completed: true,
-    completedAt: new Date(Date.now() - 86400000).toISOString(),
-    priority: "MEDIUM",
-    lead: { id: "lead-4", name: "Anna Neri", status: "ISCRITTO" },
-  },
-];
-
-const demoLeads: Lead[] = [
-  { id: "lead-1", name: "Marco Rossi", status: "CONTATTATO" },
-  { id: "lead-2", name: "Laura Bianchi", status: "IN_TRATTATIVA" },
-  { id: "lead-3", name: "Giovanni Verdi", status: "CONTATTATO" },
-  { id: "lead-4", name: "Anna Neri", status: "ISCRITTO" },
-  { id: "lead-5", name: "Paolo Gialli", status: "NUOVO" },
-];
-
 export default function TasksPage() {
-  const { isDemoMode } = useDemoMode();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
@@ -118,31 +52,6 @@ export default function TasksPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchTasks = useCallback(async () => {
-    if (isDemoMode) {
-      let filteredTasks = [...demoTasks];
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      
-      if (filter === "overdue") {
-        filteredTasks = filteredTasks.filter(
-          (t) => !t.completed && new Date(t.dueDate) < todayStart
-        );
-      } else if (filter === "today") {
-        filteredTasks = filteredTasks.filter((t) => {
-          const due = new Date(t.dueDate);
-          return !t.completed && due >= todayStart && due <= todayEnd;
-        });
-      } else if (filter === "completed") {
-        filteredTasks = filteredTasks.filter((t) => t.completed);
-      }
-      
-      setTasks(filteredTasks);
-      setLeads(demoLeads);
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch(`/api/tasks?filter=${filter}`);
       if (res.ok) {
@@ -154,14 +63,9 @@ export default function TasksPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isDemoMode, filter]);
+  }, [filter]);
 
   const fetchLeads = useCallback(async () => {
-    if (isDemoMode) {
-      setLeads(demoLeads);
-      return;
-    }
-
     try {
       const res = await fetch("/api/leads?assignedToId=current");
       if (res.ok) {
@@ -175,7 +79,7 @@ export default function TasksPage() {
     } catch (error) {
       console.error("Error fetching leads:", error);
     }
-  }, [isDemoMode]);
+  }, []);
 
   useEffect(() => {
     setIsLoading(true);
@@ -184,17 +88,6 @@ export default function TasksPage() {
   }, [fetchTasks, fetchLeads]);
 
   const handleToggleComplete = async (taskId: string, completed: boolean) => {
-    if (isDemoMode) {
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId
-            ? { ...t, completed, completedAt: completed ? new Date().toISOString() : null }
-            : t
-        )
-      );
-      return;
-    }
-
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
@@ -211,11 +104,6 @@ export default function TasksPage() {
   };
 
   const handleDelete = async (taskId: string) => {
-    if (isDemoMode) {
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
-      return;
-    }
-
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "DELETE",
@@ -236,20 +124,6 @@ export default function TasksPage() {
     priority: "HIGH" | "MEDIUM" | "LOW";
     leadId: string | null;
   }) => {
-    if (isDemoMode) {
-      const newTask: Task = {
-        id: `demo-${Date.now()}`,
-        ...taskData,
-        completed: false,
-        completedAt: null,
-        lead: taskData.leadId
-          ? leads.find((l) => l.id === taskData.leadId) || null
-          : null,
-      };
-      setTasks((prev) => [newTask, ...prev]);
-      return;
-    }
-
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -384,13 +258,6 @@ export default function TasksPage() {
         onSave={handleSaveTask}
         leads={leads}
       />
-
-      {/* Demo Mode Indicator */}
-      {isDemoMode && (
-        <div className="fixed bottom-4 right-4 px-4 py-2 bg-purple-600 text-white rounded-lg shadow-lg text-sm">
-          Modalita Demo Attiva
-        </div>
-      )}
     </div>
   );
 }

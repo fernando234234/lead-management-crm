@@ -101,29 +101,64 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate platform
-    const validPlatforms = ["FACEBOOK", "INSTAGRAM", "LINKEDIN", "GOOGLE_ADS", "TIKTOK"];
+    const validPlatforms = ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK"];
     if (!validPlatforms.includes(body.platform)) {
       return NextResponse.json({ error: "Invalid platform" }, { status: 400 });
     }
 
+    // 1. Find or Create MasterCampaign (Parent)
+    // Group campaigns by Name + Course
+    let masterCampaign = await prisma.masterCampaign.findFirst({
+      where: {
+        name: body.name,
+        courseId: body.courseId
+      },
+      include: { course: true }
+    });
+
+    if (!masterCampaign) {
+      masterCampaign = await prisma.masterCampaign.create({
+        data: {
+          name: body.name,
+          courseId: body.courseId,
+          status: "ACTIVE"
+        },
+        include: { course: true }
+      });
+    }
+
+    // 2. Create Campaign Variant (Child)
     const campaign = await prisma.campaign.create({
       data: {
-        name: body.name,
+        name: `${body.name} - ${body.platform}`, // Descriptive name for the variant
+        masterCampaignId: masterCampaign.id,
         platform: body.platform,
-        courseId: body.courseId,
-        createdById: creatorId, // The marketer who creates owns the campaign
+        courseId: body.courseId, // Legacy field, we can keep it populated for easier migration/queries
+        createdById: creatorId,
         budget: body.budget || 0,
         status: body.status || "ACTIVE",
         startDate: body.startDate ? new Date(body.startDate) : new Date(),
         endDate: body.endDate ? new Date(body.endDate) : null,
       },
       include: {
-        course: { select: { id: true, name: true } },
+        masterCampaign: { include: { course: true } }, // Include master info
         createdBy: { select: { id: true, name: true } },
       },
     });
 
-    return NextResponse.json(campaign, { status: 201 });
+    // Return the campaign in a format compatible with the UI
+    const responseCampaign = {
+        ...campaign,
+        name: masterCampaign.name, // Return master name for display consistency in lists? Or variant? 
+        // Actually, UI expects 'name' to be the one entered. 
+        // If I return variant name "Summer - META", it might be confusing if they just entered "Summer".
+        // But for tracking, variant name is better.
+        // Let's return the variant, but maybe UI needs adjustment.
+        // For now, let's return the campaign object as is.
+        course: masterCampaign.course // Polyfill the course relation from master
+    };
+
+    return NextResponse.json(responseCampaign, { status: 201 });
   } catch (error) {
     console.error("Error creating campaign:", error);
     return NextResponse.json({ error: "Failed to create campaign" }, { status: 500 });
