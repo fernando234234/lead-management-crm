@@ -26,7 +26,6 @@ A complete CRM solution for managing leads, courses, and marketing campaigns. Bu
 - In-app notifications
 - Task/reminder system
 - Global search
-- Demo mode with mock data
 
 ### UI Features
 - Red/White theme inspired by Job Formazione
@@ -123,15 +122,15 @@ npm run dev
    - **Connection string** (for `DATABASE_URL`)
    - **Direct connection** (for `DIRECT_URL`)
 
-## Demo Accounts
+## Default Accounts
 
 After seeding the database, you can use these accounts:
 
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | admin@leadcrm.it | admin123 |
-| Commercial | marco.verdi@leadcrm.it | user123 |
-| Marketing | giulia.rossi@leadcrm.it | user123 |
+| Commercial | commerciale@leadcrm.it | user123 |
+| Marketing | marketing@leadcrm.it | user123 |
 
 ## Project Structure
 
