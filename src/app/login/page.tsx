@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getCsrfToken } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LogIn, Mail, Lock, AlertCircle, AlertTriangle } from "lucide-react";
+import { LogIn, Mail, Lock, AlertCircle } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -22,6 +22,9 @@ function LoginForm() {
     setLoading(true);
 
     try {
+      // Refresh CSRF token before each login attempt to avoid stale token issues
+      await getCsrfToken();
+      
       const result = await signIn("credentials", {
         email,
         password,
@@ -30,6 +33,12 @@ function LoginForm() {
 
       if (result?.error) {
         setError("Email o password non validi");
+        setLoading(false);
+        return;
+      }
+
+      if (!result?.ok) {
+        setError("Si è verificato un errore. Riprova.");
         setLoading(false);
         return;
       }
@@ -60,6 +69,7 @@ function LoginForm() {
         router.replace(callbackUrl);
       }
     } catch (err) {
+      console.error("Login error:", err);
       setError("Si è verificato un errore. Riprova.");
       setLoading(false);
     }
@@ -67,17 +77,7 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      {/* Demo/Mock Data Banner */}
-      <div className="fixed top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 py-2 px-4 z-50">
-        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 text-amber-800 text-sm">
-          <AlertTriangle size={16} className="flex-shrink-0" />
-          <span>
-            <strong>Versione Demo:</strong> Dati fittizi a scopo dimostrativo
-          </span>
-        </div>
-      </div>
-      
-      <div className="w-full max-w-md mt-8">
+      <div className="w-full max-w-md">
         {/* Logo/Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-red-600 rounded-xl mb-4 shadow-red">
@@ -108,7 +108,7 @@ function LoginForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="mario@example.com"
+                  placeholder="email@example.com"
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition"
                 />
               </div>
@@ -149,53 +149,11 @@ function LoginForm() {
               )}
             </button>
           </form>
-
-          {/* Demo credentials */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-500 text-center mb-3">
-              Credenziali Demo (clicca per compilare)
-            </p>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("admin@leadcrm.it");
-                  setPassword("admin123");
-                }}
-                className="p-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition font-medium"
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("marco.verdi@leadcrm.it");
-                  setPassword("user123");
-                }}
-                className="p-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition font-medium"
-              >
-                Commerciale
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("giulia.rossi@leadcrm.it");
-                  setPassword("user123");
-                }}
-                className="p-2 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 transition font-medium"
-              >
-                Marketing
-              </button>
-            </div>
-            <p className="text-xs text-amber-600 text-center mt-3">
-              Tutti i dati mostrati sono fittizi
-            </p>
-          </div>
         </div>
 
         {/* Footer branding */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          Ispirato allo stile Job Formazione
+          Lead Management CRM
         </p>
       </div>
     </div>
