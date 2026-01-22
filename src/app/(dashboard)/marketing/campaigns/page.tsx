@@ -107,7 +107,7 @@ export default function MarketingCampaignsPage() {
 
   const [formData, setFormData] = useState({
     name: "",
-    platform: "FACEBOOK",
+    platform: "META",
     courseId: "",
     budget: "",
     status: "ACTIVE",

@@ -60,10 +60,9 @@ interface Lead {
   assignedTo: { id: string; name: string; email: string } | null;
 }
 
-// Platforms
+// Platforms - matching Prisma enum
 const PLATFORMS = [
-  { id: "FACEBOOK", label: "Facebook" },
-  { id: "INSTAGRAM", label: "Instagram" },
+  { id: "META", label: "Meta (FB/IG)" },
   { id: "LINKEDIN", label: "LinkedIn" },
   { id: "GOOGLE_ADS", label: "Google Ads" },
   { id: "TIKTOK", label: "TikTok" },

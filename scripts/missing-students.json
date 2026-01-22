@@ -1,0 +1,968 @@
+[
+  {
+    "name": "LAURA  REVELLI",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "15/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Thomas Bonvento",
+    "course": "Masterclass Ai",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "14/01/2026",
+    "statoPagamenti": "W"
+  },
+  {
+    "name": "GIORGIA GRECO",
+    "course": "Social Media Manager",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "14/01/2026",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "FRANCESCA TRAVERSI",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "13/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Thomas  Benini",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "13/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Valentina Gaeta",
+    "course": "Masterclass Ai",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "12/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Debora Lombardi",
+    "course": "Masterclass Ai",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "09/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "MARCO GRITTA",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "09/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "GIANCARLO GIOACHINO GIANDINOTO",
+    "course": "Narrative Design",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "09/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "NAUSICA ELEONORA BOCCALI",
+    "course": "Masterclass Ai",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "08/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "ALBERTO GNOCCHI",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "07/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Sara  Cottinelli",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "05/01/2026",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SERENA ZITO",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "22/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Noemi Riccio",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "22/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "ALICE  BALICCO",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "19/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Sabrina Forina",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "18/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "WISSAL MEDIANI",
+    "course": "Interior Planner",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "18/12/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Liliana Corradini",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "16/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "NICOLO PIETRAROLO",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "12/12/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "TIZIANO MARANDOLA",
+    "course": "Social Media Manager",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "12/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "MATTEO TRAINITO",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "11/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "MARZIA PIEDIMONTE",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "11/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "CRISTINA  BENATTI",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "10/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "MIRIAM FERRANDINO",
+    "course": "Narrative Design",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "10/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "VERA CAIAZZA",
+    "course": "Masterclass Ai",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "09/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Simona  Capitani",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "09/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SOFIA RIGHETTI",
+    "course": "Social Media Manager",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "05/12/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "ERICK STEVEN TITOANA BOSMEDIANO",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "05/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "TOMMASO ALBERTO REGAZZO",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "04/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "ANNALISA SARTORI",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "01/12/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "GIOVANNI SEMITI",
+    "course": "Masterclass in Game Design",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "26/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "DILETTA PUCCETTI",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "26/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SABRINA CAVALLIN",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "24/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "GIOELE MACRI",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "21/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "MICHELA MOTTIN",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "19/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "DAVIDE QUAGLIANI",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "19/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "ALESSANDRA MACRI DEL GIUDICE",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "18/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "CLAUDIO GIUSEPPE CAPUANA",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "18/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "GAIA LIMA",
+    "course": "Narrative Design",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "18/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "ALI HUSSEIN",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "17/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Pier Giorgio Madrigali",
+    "course": "Masterclass Ai",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "14/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "DANIELE SIMONI",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "14/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "PAUL CYRIL CASTILLO",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "14/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Chiara Trivellato",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "14/11/2025",
+    "statoPagamenti": "W"
+  },
+  {
+    "name": "Barbara Trozzi",
+    "course": "Masterclass Ai",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "14/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "DAVIDE ALTOBELLI",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "11/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "DANILO PANICO",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "11/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Guido  De stefano",
+    "course": "Interior Planner",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "11/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SARA MARTUCCI",
+    "course": "Narrative Design",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "11/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Fernando Guerra",
+    "course": "Masterclass Ai",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "11/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "LORENZO LIOTTA",
+    "course": "Graphic Design",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "10/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "GIOVANNI  RANDAZZO",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "07/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SERAFINO AMELIO",
+    "course": "Catia",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "07/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Chiara  Brandovardi",
+    "course": "Masterclass Ai",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "06/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Salvatore  Sterlino",
+    "course": "Masterclass Architectural Design",
+    "commercial": "Benedetta Barbarisi",
+    "dataStipula": "06/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Mattia Tomasetta",
+    "course": "Interior Planner",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "05/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SARA ZANALETTI",
+    "course": "Graphic Design",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "05/11/2025",
+    "statoPagamenti": "W"
+  },
+  {
+    "name": "Beatrice  Pala",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "05/11/2025",
+    "statoPagamenti": "W"
+  },
+  {
+    "name": "Sara  Parenti",
+    "course": "Masterclass Ai",
+    "commercial": "SILVANA PACIA",
+    "dataStipula": "05/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "WILLER SERRA",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "05/11/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Raffaele Zambella",
+    "course": "Graphic Design",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "04/11/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Nicola  Cuomo",
+    "course": "Catia",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "03/11/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Mattia  Miolo",
+    "course": "Catia",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "03/11/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Daniele  Tassetto",
+    "course": "Catia",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "03/11/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Nicola  Alagia",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "31/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "FEDERICA DI CRISCIO",
+    "course": "Masterclass Ai",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "30/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "MATTIA CACCIATORE",
+    "course": "Narrative Design",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "29/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Carlos Antonio Reyes Molina",
+    "course": "Catia",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Alberto  Leone",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Ilenia  Caravita",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "M  Raafat",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Annalisa  De Giampietro",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Alessandro  Fracassi",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Marino  Boninsegna",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Alberto  Strada",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Isabella  Saggini",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Emanuele  Sebastiani",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Patrich  Sommariva",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Mattia  Tonini",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Luigi  Baldessari",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Fabio  Chenetti",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Andrea  Bergonzini",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Ivano  Paparella",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Raffaello  De Martin",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Giacomo  Tornabene",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Martina  Velcani",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Augusto  Delvai",
+    "course": "Excel",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "27/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "GIULIA BORGHI",
+    "course": "UX/UI Design",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "24/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Tommaso Seminara",
+    "course": "Revit",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "23/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Ilenia Scagliarini",
+    "course": "Masterclass Ai",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "22/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "ANTONELLA LAURITANO",
+    "course": "Revit",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "20/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "GIORGIO D AMICO",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "14/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Daniele. Tassetto",
+    "course": "Project Management Professional",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "10/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Gianmarco Montolli",
+    "course": "Project Management Professional",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "09/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Alberto Leone",
+    "course": "Project Management Professional",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "09/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Federico Pizzolato",
+    "course": "Project Management Professional",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "09/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Mattia Miolo",
+    "course": "Project Management Professional",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "09/10/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "JOSE RAUL HEREDIA SOLANO",
+    "course": "AutoCad",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "08/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Mario Li Voti",
+    "course": "Masterclass in Game Design",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "08/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "GIULIANA GENNARO",
+    "course": "Graphic Design",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "02/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Manuel Alvaro",
+    "course": "Masterclass Ai",
+    "commercial": "Benedetta Barbarisi",
+    "dataStipula": "01/10/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "YESSICA IMMACOLATA SIRICA",
+    "course": "Graphic Design",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "29/09/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Alberto Leone",
+    "course": "Catia",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "26/09/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "ELISA  PASCUTTO",
+    "course": "Social Media Manager",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "25/09/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Carlo Fogliese",
+    "course": "Social Media Manager",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "25/09/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Davide Brusegan",
+    "course": "Masterclass Ai",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "19/09/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "FEDERICA FONTANA",
+    "course": "Masterclass Ai",
+    "commercial": "Eleonora Rossi",
+    "dataStipula": "19/09/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Elisa Peloni",
+    "course": "Interior Planner",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "19/09/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "AMIR RAHMAN SETAYESH",
+    "course": "3d Modeling",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "11/09/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Jekaterina Sidelnikova",
+    "course": "Social Media Manager",
+    "commercial": "Eleonora Rossi",
+    "dataStipula": "01/09/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "LUNA QUINCI",
+    "course": "Graphic Design",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "16/08/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Nicola  Maini",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "12/08/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "FRANCESCO ANTONIO VETTORETTI",
+    "course": "Social Media Manager",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "06/08/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Anjala  Testacuzzi",
+    "course": "Masterclass Ai",
+    "commercial": "SILVANA PACIA",
+    "dataStipula": "04/08/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SEBASTIANO VACIRCA",
+    "course": "Graphic Design",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "01/08/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Alessia pacelli",
+    "course": "Social Media Manager",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "31/07/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Giordano  Zamboni",
+    "course": "Social Media Manager",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "21/07/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "GIULIA ZANELLATO",
+    "course": "Graphic Design",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "14/07/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "VINCENZA MELIS",
+    "course": "Character Design",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "07/07/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Vincenzo  Spagnuolo",
+    "course": "Catia",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "30/06/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "MARIA ROSA AGNESE",
+    "course": "Masterclass Full Developer",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "30/06/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "VALERIA  PALUMBO",
+    "course": "UX/UI Design",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "27/06/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "PIERO TANTINO",
+    "course": "UX/UI Design",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "27/06/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "VALENTINA ACETO",
+    "course": "Graphic Design",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "17/06/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "ELENA THAM BASILICO",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "12/06/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SARAH AMINA BELGUENDOUZ",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "10/06/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Luca  Menconi",
+    "course": "Graphic Design",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "09/06/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "MARIASTEFANIA TAVERNA",
+    "course": "Masterclass Ai",
+    "commercial": "Natascia Lombardi",
+    "dataStipula": "31/05/2025",
+    "statoPagamenti": "KO"
+  },
+  {
+    "name": "Jekaterina Sidelnikova",
+    "course": "Masterclass Ai",
+    "commercial": "Eleonora Rossi",
+    "dataStipula": "30/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "SARINO SALVATORE VECCHIO",
+    "course": "Revit",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "23/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Alessandra Bernardi",
+    "course": "Interior Planner",
+    "commercial": "Raffaele Zambella",
+    "dataStipula": "21/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "DAVIDE  GAETANI",
+    "course": "Graphic Design",
+    "commercial": "Marcella Abbenante",
+    "dataStipula": "19/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Massimo Spatuzzi",
+    "course": "Masterclass Ai",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "19/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Enrico  Martinelli",
+    "course": "Masterclass Ai",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "19/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Federica  De Giovanni",
+    "course": "Masterclass Ai",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "19/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Paola Guarducci",
+    "course": "Graphic Design",
+    "commercial": "Martina  Sculli",
+    "dataStipula": "19/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "Nicolò Cabrini",
+    "course": "Masterclass Ai",
+    "commercial": "Marilena Abbenante",
+    "dataStipula": "16/05/2025",
+    "statoPagamenti": "OK"
+  },
+  {
+    "name": "TOMMASO CLEMENTI",
+    "course": "Blender / 3D",
+    "commercial": "Simone Cringoli",
+    "dataStipula": "16/05/2025",
+    "statoPagamenti": "OK"
+  }
+]

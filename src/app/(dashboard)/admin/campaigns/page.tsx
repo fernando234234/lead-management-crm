@@ -19,8 +19,7 @@ import ExportButton from "@/components/ui/ExportButton";
 
 // Platform options matching Prisma enum
 const platformOptions = [
-  { value: "FACEBOOK", label: "Facebook" },
-  { value: "INSTAGRAM", label: "Instagram" },
+  { value: "META", label: "Meta (FB/IG)" },
   { value: "LINKEDIN", label: "LinkedIn" },
   { value: "GOOGLE_ADS", label: "Google Ads" },
   { value: "TIKTOK", label: "TikTok" },
@@ -99,7 +98,7 @@ export default function AdminCampaignsPage() {
 
   const [formData, setFormData] = useState({
     name: "",
-    platform: "FACEBOOK",
+    platform: "META",
     courseId: "",
     budget: "",
     status: "ACTIVE",
@@ -148,7 +147,7 @@ export default function AdminCampaignsPage() {
       setEditingCampaign(null);
       setFormData({
         name: "",
-        platform: "FACEBOOK",
+        platform: "META",
         courseId: courses[0]?.id || "",
         budget: "",
         status: "ACTIVE",

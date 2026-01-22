@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { StatCard } from "@/components/ui/StatCard";
 import {
   Users,
@@ -128,6 +129,7 @@ interface GroupedLeads {
 }
 
 export default function MarketingLeadsPage() {
+  const { data: session } = useSession();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,11 +214,8 @@ export default function MarketingLeadsPage() {
           courseId: createFormData.courseId,
           campaignId: createFormData.campaignId,
           notes: createFormData.notes || null,
-          source: "MANUAL", // Created by marketer manually
-          createdById: "marketing-user", // Should be session user id really
-          contattatoStato: "ND",
-          targetStato: "ND",
-          iscrittoStato: "ND",
+          source: "MANUAL",
+          createdById: session?.user?.id || null,
         }),
       });
 
