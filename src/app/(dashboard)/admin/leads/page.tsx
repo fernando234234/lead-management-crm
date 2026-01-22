@@ -22,6 +22,9 @@ import {
   Square,
   Minus,
   Upload,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import ExportButton from "@/components/ui/ExportButton";
@@ -139,6 +142,11 @@ export default function AdminLeadsPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCourse, setFilterCourse] = useState("");
   const [filterCommercial, setFilterCommercial] = useState("");
+  
+  // Sorting
+  type SortField = "name" | "course" | "commercial" | "status" | "createdAt" | "acquisitionCost";
+  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -194,17 +202,78 @@ export default function AdminLeadsPage() {
     }
   };
 
-  const filteredLeads = leads.filter((lead) => {
-    if (search && !lead.name.toLowerCase().includes(search.toLowerCase()) &&
-        !lead.email?.toLowerCase().includes(search.toLowerCase()) &&
-        !lead.phone?.includes(search)) {
-      return false;
+  // Sort function
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
     }
-    if (filterStatus && lead.status !== filterStatus) return false;
-    if (filterCourse && lead.course?.id !== filterCourse) return false;
-    if (filterCommercial && lead.assignedTo?.id !== filterCommercial) return false;
-    return true;
-  });
+  };
+
+  // Filter and sort leads
+  const filteredLeads = useMemo(() => {
+    let result = leads.filter((lead) => {
+      if (search && !lead.name.toLowerCase().includes(search.toLowerCase()) &&
+          !lead.email?.toLowerCase().includes(search.toLowerCase()) &&
+          !lead.phone?.includes(search)) {
+        return false;
+      }
+      if (filterStatus && lead.status !== filterStatus) return false;
+      if (filterCourse && lead.course?.id !== filterCourse) return false;
+      if (filterCommercial && lead.assignedTo?.id !== filterCommercial) return false;
+      return true;
+    });
+
+    // Sort
+    result.sort((a, b) => {
+      let aVal: string | number | null = null;
+      let bVal: string | number | null = null;
+
+      switch (sortField) {
+        case "name":
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case "course":
+          aVal = a.course?.name?.toLowerCase() || "";
+          bVal = b.course?.name?.toLowerCase() || "";
+          break;
+        case "commercial":
+          aVal = a.assignedTo?.name?.toLowerCase() || "";
+          bVal = b.assignedTo?.name?.toLowerCase() || "";
+          break;
+        case "status":
+          aVal = a.status;
+          bVal = b.status;
+          break;
+        case "createdAt":
+          aVal = new Date(a.createdAt).getTime();
+          bVal = new Date(b.createdAt).getTime();
+          break;
+        case "acquisitionCost":
+          aVal = a.acquisitionCost || 0;
+          bVal = b.acquisitionCost || 0;
+          break;
+      }
+
+      if (aVal === null || bVal === null) return 0;
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [leads, search, filterStatus, filterCourse, filterCommercial, sortField, sortDirection]);
+
+  // Sort icon helper
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown size={14} className="text-gray-300" />;
+    return sortDirection === "asc" 
+      ? <ArrowUp size={14} className="text-admin" />
+      : <ArrowDown size={14} className="text-admin" />;
+  };
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredLeads.length / pageSize);
@@ -623,14 +692,38 @@ export default function AdminLeadsPage() {
                     )}
                   </button>
                 </th>
-                <th scope="col">Lead</th>
-                <th scope="col">Corso</th>
-                <th scope="col">Commerciale</th>
-                <th scope="col">Stato</th>
+                <th scope="col">
+                  <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-admin transition-colors">
+                    Lead <SortIcon field="name" />
+                  </button>
+                </th>
+                <th scope="col">
+                  <button onClick={() => handleSort("course")} className="flex items-center gap-1 hover:text-admin transition-colors">
+                    Corso <SortIcon field="course" />
+                  </button>
+                </th>
+                <th scope="col">
+                  <button onClick={() => handleSort("commercial")} className="flex items-center gap-1 hover:text-admin transition-colors">
+                    Commerciale <SortIcon field="commercial" />
+                  </button>
+                </th>
+                <th scope="col">
+                  <button onClick={() => handleSort("status")} className="flex items-center gap-1 hover:text-admin transition-colors">
+                    Stato <SortIcon field="status" />
+                  </button>
+                </th>
                 <th scope="col" className="text-center">Contattato</th>
                 <th scope="col" className="text-center">Iscritto</th>
-                <th scope="col">Costo Acq.</th>
-                <th scope="col">Data Creazione</th>
+                <th scope="col">
+                  <button onClick={() => handleSort("acquisitionCost")} className="flex items-center gap-1 hover:text-admin transition-colors">
+                    Costo Acq. <SortIcon field="acquisitionCost" />
+                  </button>
+                </th>
+                <th scope="col">
+                  <button onClick={() => handleSort("createdAt")} className="flex items-center gap-1 hover:text-admin transition-colors">
+                    Data Creazione <SortIcon field="createdAt" />
+                  </button>
+                </th>
                 <th scope="col">Azioni</th>
               </tr>
             </thead>

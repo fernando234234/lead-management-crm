@@ -39,6 +39,7 @@ interface Lead {
   enrolled: boolean;
   contacted: boolean;
   acquisitionCost?: number | null;
+  createdAt: string;
   campaign: {
     id: string;
     name: string;
@@ -285,14 +286,50 @@ export default function MarketingROIPage() {
     };
   }, [campaignPerformance]);
 
-  // ROI trend over time (mock data)
+  // ROI trend over time (real data from leads grouped by month)
   const roiTrendData = useMemo(() => {
-    const months = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu"];
-    return months.map((month, i) => ({
-      mese: month,
-      roi: Math.floor(50 + Math.random() * 100 + i * 10),
-    }));
-  }, []);
+    if (leads.length === 0) return [];
+    
+    const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+    
+    // Group leads by month
+    const monthlyData: Record<string, { revenue: number; cost: number }> = {};
+    
+    leads.forEach((lead) => {
+      if (!lead.createdAt) return;
+      const date = new Date(lead.createdAt);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { revenue: 0, cost: 0 };
+      }
+      
+      // Add revenue if enrolled
+      if (lead.enrolled || lead.status === "ISCRITTO") {
+        monthlyData[monthKey].revenue += lead.course?.price || 0;
+      }
+      
+      // Add cost if available
+      if (lead.acquisitionCost && lead.acquisitionCost > 0) {
+        monthlyData[monthKey].cost += lead.acquisitionCost;
+      }
+    });
+    
+    // Convert to array and sort by date (last 6 months)
+    const sortedMonths = Object.entries(monthlyData)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6)
+      .map(([key, data]) => {
+        const month = parseInt(key.split('-')[1]) - 1;
+        const roi = data.cost > 0 ? Math.round(((data.revenue - data.cost) / data.cost) * 100) : 0;
+        return {
+          mese: monthNames[month],
+          roi: roi,
+        };
+      });
+    
+    return sortedMonths;
+  }, [leads]);
 
   // Campaign ROI comparison for bar chart
   const campaignRoiData = useMemo(() => {

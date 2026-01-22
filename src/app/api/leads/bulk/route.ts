@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 type BulkAction = "assign" | "status" | "delete" | "set_cost" | "distribute_cost" | "distribute_by_period";
@@ -25,6 +27,15 @@ interface BulkRequestBody {
 // POST /api/leads/bulk - Perform bulk operations on leads
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // Only ADMIN can perform bulk operations
+    if (session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden - Admin only" }, { status: 403 });
+    }
+
     const body: BulkRequestBody = await request.json();
     const { action, leadIds, data } = body;
 

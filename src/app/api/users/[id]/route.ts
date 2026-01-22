@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { hash } from 'bcryptjs';
 
-// GET single user
+// GET single user (Admin only)
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: params.id },
       select: {
@@ -39,6 +49,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
+    }
+
     const body = await request.json();
     
     const updateData: any = {
@@ -76,6 +94,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
+    }
+
     // Check if user has assigned leads
     const user = await prisma.user.findUnique({
       where: { id: params.id },

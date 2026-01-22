@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 interface UserData {
   id: string;
+  username: string;
   email: string;
   name: string;
   role: "ADMIN" | "COMMERCIAL" | "MARKETING";
@@ -30,6 +31,7 @@ const roleConfig = {
 
 // Export columns configuration
 const userExportColumns = [
+  { key: "username", label: "Username" },
   { key: "name", label: "Nome" },
   { key: "email", label: "Email" },
   { key: "role", label: "Ruolo" },
@@ -236,6 +238,7 @@ export default function AdminUsersPage() {
                 <thead>
                   <tr className="text-left text-sm text-gray-500 border-b bg-gray-50/50">
                     <th className="p-4 font-medium">Utente</th>
+                    <th className="p-4 font-medium">Username</th>
                     <th className="p-4 font-medium">Email</th>
                     <th className="p-4 font-medium">Ruolo</th>
                     <th className="p-4 font-medium">Lead Assegnati</th>
@@ -257,6 +260,7 @@ export default function AdminUsersPage() {
                             <span className="font-medium">{user.name}</span>
                           </div>
                         </td>
+                        <td className="p-4 text-gray-600 font-mono text-sm">{user.username}</td>
                         <td className="p-4 text-gray-600">{user.email}</td>
                         <td className="p-4">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${config.color}`}>
@@ -373,8 +377,8 @@ export default function AdminUsersPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors"
-                  minLength={6}
-                  placeholder="Minimo 6 caratteri"
+                  minLength={8}
+                  placeholder="Minimo 8 caratteri"
                 />
               </div>
 

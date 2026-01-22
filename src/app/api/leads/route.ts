@@ -127,6 +127,11 @@ export async function GET(request: NextRequest) {
 // POST /api/leads - Create a new lead
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
 
     // 1. Check for Duplicate (Homonym + Same Course)

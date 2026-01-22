@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
 
@@ -21,6 +23,15 @@ interface ImportError {
 // POST /api/leads/import - Import multiple leads
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // Only ADMIN can import leads
+    if (session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden - Admin only" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { leads } = body as { leads: ImportLead[] };
 

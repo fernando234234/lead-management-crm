@@ -26,7 +26,7 @@ export const adminTourSteps: TourStep[] = [
   },
   {
     target: "[data-tour='profitability']",
-    title: "Riepilogo Profittabilita",
+    title: "Riepilogo Profittabilità",
     content: "Monitora ricavi, costi, profitto netto, costo per lead e ROI. Passa il mouse sulle icone (?) per spiegazioni dettagliate.",
     placement: "top",
   },

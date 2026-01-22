@@ -355,7 +355,7 @@ export default function AdminDashboard() {
 
       {/* Profitability Summary */}
       <div data-tour="profitability" className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold mb-6">Riepilogo Profittabilita</h2>
+        <h2 className="text-lg font-semibold mb-6">Riepilogo Profittabilità</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <p className="text-sm text-gray-600">Ricavo Totale</p>

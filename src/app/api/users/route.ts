@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { hash } from 'bcryptjs';
 
 // GET all users (Admin only)
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
+    }
+
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
@@ -29,6 +39,14 @@ export async function GET() {
 // POST create new user (Admin only - creates Commercial/Marketing accounts)
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
+    }
+
     const body = await request.json();
     
     // Generate username from name (lowercase + dot)
