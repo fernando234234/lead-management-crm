@@ -326,13 +326,13 @@ export default function MarketingDashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
             ROI
-            <HelpIcon text="Return on Investment: (Ricavi - Costi) / Costi × 100. Misura la redditivita delle campagne marketing." size="sm" />
+            <HelpIcon text="Ritorno sull'Investimento: (Ricavi - Costi) / Costi × 100. Misura la redditività delle campagne marketing." size="sm" />
           </h3>
           <div className="text-center py-4">
             <p className={`text-4xl font-bold ${Number(roi) >= 0 ? "text-marketing" : "text-red-600"}`}>
               {roi}%
             </p>
-            <p className="text-gray-500 mt-2">Return on Investment</p>
+            <p className="text-gray-500 mt-2">Ritorno sull&apos;Investimento</p>
           </div>
         </div>
       </div>

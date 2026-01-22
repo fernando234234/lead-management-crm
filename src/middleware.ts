@@ -6,6 +6,16 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
+    // Allow access to change-password page without redirect loop
+    if (path === "/change-password") {
+      return NextResponse.next();
+    }
+
+    // If user must change password, redirect to change-password page
+    if (token?.mustChangePassword === true) {
+      return NextResponse.redirect(new URL("/change-password", req.url));
+    }
+
     // Role-based access control
     if (path.startsWith("/admin") && token?.role !== "ADMIN") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
@@ -29,5 +39,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/admin/:path*", "/commercial/:path*", "/marketing/:path*"],
+  matcher: ["/admin/:path*", "/commercial/:path*", "/marketing/:path*", "/change-password"],
 };

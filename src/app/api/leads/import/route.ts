@@ -10,7 +10,7 @@ interface ImportLead {
   campaignName: string | null;
   status: string;
   notes: string | null;
-  assignedToEmail: string | null;
+  assignedToName: string | null; // Changed from email to name-based lookup
 }
 
 interface ImportError {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       prisma.campaign.findMany({ select: { id: true, name: true } }),
       prisma.user.findMany({ 
         where: { role: "COMMERCIAL" },
-        select: { id: true, email: true, name: true } 
+        select: { id: true, username: true, name: true } 
       }),
     ]);
 
@@ -48,8 +48,12 @@ export async function POST(request: NextRequest) {
     const campaignMap = new Map(
       campaigns.map((c) => [c.name.toLowerCase().trim(), c.id])
     );
-    const userEmailMap = new Map(
-      users.map((u) => [u.email.toLowerCase().trim(), { id: u.id, name: u.name }])
+    // Map by username (e.g., "simone.") and by name (e.g., "Simone")
+    const userNameMap = new Map(
+      users.flatMap((u) => [
+        [u.username.toLowerCase().trim(), { id: u.id, name: u.name }],
+        [u.name.toLowerCase().trim(), { id: u.id, name: u.name }],
+      ])
     );
 
     // Get default course (first active course)
@@ -143,10 +147,10 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Find user by email (case-insensitive)
+          // Find user by name or username (case-insensitive)
           let assignedToId: string | null = null;
-          if (lead.assignedToEmail) {
-            const foundUser = userEmailMap.get(lead.assignedToEmail.toLowerCase().trim());
+          if (lead.assignedToName) {
+            const foundUser = userNameMap.get(lead.assignedToName.toLowerCase().trim());
             if (foundUser) {
               assignedToId = foundUser.id;
             }

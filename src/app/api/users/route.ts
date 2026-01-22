@@ -9,6 +9,7 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
+        username: true,
         email: true,
         name: true,
         role: true,
@@ -30,27 +31,36 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Check if email already exists
+    // Generate username from name (lowercase + dot)
+    const username = body.username || `${body.name.toLowerCase().split(' ')[0]}.`;
+    
+    // Check if username already exists
     const existing = await prisma.user.findUnique({
-      where: { email: body.email }
+      where: { username }
     });
     
     if (existing) {
-      return NextResponse.json({ error: 'Email already in use' }, { status: 400 });
+      return NextResponse.json({ error: 'Username già in uso' }, { status: 400 });
     }
     
     // Hash password
     const hashedPassword = await hash(body.password, 12);
     
+    // Commercial users must change password on first login
+    const mustChangePassword = body.role === 'COMMERCIAL';
+    
     const user = await prisma.user.create({
       data: {
-        email: body.email,
+        username,
+        email: body.email || null,
         name: body.name,
         password: hashedPassword,
         role: body.role, // COMMERCIAL or MARKETING
+        mustChangePassword,
       },
       select: {
         id: true,
+        username: true,
         email: true,
         name: true,
         role: true,

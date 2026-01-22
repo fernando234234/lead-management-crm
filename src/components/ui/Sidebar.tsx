@@ -23,6 +23,7 @@ import {
   Archive,
   Plus,
   Layers,
+  HelpCircle,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -61,6 +62,7 @@ const roleConfig = {
       { href: "/commercial/tasks", label: "Promemoria", icon: ClipboardList },
       { href: "/commercial/courses", label: "Corsi", icon: BookOpen },
       { href: "/commercial/stats", label: "Le Mie Stats", icon: BarChart3 },
+      { href: "/commercial/faq", label: "Guida e FAQ", icon: HelpCircle },
     ],
   },
   marketing: {

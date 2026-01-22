@@ -84,18 +84,20 @@ export async function GET(request: NextRequest) {
     });
 
     // Search users (admin only)
-    let users: { id: string; name: string; email: string; role: string }[] = [];
+    let users: { id: string; name: string; email: string | null; username: string; role: string }[] = [];
     if (isAdmin) {
       users = await prisma.user.findMany({
         where: {
           OR: [
             { name: { contains: query, mode: "insensitive" } },
+            { username: { contains: query, mode: "insensitive" } },
             { email: { contains: query, mode: "insensitive" } },
           ],
         },
         select: {
           id: true,
           name: true,
+          username: true,
           email: true,
           role: true,
         },

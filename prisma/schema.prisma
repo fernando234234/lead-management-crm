@@ -9,21 +9,23 @@ datasource db {
 }
 
 model User {
-  id               String         @id @default(cuid())
-  email            String         @unique
-  name             String
-  password         String
-  role             UserRole       @default(COMMERCIAL)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  createdCampaigns Campaign[]     @relation("CampaignCreator")
-  createdLeads     Lead[]         @relation("CreatedBy")
-  assignedLeads    Lead[]         @relation("AssignedTo")
-  contactedLeads   Lead[]         @relation("ContactedBy")
-  activities       LeadActivity[]
-  notifications    Notification[]
-  tasks            Task[]
-  goals            Goal[]
+  id                 String         @id @default(cuid())
+  username           String         @unique // Primary login identifier
+  email              String?        @unique // Optional, kept for legacy/external integrations
+  name               String
+  password           String
+  role               UserRole       @default(COMMERCIAL)
+  mustChangePassword Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  createdCampaigns   Campaign[]     @relation("CampaignCreator")
+  createdLeads       Lead[]         @relation("CreatedBy")
+  assignedLeads      Lead[]         @relation("AssignedTo")
+  contactedLeads     Lead[]         @relation("ContactedBy")
+  activities         LeadActivity[]
+  notifications      Notification[]
+  tasks              Task[]
+  goals              Goal[]
 }
 
 model Course {

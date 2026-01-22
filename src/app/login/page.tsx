@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { signIn, getCsrfToken } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LogIn, Mail, Lock, AlertCircle } from "lucide-react";
+import { LogIn, User, Lock, AlertCircle } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -11,7 +11,7 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const errorParam = searchParams.get("error");
   
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(errorParam ? "Credenziali non valide" : "");
   const [loading, setLoading] = useState(false);
@@ -26,13 +26,13 @@ function LoginForm() {
       await getCsrfToken();
       
       const result = await signIn("credentials", {
-        email,
+        username,
         password,
         redirect: false,
       });
 
       if (result?.error) {
-        setError("Email o password non validi");
+        setError("Username o password non validi");
         setLoading(false);
         return;
       }
@@ -99,16 +99,16 @@ function LoginForm() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+                Username
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@example.com"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  placeholder="simone."
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition"
                 />
               </div>

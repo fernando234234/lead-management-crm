@@ -21,6 +21,7 @@ import Pagination from "@/components/ui/Pagination";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import EmptyState from "@/components/ui/EmptyState";
 import ExportButton from "@/components/ui/ExportButton";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 // Boolean display helpers
 const booleanConfig = {
@@ -91,6 +92,11 @@ export default function CommercialLeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Enrolled confirmation modal
+  const [showEnrolledConfirm, setShowEnrolledConfirm] = useState(false);
+  const [pendingEnrolledLead, setPendingEnrolledLead] = useState<string | null>(null);
+  const [showEditEnrolledConfirm, setShowEditEnrolledConfirm] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -202,18 +208,37 @@ export default function CommercialLeadsPage() {
     e.preventDefault();
     if (!editingLead) return;
 
+    // If enrolled is being changed from false to true, show confirmation
+    if (!editingLead.enrolled && editFormData.enrolled) {
+      setShowEditEnrolledConfirm(true);
+      return;
+    }
+
+    await performEditSubmit();
+  };
+
+  const performEditSubmit = async () => {
+    if (!editingLead) return;
+
     try {
+      const updateData: Record<string, unknown> = {
+        name: editFormData.name,
+        notes: editFormData.notes || null,
+        contacted: editFormData.contacted,
+        isTarget: editFormData.isTarget,
+        targetNote: editFormData.targetNote || null,
+        enrolled: editFormData.enrolled,
+      };
+
+      // Add enrolledAt timestamp if enrolling
+      if (editFormData.enrolled && !editingLead.enrolled) {
+        updateData.enrolledAt = new Date().toISOString();
+      }
+
       const response = await fetch(`/api/leads/${editingLead.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editFormData.name,
-          notes: editFormData.notes || null,
-          contacted: editFormData.contacted,
-          isTarget: editFormData.isTarget,
-          targetNote: editFormData.targetNote || null,
-          enrolled: editFormData.enrolled,
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (!response.ok) throw new Error("Failed to update lead");
@@ -225,6 +250,16 @@ export default function CommercialLeadsPage() {
       console.error("Failed to update lead:", error);
       toast.error("Errore nell'aggiornamento del lead");
     }
+  };
+
+  const handleEditEnrolledConfirm = async () => {
+    setShowEditEnrolledConfirm(false);
+    await performEditSubmit();
+  };
+
+  const handleEditEnrolledCancel = () => {
+    setShowEditEnrolledConfirm(false);
+    setEditFormData({ ...editFormData, enrolled: false });
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -281,6 +316,18 @@ export default function CommercialLeadsPage() {
 
   // Quick state update
   const handleQuickStateUpdate = async (leadId: string, field: string, value: boolean) => {
+    // If setting enrolled to true, show confirmation modal first
+    if (field === "enrolled" && value === true) {
+      setPendingEnrolledLead(leadId);
+      setShowEnrolledConfirm(true);
+      return;
+    }
+
+    await performStateUpdate(leadId, field, value);
+  };
+
+  // Perform the actual state update
+  const performStateUpdate = async (leadId: string, field: string, value: boolean) => {
     try {
       const updateData: Record<string, unknown> = { [field]: value };
       
@@ -296,10 +343,28 @@ export default function CommercialLeadsPage() {
         body: JSON.stringify(updateData),
       });
       fetchData();
+      
+      if (field === "enrolled" && value) {
+        toast.success("Lead segnato come iscritto!");
+      }
     } catch (error) {
       console.error("Failed to update lead state:", error);
       toast.error("Errore nell'aggiornamento");
     }
+  };
+
+  // Handle enrolled confirmation
+  const handleEnrolledConfirm = async () => {
+    if (pendingEnrolledLead) {
+      await performStateUpdate(pendingEnrolledLead, "enrolled", true);
+    }
+    setShowEnrolledConfirm(false);
+    setPendingEnrolledLead(null);
+  };
+
+  const handleEnrolledCancel = () => {
+    setShowEnrolledConfirm(false);
+    setPendingEnrolledLead(null);
   };
 
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
@@ -804,6 +869,30 @@ export default function CommercialLeadsPage() {
           </div>
         </div>
       )}
+
+      {/* Enrolled Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showEnrolledConfirm}
+        onClose={handleEnrolledCancel}
+        onConfirm={handleEnrolledConfirm}
+        title="Conferma Iscrizione"
+        message="Sei sicuro che questo lead ha firmato un contratto? Questa azione segnerà il lead come iscritto e registrerà la data di iscrizione."
+        confirmText="Sì, ha firmato"
+        cancelText="No, annulla"
+        variant="warning"
+      />
+
+      {/* Edit Form Enrolled Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showEditEnrolledConfirm}
+        onClose={handleEditEnrolledCancel}
+        onConfirm={handleEditEnrolledConfirm}
+        title="Conferma Iscrizione"
+        message="Sei sicuro che questo lead ha firmato un contratto? Questa azione segnerà il lead come iscritto e registrerà la data di iscrizione."
+        confirmText="Sì, ha firmato"
+        cancelText="No, annulla"
+        variant="warning"
+      />
     </div>
   );
 }

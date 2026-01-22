@@ -8,28 +8,30 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         try {
           const now = new Date().toISOString();
-          console.log(`[AUTH ${now}] Attempting login for: ${credentials?.email}`);
+          console.log(`[AUTH ${now}] Attempting login for username: ${credentials?.username}`);
 
-          if (!credentials?.email || !credentials?.password) {
+          if (!credentials?.username || !credentials?.password) {
             console.log(`[AUTH ${now}] ❌ Missing credentials`);
             return null;
           }
 
-          // Optimized query: only select necessary fields
+          // Find user by username
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email },
+            where: { username: credentials.username },
             select: {
               id: true,
+              username: true,
               email: true,
               password: true,
               name: true,
               role: true,
+              mustChangePassword: true,
             },
           });
 
@@ -48,13 +50,14 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          console.log(`[AUTH ${now}] ✅ Login successful for ${user.email} (${user.role})`);
+          console.log(`[AUTH ${now}] ✅ Login successful for ${user.username} (${user.role})${user.mustChangePassword ? ' [MUST CHANGE PASSWORD]' : ''}`);
           
           return {
             id: user.id,
-            email: user.email,
+            email: user.email || user.username, // NextAuth requires email, use username as fallback
             name: user.name,
             role: user.role,
+            mustChangePassword: user.mustChangePassword,
           };
         } catch (error) {
           console.error("[AUTH] Error during authorization:", error);
@@ -64,17 +67,32 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.mustChangePassword = user.mustChangePassword;
       }
+      
+      // Allow updating the token when password is changed
+      if (trigger === "update") {
+        // Refresh user data from database
+        const freshUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { mustChangePassword: true },
+        });
+        if (freshUser) {
+          token.mustChangePassword = freshUser.mustChangePassword;
+        }
+      }
+      
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.mustChangePassword = token.mustChangePassword as boolean;
       }
       return session;
     },
