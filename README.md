@@ -18,7 +18,8 @@ A complete CRM solution for managing leads, courses, and marketing campaigns. Bu
 - Dashboard with real-time statistics and charts
 - Lead management with status tracking (Nuovo, Contattato, In Trattativa, Iscritto, Perso)
 - Kanban pipeline view for visual lead management
-- Campaign management with spend tracking
+- **Campaign management with multi-period spend tracking**
+- **Date range filtering for financial metrics**
 - Course management
 - Activity timeline for leads
 - Bulk actions (assign, update status, delete)
@@ -26,6 +27,16 @@ A complete CRM solution for managing leads, courses, and marketing campaigns. Bu
 - In-app notifications
 - Task/reminder system
 - Global search
+
+### Campaign Spend Tracking
+Track marketing costs with precision:
+- Multiple spend records per campaign with date ranges
+- Filter all reports by time period
+- Accurate ROI/CPL calculations per period
+- Full spend history and editing
+
+See [Campaign Spend Documentation](docs/CAMPAIGN_SPEND_TECHNICAL.md) for technical details.
+See [Guida Gestione Spese](docs/GUIDA_GESTIONE_SPESE.md) for user guide (Italian).
 
 ### UI Features
 - Red/White theme inspired by Job Formazione
@@ -142,14 +153,25 @@ src/
 │   │   ├── commercial/     # Commercial pages
 │   │   └── marketing/      # Marketing pages
 │   ├── api/                # API routes
+│   │   └── campaigns/
+│   │       └── [id]/
+│   │           └── spend/  # Spend tracking endpoints
 │   ├── login/              # Login page
 │   └── page.tsx            # Homepage
 ├── components/
 │   ├── charts/             # Recharts components
 │   └── ui/                 # Reusable UI components
+│       ├── SpendRecordList.tsx
+│       ├── SpendRecordForm.tsx
+│       └── SpendRecordModal.tsx
 ├── contexts/               # React contexts
 ├── lib/                    # Utility functions
 └── types/                  # TypeScript types
+
+docs/
+├── CAMPAIGN_SPEND_TECHNICAL.md  # Technical documentation
+├── GUIDA_GESTIONE_SPESE.md      # User guide (Italian)
+└── DATA_IMPORT_DECISIONS.md     # Import documentation
 ```
 
 ## Scripts
