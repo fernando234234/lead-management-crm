@@ -324,7 +324,10 @@ export default function MarketingROIPage() {
         const leadDate = new Date(lead.createdAt);
         const key = `${leadDate.getFullYear()}-${leadDate.getMonth()}`;
         if (monthlyData[key]) {
-          monthlyData[key].revenue += coursePrice;
+          // Use lead.revenue if set, otherwise fall back to course price
+          const leadRevenue = lead.revenue ? Number(lead.revenue) : 0;
+          const revenue = leadRevenue > 0 ? leadRevenue : coursePrice;
+          monthlyData[key].revenue += revenue;
         }
       });
     });

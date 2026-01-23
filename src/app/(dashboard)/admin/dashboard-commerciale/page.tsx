@@ -43,7 +43,7 @@ interface User {
 
 interface SpendRecord {
   id: string;
-  date: string;
+  startDate: string;
   amount: number;
 }
 
@@ -183,7 +183,7 @@ export default function DashboardCommercialePage() {
       if (!campaign.spendRecords) return sum + (campaign.totalSpent || 0);
       
       const filteredRecords = campaign.spendRecords.filter((record) => {
-        const recordDate = new Date(record.date);
+        const recordDate = new Date(record.startDate);
         recordDate.setHours(0, 0, 0, 0);
         
         if (startDate) {
@@ -284,7 +284,7 @@ export default function DashboardCommercialePage() {
         
         // Apply date filter to records
         const filteredRecords = campaign.spendRecords.filter((record) => {
-          const recordDate = new Date(record.date);
+          const recordDate = new Date(record.startDate);
           recordDate.setHours(0, 0, 0, 0);
           
           if (startDate) {

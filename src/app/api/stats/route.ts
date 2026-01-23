@@ -106,8 +106,25 @@ export async function GET(request: NextRequest) {
 
     // Get total revenue from enrolled leads
     // Priority: use lead.revenue if set, otherwise fall back to course.price
+    // Filter by enrolledAt date (when they enrolled) rather than createdAt
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enrolledDateFilter: Record<string, any> = { enrolled: true };
+    if (startDateParam || endDateParam) {
+      enrolledDateFilter.enrolledAt = {};
+      if (startDateParam) {
+        const startDate = new Date(startDateParam);
+        startDate.setHours(0, 0, 0, 0);
+        enrolledDateFilter.enrolledAt.gte = startDate;
+      }
+      if (endDateParam) {
+        const endDate = new Date(endDateParam);
+        endDate.setHours(23, 59, 59, 999);
+        enrolledDateFilter.enrolledAt.lte = endDate;
+      }
+    }
+    
     const enrolledLeadsWithCourse = await prisma.lead.findMany({
-      where: { ...dateFilter, enrolled: true },
+      where: enrolledDateFilter,
       select: { 
         revenue: true,
         course: { select: { price: true } } 

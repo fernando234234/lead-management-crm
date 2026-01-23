@@ -88,7 +88,7 @@ export default function MarketingDashboard() {
 
   // Calculate stats dynamically
   const activeCampaigns = campaigns.filter((c) => c.status === "ACTIVE");
-  const totalLeads = campaigns.reduce((sum, c) => sum + (c.leadCount || 0), 0);
+  const totalLeads = campaigns.reduce((sum, c) => sum + (c.metrics?.totalLeads || 0), 0);
   const totalCost = campaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
   const costPerLead = totalLeads > 0 ? totalCost / totalLeads : 0;
 

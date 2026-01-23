@@ -322,9 +322,11 @@ export default function ReportsPage() {
       
       if (monthData.has(key)) {
         const data = monthData.get(key)!;
-        // Revenue from enrolled leads
+        // Revenue from enrolled leads - use lead.revenue if set, otherwise course.price
         if (lead.enrolled && lead.course) {
-          data.ricavi += lead.course.price || 0;
+          const leadRevenue = lead.revenue ? Number(lead.revenue) : 0;
+          const coursePrice = Number(lead.course.price) || 0;
+          data.ricavi += leadRevenue > 0 ? leadRevenue : coursePrice;
         }
       }
     });
