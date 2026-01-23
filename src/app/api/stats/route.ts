@@ -152,39 +152,85 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get top performing campaigns
-    const topCampaigns = await prisma.campaign.findMany({
-      take: 5,
-      include: {
-        course: { select: { name: true } },
-        spendRecords: true,
-        _count: { select: { leads: true } },
-      },
-      orderBy: { leads: { _count: "desc" } },
-    });
+    // Get top performing campaigns (filtered by date if specified)
+    // First get campaign IDs that have leads in the date range
+    const campaignsWithLeadsInRange = startDateParam || endDateParam
+      ? await prisma.lead.groupBy({
+          by: ['campaignId'],
+          where: { ...dateFilter, campaignId: { not: null } },
+          _count: { id: true },
+          orderBy: { _count: { id: 'desc' } },
+          take: 5,
+        })
+      : null;
 
-    // Get leads over time (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const topCampaigns = campaignsWithLeadsInRange
+      ? await prisma.campaign.findMany({
+          where: { id: { in: campaignsWithLeadsInRange.map(c => c.campaignId!).filter(Boolean) } },
+          include: {
+            course: { select: { name: true } },
+            spendRecords: true,
+            _count: { select: { leads: true } },
+          },
+        })
+      : await prisma.campaign.findMany({
+          take: 5,
+          include: {
+            course: { select: { name: true } },
+            spendRecords: true,
+            _count: { select: { leads: true } },
+          },
+          orderBy: { leads: { _count: "desc" } },
+        });
 
-    const leadsLast7Days = await prisma.lead.findMany({
+    // Sort by lead count from the date-filtered query if applicable
+    if (campaignsWithLeadsInRange) {
+      const leadCountMap = new Map(campaignsWithLeadsInRange.map(c => [c.campaignId, c._count.id]));
+      topCampaigns.sort((a, b) => (leadCountMap.get(b.id) || 0) - (leadCountMap.get(a.id) || 0));
+    }
+
+    // Get leads over time - respect date filter or default to last 7 days
+    let leadsOverTimeStart: Date;
+    let leadsOverTimeEnd: Date;
+    let numDays: number;
+
+    if (startDateParam && endDateParam) {
+      // Use the provided date range
+      leadsOverTimeStart = new Date(startDateParam);
+      leadsOverTimeStart.setHours(0, 0, 0, 0);
+      leadsOverTimeEnd = new Date(endDateParam);
+      leadsOverTimeEnd.setHours(23, 59, 59, 999);
+      numDays = Math.min(Math.ceil((leadsOverTimeEnd.getTime() - leadsOverTimeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1, 30);
+    } else {
+      // Default to last 7 days
+      leadsOverTimeEnd = new Date();
+      leadsOverTimeStart = new Date();
+      leadsOverTimeStart.setDate(leadsOverTimeStart.getDate() - 6);
+      leadsOverTimeStart.setHours(0, 0, 0, 0);
+      numDays = 7;
+    }
+
+    const leadsInRange = await prisma.lead.findMany({
       where: {
-        createdAt: { gte: sevenDaysAgo }
+        ...dateFilter,
+        createdAt: { 
+          gte: leadsOverTimeStart,
+          lte: leadsOverTimeEnd 
+        }
       },
       select: { createdAt: true }
     });
 
     // Group by day
     const leadsOverTimeMap = new Map<string, number>();
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
+    for (let i = numDays - 1; i >= 0; i--) {
+      const date = new Date(leadsOverTimeEnd);
       date.setDate(date.getDate() - i);
       const dateKey = date.toISOString().split('T')[0];
       leadsOverTimeMap.set(dateKey, 0);
     }
 
-    leadsLast7Days.forEach(lead => {
+    leadsInRange.forEach(lead => {
       const dateKey = lead.createdAt.toISOString().split('T')[0];
       if (leadsOverTimeMap.has(dateKey)) {
         leadsOverTimeMap.set(dateKey, (leadsOverTimeMap.get(dateKey) || 0) + 1);

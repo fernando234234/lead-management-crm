@@ -204,18 +204,26 @@ export default function ReportsPage() {
     setError(null);
     try {
       // Build URL with date parameters
-      const params = new URLSearchParams();
+      const campaignParams = new URLSearchParams();
+      const leadsParams = new URLSearchParams();
+      const statsParams = new URLSearchParams();
       if (startDate) {
-        params.append("spendStartDate", startDate);
+        campaignParams.append("spendStartDate", startDate);
+        leadsParams.append("startDate", startDate);
+        statsParams.append("startDate", startDate);
       }
       if (endDate) {
-        params.append("spendEndDate", endDate);
+        campaignParams.append("spendEndDate", endDate);
+        leadsParams.append("endDate", endDate);
+        statsParams.append("endDate", endDate);
       }
-      const campaignsUrl = `/api/campaigns${params.toString() ? `?${params}` : ""}`;
+      const campaignsUrl = `/api/campaigns${campaignParams.toString() ? `?${campaignParams}` : ""}`;
+      const leadsUrl = `/api/leads${leadsParams.toString() ? `?${leadsParams}` : ""}`;
+      const statsUrl = `/api/stats${statsParams.toString() ? `?${statsParams}` : ""}`;
 
       const [statsRes, leadsRes, campaignsRes, coursesRes, usersRes] = await Promise.all([
-        fetch("/api/stats"),
-        fetch("/api/leads"),
+        fetch(statsUrl),
+        fetch(leadsUrl),
         fetch(campaignsUrl),
         fetch("/api/courses"),
         fetch("/api/users"),
