@@ -16,7 +16,7 @@ export async function GET(
         course: { select: { id: true, name: true, price: true } },
         createdBy: { select: { id: true, name: true, email: true } },
         spendRecords: {
-          orderBy: { date: "desc" },
+          orderBy: { startDate: "desc" },
         },
         leads: {
           include: {
@@ -90,15 +90,19 @@ export async function PUT(
     if (body.courseId !== undefined) {
       updateData.course = { connect: { id: body.courseId } };
     }
-    if (body.budget !== undefined) updateData.budget = body.budget;
     if (body.status !== undefined) updateData.status = body.status;
+    
+    const newStartDate = body.startDate ? new Date(body.startDate) : undefined;
+    const newEndDate = body.endDate ? new Date(body.endDate) : null;
+    
     if (body.startDate !== undefined) {
-      updateData.startDate = body.startDate ? new Date(body.startDate) : new Date();
+      updateData.startDate = newStartDate;
     }
     if (body.endDate !== undefined) {
-      updateData.endDate = body.endDate ? new Date(body.endDate) : null;
+      updateData.endDate = newEndDate;
     }
 
+    // Update campaign
     const campaign = await prisma.campaign.update({
       where: { id: params.id },
       data: updateData,
@@ -106,22 +110,62 @@ export async function PUT(
         course: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
         spendRecords: {
-          orderBy: { date: "desc" },
+          orderBy: { startDate: "desc" },
+        },
+        leads: true,
+      },
+    });
+
+    // Handle budget/spend - ONLY create initial spend record if none exist
+    // Multi-record spend management should use /api/campaigns/[id]/spend endpoints
+    const budgetAmount = parseFloat(body.budget);
+    if (!isNaN(budgetAmount) && budgetAmount > 0) {
+      const existingSpendCount = await prisma.campaignSpend.count({
+        where: { campaignId: params.id },
+      });
+
+      // Only create a spend record if there are NONE
+      // If records exist, user should manage them via the spend management UI
+      if (existingSpendCount === 0) {
+        const spendStartDate = newStartDate || campaign.startDate;
+        const spendEndDate = newEndDate !== undefined ? newEndDate : campaign.endDate;
+        
+        await prisma.campaignSpend.create({
+          data: {
+            campaignId: params.id,
+            startDate: spendStartDate,
+            endDate: spendEndDate,
+            amount: budgetAmount,
+            notes: "Spesa iniziale campagna",
+          },
+        });
+      }
+      // If records exist, we don't modify them - user uses spend management UI
+    }
+
+    // Refetch with updated spend records
+    const updatedCampaign = await prisma.campaign.findUnique({
+      where: { id: params.id },
+      include: {
+        course: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+        spendRecords: {
+          orderBy: { startDate: "desc" },
         },
         leads: true,
       },
     });
 
     // Calculate total spent from spend records
-    const totalSpent = campaign.spendRecords.reduce(
+    const totalSpent = updatedCampaign?.spendRecords.reduce(
       (sum, record) => sum + Number(record.amount),
       0
-    );
+    ) || 0;
 
     return NextResponse.json({
-      ...campaign,
+      ...updatedCampaign,
       totalSpent,
-      leadCount: campaign.leads.length,
+      leadCount: updatedCampaign?.leads.length || 0,
     });
   } catch (error) {
     console.error("Error updating campaign:", error);

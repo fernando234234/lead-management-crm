@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { StatCard } from "@/components/ui/StatCard";
 import { LineChart } from "@/components/charts/LineChart";
 import { BarChart } from "@/components/charts/BarChart";
 import { HelpIcon } from "@/components/ui/HelpIcon";
-import { helpTexts, shortLabels } from "@/lib/helpTexts";
+import { helpTexts } from "@/lib/helpTexts";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { MiniFunnel, ROIIndicator } from "@/components/ui/ProgressIndicators";
+import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import {
   TrendingUp,
   TrendingDown,
@@ -50,11 +51,21 @@ interface Lead {
   } | null;
 }
 
+interface SpendRecord {
+  id: string;
+  startDate: string;
+  endDate: string | null;
+  amount: number | string;
+  notes: string | null;
+}
+
 interface Campaign {
   id: string;
   name: string;
   platform: string;
-  budget: number;
+  budget: number; // Legacy
+  totalSpent: number; // From CampaignSpend records
+  spendRecords?: SpendRecord[]; // Individual spend records with dates
   status: string;
   leadCount?: number;
   metrics?: {
@@ -95,16 +106,32 @@ export default function MarketingROIPage() {
   const [sortBy, setSortBy] = useState<keyof CampaignPerformance>("roi");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterPlatform, setFilterPlatform] = useState("");
+  
+  // Date range filter state
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const handleDateChange = (start: string | null, end: string | null) => {
+    setStartDate(start);
+    setEndDate(end);
+  };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // Build URL with date parameters for spend filtering
+      const params = new URLSearchParams();
+      if (startDate) {
+        params.append("spendStartDate", startDate);
+      }
+      if (endDate) {
+        params.append("spendEndDate", endDate);
+      }
+      
+      const campaignsUrl = `/api/campaigns${params.toString() ? `?${params}` : ""}`;
+      
       const [campaignsRes, leadsRes] = await Promise.all([
-        fetch("/api/campaigns"),
+        fetch(campaignsUrl),
         fetch("/api/leads"),
       ]);
 
@@ -120,7 +147,11 @@ export default function MarketingROIPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Calculate campaign performance
   const campaignPerformance = useMemo((): CampaignPerformance[] => {
@@ -130,8 +161,8 @@ export default function MarketingROIPage() {
         const platformConfig = platformOptions.find(
           (p) => p.value === campaign.platform
         );
-        // Budget IS the total spent (simplified model)
-        const spent = Number(campaign.budget) || 0;
+        // Use totalSpent from CampaignSpend records
+        const spent = Number(campaign.totalSpent) || 0;
         const leadCount = campaign.leadCount || campaign.metrics?.totalLeads || 0;
         
         // Get leads for this campaign from leads data
@@ -243,23 +274,67 @@ export default function MarketingROIPage() {
     };
   }, [campaignPerformance]);
 
-  // ROI trend over time (from campaign performance data)
+  // ROI trend over time (calculated from spend records by month)
   const roiTrendData = useMemo(() => {
-    // Use overall ROI as a single data point since we don't have monthly cost breakdown
-    // In a real scenario, you'd track campaign costs by month
     const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
-    const currentMonth = new Date().getMonth();
     
-    // Generate last 6 months with the current overall ROI as baseline
-    // This is a simplified view - in production you'd track monthly costs
-    return Array.from({ length: 6 }, (_, i) => {
-      const monthIndex = (currentMonth - 5 + i + 12) % 12;
+    // Aggregate spend records by month
+    const monthlyData: Record<string, { spent: number; revenue: number }> = {};
+    
+    // Get last 6 months
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      monthlyData[key] = { spent: 0, revenue: 0 };
+    }
+    
+    // Aggregate spend from spend records
+    campaigns.forEach((campaign) => {
+      if (campaign.spendRecords && campaign.spendRecords.length > 0) {
+        campaign.spendRecords.forEach((record) => {
+          const recordDate = new Date(record.startDate);
+          const key = `${recordDate.getFullYear()}-${recordDate.getMonth()}`;
+          if (monthlyData[key]) {
+            const amount = typeof record.amount === "string" ? parseFloat(record.amount) : record.amount;
+            monthlyData[key].spent += amount;
+          }
+        });
+      } else if (campaign.totalSpent > 0) {
+        // Fallback: distribute total spent across all months if no records
+        const monthKeys = Object.keys(monthlyData);
+        const perMonth = campaign.totalSpent / monthKeys.length;
+        monthKeys.forEach((key) => {
+          monthlyData[key].spent += perMonth;
+        });
+      }
+      
+      // Distribute revenue based on enrolled leads
+      const campaignLeads = leads.filter((l) => l.campaign?.id === campaign.id);
+      const enrolledLeads = campaignLeads.filter((l) => l.enrolled || l.status === "ISCRITTO");
+      const coursePrice = campaign.course?.price || 0;
+      
+      enrolledLeads.forEach((lead) => {
+        const leadDate = new Date(lead.createdAt);
+        const key = `${leadDate.getFullYear()}-${leadDate.getMonth()}`;
+        if (monthlyData[key]) {
+          monthlyData[key].revenue += coursePrice;
+        }
+      });
+    });
+    
+    // Convert to chart data with ROI calculation
+    return Object.entries(monthlyData).map(([key, data]) => {
+      const [year, month] = key.split("-").map(Number);
+      const roi = data.spent > 0 ? ((data.revenue - data.spent) / data.spent) * 100 : 0;
       return {
-        mese: monthNames[monthIndex],
-        roi: Math.round(overallStats.overallRoi),
+        mese: monthNames[month],
+        roi: Math.round(roi),
+        spent: Math.round(data.spent),
+        revenue: Math.round(data.revenue),
       };
     });
-  }, [overallStats.overallRoi]);
+  }, [campaigns, leads]);
 
   // Campaign ROI comparison for bar chart
   const campaignRoiData = useMemo(() => {
@@ -495,24 +570,42 @@ export default function MarketingROIPage() {
 
       {/* Filter */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <Filter size={18} className="text-gray-400" />
-            <span className="text-sm font-medium text-gray-700">Filtri:</span>
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Filter size={18} className="text-gray-400" />
+              <span className="text-sm font-medium text-gray-700">Filtri:</span>
+            </div>
+            <select
+              value={filterPlatform}
+              onChange={(e) => setFilterPlatform(e.target.value)}
+              className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
+            >
+              <option value="">Tutte le piattaforme</option>
+              {platformOptions.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={filterPlatform}
-            onChange={(e) => setFilterPlatform(e.target.value)}
-            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
-          >
-            <option value="">Tutte le piattaforme</option>
-            {platformOptions.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
+          
+          {/* Date Range Filter */}
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onChange={handleDateChange}
+          />
         </div>
+        
+        {/* Active date filter indicator */}
+        {(startDate || endDate) && (
+          <div className="mt-3 pt-3 border-t text-sm text-gray-600">
+            <span className="font-medium">Periodo analisi:</span>{" "}
+            {startDate ? new Date(startDate).toLocaleDateString("it-IT") : "Inizio"} -{" "}
+            {endDate ? new Date(endDate).toLocaleDateString("it-IT") : "Fine"}
+          </div>
+        )}
       </div>
 
       {/* Performance Table */}

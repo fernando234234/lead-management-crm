@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card } from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import {
   Euro,
   TrendingDown,
@@ -27,7 +28,8 @@ interface Campaign {
   id: string;
   name: string;
   platform: string;
-  budget: number; // This is now "total spent"
+  budget: number; // Legacy
+  totalSpent: number; // From CampaignSpend records
   status: string;
   startDate: string;
   leadCount?: number;
@@ -54,15 +56,30 @@ export default function MarketingCostsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterPlatform, setFilterPlatform] = useState("");
+  
+  // Date range filter state (strings for DateRangeFilter component)
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const handleDateChange = (start: string | null, end: string | null) => {
+    setStartDate(start);
+    setEndDate(end);
+  };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/campaigns");
+      // Build URL with date parameters for spend filtering
+      const params = new URLSearchParams();
+      if (startDate) {
+        params.append("spendStartDate", startDate);
+      }
+      if (endDate) {
+        params.append("spendEndDate", endDate);
+      }
+      
+      const url = `/api/campaigns${params.toString() ? `?${params}` : ""}`;
+      const res = await fetch(url);
       const data = await res.json();
       setCampaigns(data);
     } catch (error) {
@@ -70,17 +87,21 @@ export default function MarketingCostsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Filter campaigns
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((c) => !filterPlatform || c.platform === filterPlatform);
   }, [campaigns, filterPlatform]);
 
-  // Stats calculations - budget = total spent
+  // Stats calculations - use totalSpent from CampaignSpend
   const stats = useMemo(() => {
     const totalSpent = filteredCampaigns.reduce(
-      (sum, c) => sum + (c.budget || 0),
+      (sum, c) => sum + (c.totalSpent || 0),
       0
     );
     const totalLeads = filteredCampaigns.reduce(
@@ -118,7 +139,7 @@ export default function MarketingCostsPage() {
         };
       }
 
-      platformMap[platform].totalSpent += campaign.budget || 0;
+      platformMap[platform].totalSpent += campaign.totalSpent || 0;
       platformMap[platform].campaigns += 1;
       platformMap[platform].leads += campaign.leadCount || campaign.metrics?.totalLeads || 0;
     });
@@ -192,24 +213,42 @@ export default function MarketingCostsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <Filter size={18} className="text-gray-400" />
-            <span className="text-sm font-medium text-gray-700">Filtri:</span>
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Filter size={18} className="text-gray-400" />
+              <span className="text-sm font-medium text-gray-700">Filtri:</span>
+            </div>
+            <select
+              value={filterPlatform}
+              onChange={(e) => setFilterPlatform(e.target.value)}
+              className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
+            >
+              <option value="">Tutte le piattaforme</option>
+              {platformOptions.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={filterPlatform}
-            onChange={(e) => setFilterPlatform(e.target.value)}
-            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
-          >
-            <option value="">Tutte le piattaforme</option>
-            {platformOptions.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
+          
+          {/* Date Range Filter */}
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onChange={handleDateChange}
+          />
         </div>
+        
+        {/* Active date filter indicator */}
+        {(startDate || endDate) && (
+          <div className="mt-3 pt-3 border-t text-sm text-gray-600">
+            <span className="font-medium">Periodo di spesa:</span>{" "}
+            {startDate ? new Date(startDate).toLocaleDateString("it-IT") : "Inizio"} -{" "}
+            {endDate ? new Date(endDate).toLocaleDateString("it-IT") : "Fine"}
+          </div>
+        )}
       </div>
 
       {/* Platform Cost Distribution */}
@@ -296,7 +335,7 @@ export default function MarketingCostsPage() {
             <tbody>
               {filteredCampaigns.map((campaign) => {
                 const leads = campaign.leadCount || campaign.metrics?.totalLeads || 0;
-                const cpl = leads > 0 ? (campaign.budget || 0) / leads : 0;
+                const cpl = leads > 0 ? (campaign.totalSpent || 0) / leads : 0;
 
                 return (
                   <tr key={campaign.id} className="border-b last:border-b-0 hover:bg-gray-50">
@@ -312,7 +351,7 @@ export default function MarketingCostsPage() {
                       {campaign.course?.name || "-"}
                     </td>
                     <td className="p-4 text-right font-semibold">
-                      €{(campaign.budget || 0).toLocaleString("it-IT")}
+                      €{(campaign.totalSpent || 0).toLocaleString("it-IT")}
                     </td>
                     <td className="p-4 text-right text-gray-600">
                       {leads}

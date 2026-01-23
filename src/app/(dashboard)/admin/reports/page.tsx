@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { StatCard } from "@/components/ui/StatCard";
 import { PieChart } from "@/components/charts/PieChart";
 import { BarChart } from "@/components/charts/BarChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { FunnelChart } from "@/components/charts/FunnelChart";
 import { helpTexts } from "@/lib/helpTexts";
+import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import {
   Users,
   TrendingUp,
@@ -18,6 +19,7 @@ import {
   BarChart3,
   Facebook,
   Linkedin,
+  Filter,
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
 
@@ -77,11 +79,22 @@ interface Lead {
   assignedTo: { id: string; name: string } | null;
 }
 
+interface SpendRecord {
+  id: string;
+  startDate: string;
+  endDate: string | null;
+  amount: number | string;
+  notes: string | null;
+}
+
 interface Campaign {
   id: string;
   name: string;
   platform: string;
-  budget: number; // This is now "total spent"
+  budget: number; // Legacy
+  totalSpent: number; // From CampaignSpend records
+  spendRecords?: SpendRecord[]; // Individual spend records
+  startDate: string | null;
   leadCount: number;
   course: { id: string; name: string; price: number } | null;
   metrics: {
@@ -161,6 +174,15 @@ export default function ReportsPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
+  // Date range filter state
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
+
+  const handleDateChange = (start: string | null, end: string | null) => {
+    setStartDate(start);
+    setEndDate(end);
+  };
+
   // Sort states
   const [campaignSort, setCampaignSort] = useState<{ field: CampaignSortField; direction: SortDirection }>({
     field: "leadCount",
@@ -175,18 +197,24 @@ export default function ReportsPage() {
     direction: "desc",
   });
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Build URL with date parameters
+      const params = new URLSearchParams();
+      if (startDate) {
+        params.append("spendStartDate", startDate);
+      }
+      if (endDate) {
+        params.append("spendEndDate", endDate);
+      }
+      const campaignsUrl = `/api/campaigns${params.toString() ? `?${params}` : ""}`;
+
       const [statsRes, leadsRes, campaignsRes, coursesRes, usersRes] = await Promise.all([
         fetch("/api/stats"),
         fetch("/api/leads"),
-        fetch("/api/campaigns"),
+        fetch(campaignsUrl),
         fetch("/api/courses"),
         fetch("/api/users"),
       ]);
@@ -214,7 +242,11 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   // Calculate funnel data
   const funnelData = useMemo(() => {
@@ -246,10 +278,10 @@ export default function ReportsPage() {
     return platforms
       .map((platform) => {
         const platformCampaigns = campaigns.filter((c) => c.platform === platform);
-        const totalSpent = platformCampaigns.reduce((sum, c) => sum + c.budget, 0);
+        const spent = platformCampaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
         return {
           name: platformLabels[platform],
-          value: totalSpent,
+          value: spent,
           platform,
         };
       })
@@ -269,7 +301,7 @@ export default function ReportsPage() {
     });
   }, [users, leads]);
 
-  // Revenue/Cost trend line chart data - aggregate by month from real leads data
+  // Revenue/Cost trend line chart data - aggregate by month using spend record dates
   const revenueCostTrend = useMemo(() => {
     const monthData = new Map<string, { ricavi: number; costi: number }>();
     
@@ -281,7 +313,7 @@ export default function ReportsPage() {
       monthData.set(key, { ricavi: 0, costi: 0 });
     }
     
-    // Aggregate leads by month
+    // Aggregate revenue from leads by month
     leads.forEach((lead) => {
       const leadDate = new Date(lead.createdAt);
       const key = `${leadDate.getFullYear()}-${String(leadDate.getMonth() + 1).padStart(2, '0')}`;
@@ -292,9 +324,31 @@ export default function ReportsPage() {
         if (lead.enrolled && lead.course) {
           data.ricavi += lead.course.price || 0;
         }
-        // Cost from acquisition cost
-        if (lead.acquisitionCost) {
-          data.costi += Number(lead.acquisitionCost) || 0;
+      }
+    });
+    
+    // Aggregate costs from spend records by their startDate (more accurate than campaign startDate)
+    campaigns.forEach((campaign) => {
+      if (campaign.spendRecords && campaign.spendRecords.length > 0) {
+        // Use individual spend record dates
+        campaign.spendRecords.forEach((record) => {
+          const recordDate = new Date(record.startDate);
+          const key = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
+          
+          if (monthData.has(key)) {
+            const data = monthData.get(key)!;
+            const amount = typeof record.amount === "string" ? parseFloat(record.amount) : record.amount;
+            data.costi += amount || 0;
+          }
+        });
+      } else if (campaign.totalSpent > 0 && campaign.startDate) {
+        // Fallback: use campaign startDate if no spend records
+        const campaignDate = new Date(campaign.startDate);
+        const key = `${campaignDate.getFullYear()}-${String(campaignDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (monthData.has(key)) {
+          const data = monthData.get(key)!;
+          data.costi += campaign.totalSpent || 0;
         }
       }
     });
@@ -302,21 +356,22 @@ export default function ReportsPage() {
     // Convert to array with Italian month names
     const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
     return Array.from(monthData.entries()).map(([key, data]) => {
-      const [year, month] = key.split('-');
+      const [, month] = key.split('-');
       return {
         mese: monthNames[parseInt(month) - 1],
         ricavi: data.ricavi,
         costi: data.costi,
       };
     });
-  }, [leads]);
+  }, [leads, campaigns]);
 
   // Calculate campaign performance with sorting
   const campaignPerformance = useMemo(() => {
     const data = campaigns.map((campaign) => {
-      const cpl = campaign.leadCount > 0 ? campaign.budget / campaign.leadCount : 0;
+      const spent = campaign.totalSpent || 0;
+      const cpl = campaign.leadCount > 0 ? spent / campaign.leadCount : 0;
       const revenue = campaign.metrics.enrolledLeads * (campaign.course?.price || 0);
-      const roi = campaign.budget > 0 ? ((revenue - campaign.budget) / campaign.budget) * 100 : 0;
+      const roi = spent > 0 ? ((revenue - spent) / spent) * 100 : 0;
 
       return {
         ...campaign,
@@ -343,7 +398,7 @@ export default function ReportsPage() {
         case "platform":
           return a.platform.localeCompare(b.platform) * multiplier;
         case "budget":
-          return (a.budget - b.budget) * multiplier;
+          return ((a.totalSpent || 0) - (b.totalSpent || 0)) * multiplier;
         case "leadCount":
           return (a.leadCount - b.leadCount) * multiplier;
         case "cpl":
@@ -453,8 +508,8 @@ export default function ReportsPage() {
     return platforms.map((platform) => {
       const platformCampaigns = campaigns.filter((c) => c.platform === platform);
       const totalLeads = platformCampaigns.reduce((sum, c) => sum + c.leadCount, 0);
-      const totalSpent = platformCampaigns.reduce((sum, c) => sum + c.budget, 0);
-      const cpl = totalLeads > 0 ? totalSpent / totalLeads : 0;
+      const spent = platformCampaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
+      const cpl = totalLeads > 0 ? spent / totalLeads : 0;
       const enrolled = platformCampaigns.reduce((sum, c) => sum + c.metrics.enrolledLeads, 0);
       const conversionRate = totalLeads > 0 ? (enrolled / totalLeads) * 100 : 0;
 
@@ -462,7 +517,7 @@ export default function ReportsPage() {
         platform,
         campaignCount: platformCampaigns.length,
         totalLeads,
-        totalSpent,
+        totalSpent: spent,
         cpl,
         enrolled,
         conversionRate,
@@ -530,6 +585,22 @@ export default function ReportsPage() {
             Report e Analisi
           </h1>
           <p className="text-gray-500">Analisi dettagliata delle performance</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onChange={handleDateChange}
+            presets
+          />
+          {(startDate || endDate) && (
+            <div className="flex items-center gap-2 text-xs text-admin">
+              <Filter size={12} />
+              <span>
+                Dati filtrati: {startDate ? new Date(startDate).toLocaleDateString("it-IT") : "inizio"} - {endDate ? new Date(endDate).toLocaleDateString("it-IT") : "oggi"}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -745,7 +816,7 @@ export default function ReportsPage() {
                       </div>
                     </td>
                     <td className="p-4 text-gray-500">{campaign.course?.name || "-"}</td>
-                    <td className="p-4">€{campaign.budget.toLocaleString()}</td>
+                    <td className="p-4">€{(campaign.totalSpent || 0).toLocaleString()}</td>
                     <td className="p-4">{campaign.leadCount}</td>
                     <td className="p-4">€{campaign.cpl.toFixed(2)}</td>
                     <td className="p-4">{campaign.conversionRate.toFixed(1)}%</td>

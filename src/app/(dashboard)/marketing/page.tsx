@@ -16,7 +16,8 @@ interface Campaign {
   name: string;
   platform: string;
   status: string;
-  budget: number; // This is now "total spent"
+  budget: number; // Legacy field
+  totalSpent: number; // From CampaignSpend records
   leadCount: number;
   costPerLead: number;
   startDate?: string;
@@ -87,7 +88,7 @@ export default function MarketingDashboard() {
   // Calculate stats dynamically
   const activeCampaigns = campaigns.filter((c) => c.status === "ACTIVE");
   const totalLeads = campaigns.reduce((sum, c) => sum + (c.leadCount || 0), 0);
-  const totalCost = campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
+  const totalCost = campaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
   const costPerLead = totalLeads > 0 ? totalCost / totalLeads : 0;
 
   // Calculate ROI (estimated based on enrolled leads and course prices)
@@ -117,10 +118,10 @@ export default function MarketingDashboard() {
     return platforms
       .map((platform) => {
         const platformCampaigns = campaigns.filter((c) => c.platform === platform);
-        const totalSpent = platformCampaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
+        const spent = platformCampaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
         return {
           name: platformLabels[platform],
-          value: totalSpent,
+          value: spent,
           platform,
         };
       })
@@ -256,11 +257,11 @@ export default function MarketingDashboard() {
                       </span>
                     </td>
                     <td className="py-4">{campaign.course?.name || "-"}</td>
-                    <td className="py-4">€{(campaign.budget || 0).toLocaleString()}</td>
+                    <td className="py-4">€{(campaign.totalSpent || 0).toLocaleString()}</td>
                     <td className="py-4">{campaign.leadCount || 0}</td>
                     <td className="py-4">
                       €{campaign.leadCount > 0
-                        ? ((campaign.budget || 0) / campaign.leadCount).toFixed(2)
+                        ? ((campaign.totalSpent || 0) / campaign.leadCount).toFixed(2)
                         : "0.00"}
                     </td>
                   </tr>

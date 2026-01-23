@@ -8,7 +8,7 @@ import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { PieChart } from "@/components/charts/PieChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { BarChart } from "@/components/charts/BarChart";
-import { UsersRound, BookOpen, Megaphone, Euro, UserCheck, Users, AlertTriangle } from "lucide-react";
+import { UsersRound, BookOpen, Megaphone, Euro, UserCheck, Users } from "lucide-react";
 import { HelpIcon } from "@/components/ui/HelpIcon";
 import { helpTexts } from "@/lib/helpTexts";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
@@ -31,10 +31,6 @@ interface Stats {
     totalRevenue: number;
     totalCost: number;
     costPerLead: string;
-    actualCostPerLead: string;
-    leadsWithCost: number;
-    totalAcquisitionCost: number;
-    costCoverage: string;
     roi: string;
   };
   leadsByStatus: { status: string; count: number }[];
@@ -163,14 +159,23 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchStats();
-  }, [dataSource]);
+  }, [dataSource, startDate, endDate]);
 
   const fetchStats = async () => {
     setLoading(true);
     try {
-      // Build query params with data source filter
+      // Build query params with data source filter and date range
+      const params = new URLSearchParams();
       const sourceParam = getDataSourceParam(dataSource);
-      const url = sourceParam ? `/api/stats?${sourceParam}` : "/api/stats";
+      if (sourceParam) {
+        // sourceParam is like "source=MANUAL,CAMPAIGN"
+        const [key, value] = sourceParam.split("=");
+        if (key && value) params.append(key, value);
+      }
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      
+      const url = params.toString() ? `/api/stats?${params}` : "/api/stats";
       const res = await fetch(url);
       const data = await res.json();
       setStats(data);
@@ -213,7 +218,11 @@ export default function AdminDashboard() {
             onChange={handleDateChange}
             presets
           />
-          <p className="text-xs text-gray-500">Il filtro date si applica ai lead recenti</p>
+          {(startDate || endDate) && (
+            <p className="text-xs text-admin">
+              Dati filtrati: {startDate ? new Date(startDate).toLocaleDateString("it-IT") : "inizio"} - {endDate ? new Date(endDate).toLocaleDateString("it-IT") : "oggi"}
+            </p>
+          )}
         </div>
       </div>
 
@@ -377,29 +386,12 @@ export default function AdminDashboard() {
           </div>
           <div className="text-center p-4 bg-yellow-50 rounded-lg">
             <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
-              CPL Stimato
+              CPL
               <HelpIcon text={helpTexts.cplEstimato} size="sm" />
             </p>
             <p className="text-2xl font-bold text-yellow-600">
               €{stats.financial.costPerLead}
             </p>
-          </div>
-          <div className="text-center p-4 bg-orange-50 rounded-lg">
-            <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
-              CPL Effettivo
-              <HelpIcon text="CPL calcolato sui costi reali di acquisizione impostati per ogni lead. Piu preciso del CPL stimato." size="sm" />
-            </p>
-            <p className="text-2xl font-bold text-orange-600">
-              €{stats.financial.actualCostPerLead}
-            </p>
-            {parseFloat(stats.financial.costCoverage) < 100 && (
-              <div className="flex items-center justify-center gap-1 mt-1">
-                <AlertTriangle size={12} className="text-orange-500" />
-                <span className="text-xs text-orange-600">
-                  {stats.financial.costCoverage}% copertura
-                </span>
-              </div>
-            )}
           </div>
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <p className="text-sm text-gray-600 flex items-center justify-center gap-1">

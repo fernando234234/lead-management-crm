@@ -77,8 +77,30 @@ export async function GET(request: NextRequest) {
       _count: { status: true },
     });
 
-    // Get total campaign spend from spend records
-    const spendRecords = await prisma.campaignSpend.aggregate({
+    // Get total campaign spend from CampaignSpend records (supports date filtering)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const spendFilter: Record<string, any> = {};
+    if (startDateParam || endDateParam) {
+      // Filter spend records where the spend period overlaps with the requested date range
+      if (startDateParam) {
+        const startDate = new Date(startDateParam);
+        startDate.setHours(0, 0, 0, 0);
+        // Spend endDate should be >= filter startDate (or endDate is null = ongoing)
+        spendFilter.OR = [
+          { endDate: { gte: startDate } },
+          { endDate: null }
+        ];
+      }
+      if (endDateParam) {
+        const endDate = new Date(endDateParam);
+        endDate.setHours(23, 59, 59, 999);
+        // Spend startDate should be <= filter endDate
+        spendFilter.startDate = { lte: endDate };
+      }
+    }
+    
+    const campaignSpendTotal = await prisma.campaignSpend.aggregate({
+      where: spendFilter,
       _sum: { amount: true },
     });
 
@@ -109,6 +131,7 @@ export async function GET(request: NextRequest) {
       take: 5,
       include: {
         course: { select: { name: true } },
+        spendRecords: true,
         _count: { select: { leads: true } },
       },
       orderBy: { leads: { _count: "desc" } },
@@ -155,30 +178,9 @@ export async function GET(request: NextRequest) {
     // Calculate conversion rate
     const conversionRate = totalLeads > 0 ? (enrolledLeads / totalLeads) * 100 : 0;
 
-    // Calculate estimated cost per lead (from campaign spend)
-    const totalCost = Number(spendRecords._sum.amount) || 0;
+    // Calculate cost per lead (from CampaignSpend records)
+    const totalCost = Number(campaignSpendTotal._sum.amount) || 0;
     const costPerLead = totalLeads > 0 ? totalCost / totalLeads : 0;
-
-    // Calculate actual CPL (from individual lead acquisition costs) with date filter
-    const leadsWithCost = await prisma.lead.findMany({
-      where: {
-        ...dateFilter,
-        acquisitionCost: { not: null, gt: 0 }
-      },
-      select: { acquisitionCost: true }
-    });
-    
-    const leadsWithCostCount = leadsWithCost.length;
-    const totalAcquisitionCost = leadsWithCost.reduce(
-      (sum, lead) => sum + (Number(lead.acquisitionCost) || 0), 
-      0
-    );
-    const actualCostPerLead = leadsWithCostCount > 0 
-      ? totalAcquisitionCost / leadsWithCostCount 
-      : 0;
-    const costCoverage = totalLeads > 0 
-      ? (leadsWithCostCount / totalLeads) * 100 
-      : 0;
 
     return NextResponse.json({
       overview: {
@@ -197,10 +199,6 @@ export async function GET(request: NextRequest) {
         totalRevenue,
         totalCost,
         costPerLead: costPerLead.toFixed(2),
-        actualCostPerLead: actualCostPerLead.toFixed(2),
-        leadsWithCost: leadsWithCostCount,
-        totalAcquisitionCost,
-        costCoverage: costCoverage.toFixed(1),
         roi: totalCost > 0 ? (((totalRevenue - totalCost) / totalCost) * 100).toFixed(1) : 0,
       },
       leadsByStatus: leadsByStatus.map((s) => ({
@@ -215,13 +213,19 @@ export async function GET(request: NextRequest) {
         status: lead.status,
         createdAt: lead.createdAt,
       })),
-      topCampaigns: topCampaigns.map((campaign) => ({
-        id: campaign.id,
-        name: campaign.name,
-        course: campaign.course?.name,
-        leads: campaign._count.leads,
-        budget: Number(campaign.budget),
-      })),
+      topCampaigns: topCampaigns.map((campaign) => {
+        const totalSpent = campaign.spendRecords.reduce(
+          (sum, record) => sum + Number(record.amount),
+          0
+        );
+        return {
+          id: campaign.id,
+          name: campaign.name,
+          course: campaign.course?.name,
+          leads: campaign._count.leads,
+          budget: totalSpent, // Now from spendRecords
+        };
+      }),
       leadsOverTime,
     });
   } catch (error) {

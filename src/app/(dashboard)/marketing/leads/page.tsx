@@ -97,7 +97,8 @@ interface Campaign {
   name: string;
   platform: string;
   status?: string;
-  budget?: number;
+  budget?: number; // Legacy
+  totalSpent?: number; // From CampaignSpend records
   course?: {
     id: string;
     name: string;
@@ -281,11 +282,11 @@ export default function MarketingLeadsPage() {
       }
     });
 
-    // Calculate CPL for each group: budget / leads
+    // Calculate CPL for each group: totalSpent / leads
     Object.values(groups).forEach((group) => {
-      const budget = Number(group.campaign.budget) || 0;
+      const spent = Number(group.campaign.totalSpent) || 0;
       const leadCount = group.leads.length;
-      group.cpl = leadCount > 0 ? budget / leadCount : 0;
+      group.cpl = leadCount > 0 ? spent / leadCount : 0;
     });
 
     return Object.values(groups).sort((a, b) => b.leads.length - a.leads.length);
@@ -298,7 +299,7 @@ export default function MarketingLeadsPage() {
     ).size;
     
     // Total spent across all campaigns with filtered leads
-    const totalSpent = groupedLeads.reduce((sum, g) => sum + (Number(g.campaign.budget) || 0), 0);
+    const totalSpent = groupedLeads.reduce((sum, g) => sum + (Number(g.campaign.totalSpent) || 0), 0);
     const totalLeads = filteredLeads.length;
     const avgCpl = totalLeads > 0 ? totalSpent / totalLeads : 0;
 

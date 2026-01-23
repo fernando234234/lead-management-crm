@@ -140,16 +140,18 @@ model Campaign {
 }
 
 model CampaignSpend {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   campaignId String
-  date       DateTime @db.Date
-  amount     Decimal  @db.Decimal(10, 2)
+  startDate  DateTime  @db.Date
+  endDate    DateTime? @db.Date
+  amount     Decimal   @db.Decimal(10, 2)
   notes      String?
-  createdAt  DateTime @default(now())
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  @@unique([campaignId, date])
-  @@index([date])
+  @@unique([campaignId, startDate])
+  @@index([startDate])
+  @@index([endDate])
   @@index([campaignId])
 }
 

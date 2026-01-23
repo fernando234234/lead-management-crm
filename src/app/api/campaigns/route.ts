@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-// GET /api/campaigns - Fetch all campaigns
+// GET /api/campaigns - Fetch all campaigns with optional date-filtered spend
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
     const platform = searchParams.get("platform");
     const status = searchParams.get("status");
     const createdById = searchParams.get("createdById");
+    
+    // Date filtering for spend calculations
+    const spendStartDate = searchParams.get("spendStartDate");
+    const spendEndDate = searchParams.get("spendEndDate");
 
     const where: Record<string, unknown> = {};
     if (courseId) where.courseId = courseId;
@@ -24,14 +28,44 @@ export async function GET(request: NextRequest) {
       where.createdById = session.user.id;
     }
 
+    // Build spend records filter for date overlap
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let spendRecordsWhere: any = undefined;
+    if (spendStartDate || spendEndDate) {
+      const conditions = [];
+      
+      if (spendStartDate) {
+        const start = new Date(spendStartDate);
+        start.setHours(0, 0, 0, 0);
+        // Record's endDate is null (ongoing) OR endDate >= filter start
+        conditions.push({
+          OR: [
+            { endDate: null },
+            { endDate: { gte: start } },
+          ],
+        });
+      }
+      
+      if (spendEndDate) {
+        const end = new Date(spendEndDate);
+        end.setHours(23, 59, 59, 999);
+        // Record's startDate <= filter end
+        conditions.push({ startDate: { lte: end } });
+      }
+      
+      if (conditions.length > 0) {
+        spendRecordsWhere = { AND: conditions };
+      }
+    }
+
     const campaigns = await prisma.campaign.findMany({
       where,
       include: {
         course: { select: { id: true, name: true, price: true } },
         createdBy: { select: { id: true, name: true, email: true } },
         spendRecords: {
-          orderBy: { date: "desc" },
-          take: 30, // Last 30 days of spend
+          where: spendRecordsWhere,
+          orderBy: { startDate: "desc" },
         },
         _count: { select: { leads: true } },
       },
@@ -54,7 +88,7 @@ export async function GET(request: NextRequest) {
           where: { campaignId: campaign.id, enrolled: true },
         });
 
-        // Calculate total spent from spend records
+        // Calculate total spent from spend records (filtered by date if provided)
         const totalSpent = campaign.spendRecords.reduce(
           (sum, record) => sum + Number(record.amount),
           0
@@ -128,6 +162,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Create Campaign Variant (Child)
+    const startDate = body.startDate ? new Date(body.startDate) : new Date();
+    const endDate = body.endDate ? new Date(body.endDate) : null;
+    const budgetAmount = parseFloat(body.budget) || 0;
+
     const campaign = await prisma.campaign.create({
       data: {
         name: `${body.name} - ${body.platform}`, // Descriptive name for the variant
@@ -135,14 +173,26 @@ export async function POST(request: NextRequest) {
         platform: body.platform,
         courseId: body.courseId, // Legacy field, we can keep it populated for easier migration/queries
         createdById: creatorId,
-        budget: body.budget || 0,
+        budget: 0, // No longer used directly - spend goes to CampaignSpend
         status: body.status || "ACTIVE",
-        startDate: body.startDate ? new Date(body.startDate) : new Date(),
-        endDate: body.endDate ? new Date(body.endDate) : null,
+        startDate,
+        endDate,
+        // Create spend record if budget provided
+        ...(budgetAmount > 0 && {
+          spendRecords: {
+            create: {
+              startDate,
+              endDate,
+              amount: budgetAmount,
+              notes: "Spesa iniziale campagna",
+            },
+          },
+        }),
       },
       include: {
         masterCampaign: { include: { course: true } }, // Include master info
         createdBy: { select: { id: true, name: true } },
+        spendRecords: true,
       },
     });
 

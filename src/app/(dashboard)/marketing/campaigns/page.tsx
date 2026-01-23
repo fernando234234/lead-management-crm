@@ -12,10 +12,15 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
+  Receipt,
+  X,
 } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import ExportButton from "@/components/ui/ExportButton";
 import EmptyState from "@/components/ui/EmptyState";
+import SpendRecordList, { SpendRecord } from "@/components/ui/SpendRecordList";
+import SpendRecordModal from "@/components/ui/SpendRecordModal";
+import { SpendRecordFormData } from "@/components/ui/SpendRecordForm";
 
 // Platform options matching Prisma enum
 const platformOptions = [
@@ -49,7 +54,8 @@ interface Campaign {
   id: string;
   name: string;
   platform: string;
-  budget: number;
+  budget: number; // Legacy
+  totalSpent: number; // From CampaignSpend records
   status: string;
   startDate: string;
   endDate: string | null;
@@ -79,6 +85,15 @@ export default function MarketingCampaignsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
+
+  // Modal tabs: 'details' or 'spend'
+  const [modalTab, setModalTab] = useState<"details" | "spend">("details");
+  
+  // Spend management state
+  const [spendRecords, setSpendRecords] = useState<SpendRecord[]>([]);
+  const [loadingSpendRecords, setLoadingSpendRecords] = useState(false);
+  const [showSpendModal, setShowSpendModal] = useState(false);
+  const [editingSpendRecord, setEditingSpendRecord] = useState<SpendRecord | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -128,6 +143,71 @@ export default function MarketingCampaignsPage() {
     }
   };
 
+  // Fetch spend records for a campaign
+  const fetchSpendRecords = async (campaignId: string) => {
+    setLoadingSpendRecords(true);
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/spend`);
+      const data = await res.json();
+      setSpendRecords(data.records || []);
+    } catch (error) {
+      console.error("Failed to fetch spend records:", error);
+      toast.error("Errore nel caricamento dei record di spesa");
+    } finally {
+      setLoadingSpendRecords(false);
+    }
+  };
+
+  // Add or update a spend record
+  const handleSaveSpendRecord = async (data: SpendRecordFormData) => {
+    if (!editingCampaign) return;
+
+    try {
+      if (editingSpendRecord) {
+        // Update existing record
+        await fetch(`/api/campaigns/${editingCampaign.id}/spend?spendId=${editingSpendRecord.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        toast.success("Spesa aggiornata");
+      } else {
+        // Create new record
+        await fetch(`/api/campaigns/${editingCampaign.id}/spend`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        toast.success("Spesa aggiunta");
+      }
+      // Refresh spend records and campaigns
+      await fetchSpendRecords(editingCampaign.id);
+      fetchData();
+    } catch (error) {
+      console.error("Failed to save spend record:", error);
+      toast.error("Errore nel salvataggio della spesa");
+      throw error;
+    }
+  };
+
+  // Delete a spend record
+  const handleDeleteSpendRecord = async (spendId: string) => {
+    if (!editingCampaign) return;
+    if (!confirm("Sei sicuro di voler eliminare questo record di spesa?")) return;
+
+    try {
+      await fetch(`/api/campaigns/${editingCampaign.id}/spend?spendId=${spendId}`, {
+        method: "DELETE",
+      });
+      toast.success("Spesa eliminata");
+      await fetchSpendRecords(editingCampaign.id);
+      fetchData();
+    } catch (error) {
+      console.error("Failed to delete spend record:", error);
+      toast.error("Errore nell'eliminazione della spesa");
+    }
+  };
+
   const openModal = (campaign?: Campaign) => {
     if (campaign) {
       setEditingCampaign(campaign);
@@ -135,11 +215,14 @@ export default function MarketingCampaignsPage() {
         name: campaign.name,
         platform: campaign.platform,
         courseId: campaign.course?.id || "",
-        budget: String(campaign.budget || 0),
+        budget: "", // Don't show total spent in the budget field for editing
         status: campaign.status,
         startDate: campaign.startDate?.split("T")[0] || "",
         endDate: campaign.endDate?.split("T")[0] || "",
       });
+      // Fetch spend records for the campaign
+      fetchSpendRecords(campaign.id);
+      setModalTab("details");
     } else {
       setEditingCampaign(null);
       setFormData({
@@ -151,8 +234,17 @@ export default function MarketingCampaignsPage() {
         startDate: new Date().toISOString().split("T")[0],
         endDate: "",
       });
+      setSpendRecords([]);
+      setModalTab("details");
     }
     setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingCampaign(null);
+    setSpendRecords([]);
+    setModalTab("details");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -213,8 +305,8 @@ export default function MarketingCampaignsPage() {
   // Helper to get metrics for a campaign
   const getLeadCount = (c: Campaign) => c.leadCount ?? c.metrics?.totalLeads ?? 0;
   const getEnrolledCount = (c: Campaign) => c.metrics?.enrolledLeads ?? 0;
-  // budget IS the total spent (simplified model)
-  const getTotalSpent = (c: Campaign) => Number(c.budget) ?? 0;
+  // Use totalSpent from CampaignSpend records
+  const getTotalSpent = (c: Campaign) => Number(c.totalSpent) || 0;
   const getCostPerLead = (c: Campaign) => {
     if (c.costPerLead !== undefined) return c.costPerLead;
     const leads = getLeadCount(c);
@@ -388,7 +480,7 @@ export default function MarketingCampaignsPage() {
                     </span>
                   </td>
                   <td className="p-4 text-sm">{campaign.course?.name || "-"}</td>
-                  <td className="p-4 font-medium text-blue-600">€{Number(campaign.budget).toLocaleString()}</td>
+                  <td className="p-4 font-medium text-blue-600">€{getTotalSpent(campaign).toLocaleString()}</td>
                   <td className="p-4">{getLeadCount(campaign)}</td>
                   <td className="p-4">€{getCostPerLead(campaign).toFixed(2)}</td>
                   <td className="p-4">
@@ -492,142 +584,250 @@ export default function MarketingCampaignsPage() {
       {/* Campaign Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4">
-              {editingCampaign ? "Modifica Campagna" : "Nuova Campagna"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome Campagna *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                  placeholder="es. Facebook - Corso Excel Q1"
-                />
-              </div>
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-xl font-bold">
+                {editingCampaign ? "Modifica Campagna" : "Nuova Campagna"}
+              </h2>
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Piattaforma *
-                  </label>
-                  <select
-                    required
-                    value={formData.platform}
-                    onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                  >
-                    {platformOptions.map((platform) => (
-                      <option key={platform.value} value={platform.value}>
-                        {platform.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Corso *
-                  </label>
-                  <select
-                    required
-                    value={formData.courseId}
-                    onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                  >
-                    <option value="">Seleziona corso</option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Spesa Totale (€) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    step="0.01"
-                    value={formData.budget}
-                    onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                    placeholder="1000"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stato *
-                  </label>
-                  <select
-                    required
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status.value} value={status.value}>
-                        {status.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data Inizio
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data Fine
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
+            {/* Tabs (only show for editing) */}
+            {editingCampaign && (
+              <div className="flex border-b px-4">
                 <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                  onClick={() => setModalTab("details")}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+                    modalTab === "details"
+                      ? "border-marketing text-marketing"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
                 >
-                  Annulla
+                  Dettagli
                 </button>
                 <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-marketing text-white rounded-lg hover:opacity-90 transition"
+                  onClick={() => setModalTab("spend")}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+                    modalTab === "spend"
+                      ? "border-marketing text-marketing"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
                 >
-                  {editingCampaign ? "Salva Modifiche" : "Crea Campagna"}
+                  <Receipt size={16} />
+                  Gestione Spese
+                  {spendRecords.length > 0 && (
+                    <span className="px-1.5 py-0.5 text-xs bg-marketing/10 text-marketing rounded-full">
+                      {spendRecords.length}
+                    </span>
+                  )}
                 </button>
               </div>
-            </form>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {modalTab === "details" ? (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nome Campagna *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                      placeholder="es. Facebook - Corso Excel Q1"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Piattaforma *
+                      </label>
+                      <select
+                        required
+                        value={formData.platform}
+                        onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                      >
+                        {platformOptions.map((platform) => (
+                          <option key={platform.value} value={platform.value}>
+                            {platform.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Corso *
+                      </label>
+                      <select
+                        required
+                        value={formData.courseId}
+                        onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                      >
+                        <option value="">Seleziona corso</option>
+                        {courses.map((course) => (
+                          <option key={course.id} value={course.id}>
+                            {course.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {!editingCampaign && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Spesa Iniziale (€)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={formData.budget}
+                          onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                          placeholder="1000"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Puoi aggiungere altre spese dopo la creazione
+                        </p>
+                      </div>
+                    )}
+                    {editingCampaign && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Spesa Totale
+                        </label>
+                        <div className="px-3 py-2 bg-gray-50 border rounded-lg text-gray-700 font-medium">
+                          €{getTotalSpent(editingCampaign).toLocaleString()}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Vai su &quot;Gestione Spese&quot; per modificare
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Stato *
+                      </label>
+                      <select
+                        required
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                      >
+                        {statusOptions.map((status) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Data Inizio
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.startDate}
+                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Data Fine
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.endDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                    >
+                      Annulla
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 px-4 py-2 bg-marketing text-white rounded-lg hover:opacity-90 transition"
+                    >
+                      {editingCampaign ? "Salva Modifiche" : "Crea Campagna"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                /* Spend Management Tab */
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Storico Spese</h3>
+                      <p className="text-sm text-gray-500">
+                        Gestisci le spese per periodo della campagna
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingSpendRecord(null);
+                        setShowSpendModal(true);
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 bg-marketing text-white rounded-lg hover:opacity-90 transition text-sm"
+                    >
+                      <Plus size={16} />
+                      Aggiungi Spesa
+                    </button>
+                  </div>
+
+                  <SpendRecordList
+                    records={spendRecords}
+                    isLoading={loadingSpendRecords}
+                    onEdit={(record) => {
+                      setEditingSpendRecord(record);
+                      setShowSpendModal(true);
+                    }}
+                    onDelete={handleDeleteSpendRecord}
+                    emptyStateText="Nessuna spesa registrata per questa campagna"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
+
+      {/* Spend Record Modal */}
+      <SpendRecordModal
+        isOpen={showSpendModal}
+        onClose={() => {
+          setShowSpendModal(false);
+          setEditingSpendRecord(null);
+        }}
+        onSave={handleSaveSpendRecord}
+        record={editingSpendRecord}
+      />
     </div>
   );
 }

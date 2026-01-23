@@ -48,7 +48,8 @@ interface Campaign {
   id: string;
   name: string;
   platform: string;
-  budget: number;
+  budget: number; // Legacy
+  totalSpent: number; // From CampaignSpend records
   status: string;
   startDate: string;
   endDate: string | null;
@@ -127,7 +128,7 @@ export default function AdminCampaignsPage() {
         name: campaign.name,
         platform: campaign.platform,
         courseId: campaign.course?.id || "",
-        budget: String(campaign.budget || 0),
+        budget: String(campaign.totalSpent || 0), // Use totalSpent from CampaignSpend
         status: campaign.status,
         startDate: campaign.startDate?.split("T")[0] || "",
         endDate: campaign.endDate?.split("T")[0] || "",
@@ -205,8 +206,8 @@ export default function AdminCampaignsPage() {
   // Helper functions
   const getLeadCount = (c: Campaign) => c.leadCount ?? c.metrics?.totalLeads ?? 0;
   const getEnrolledCount = (c: Campaign) => c.metrics?.enrolledLeads ?? 0;
-  // budget IS the total spent (simplified model)
-  const getTotalSpent = (c: Campaign) => Number(c.budget) ?? 0;
+  // Use totalSpent from CampaignSpend records
+  const getTotalSpent = (c: Campaign) => Number(c.totalSpent) || 0;
   const getCostPerLead = (c: Campaign) => {
     if (c.costPerLead !== undefined) return c.costPerLead;
     const leads = getLeadCount(c);
@@ -250,12 +251,11 @@ export default function AdminCampaignsPage() {
   // Calculate totals
   const totals = filteredCampaigns.reduce(
     (acc, campaign) => ({
-      budget: acc.budget + Number(campaign.budget || 0),
       spent: acc.spent + getTotalSpent(campaign),
       leads: acc.leads + getLeadCount(campaign),
       enrolled: acc.enrolled + getEnrolledCount(campaign),
     }),
-    { budget: 0, spent: 0, leads: 0, enrolled: 0 }
+    { spent: 0, leads: 0, enrolled: 0 }
   );
 
   if (loading) {
@@ -432,7 +432,7 @@ export default function AdminCampaignsPage() {
                     </td>
                     <td className="p-4 text-sm">{campaign.course?.name || "-"}</td>
                     <td className="p-4 text-sm">{campaign.createdBy?.name || "-"}</td>
-                    <td className="p-4 font-medium text-blue-600">€{Number(campaign.budget).toLocaleString()}</td>
+                    <td className="p-4 font-medium text-blue-600">€{getTotalSpent(campaign).toLocaleString()}</td>
                     <td className="p-4">{getLeadCount(campaign)}</td>
                     <td className="p-4">€{getCostPerLead(campaign).toFixed(2)}</td>
                     <td className="p-4">
