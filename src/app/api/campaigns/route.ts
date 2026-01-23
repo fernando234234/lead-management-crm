@@ -177,20 +177,10 @@ export async function POST(request: NextRequest) {
         status: body.status || "ACTIVE",
         startDate,
         endDate,
-        // Create spend record if budget provided
-        ...(budgetAmount > 0 && {
-          spendRecords: {
-            create: {
-              startDate,
-              endDate,
-              amount: budgetAmount,
-              notes: "Spesa iniziale campagna",
-            },
-          },
-        }),
+        // Spend records are added manually via the "Gestione Spese" tab
       },
       include: {
-        masterCampaign: { include: { course: true } }, // Include master info
+        masterCampaign: { include: { course: true } },
         createdBy: { select: { id: true, name: true } },
         spendRecords: true,
       },

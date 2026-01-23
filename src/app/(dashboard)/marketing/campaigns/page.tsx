@@ -110,7 +110,6 @@ export default function MarketingCampaignsPage() {
     name: "",
     platform: "META",
     courseId: "",
-    budget: "",
     status: "ACTIVE",
     startDate: "",
     endDate: "",
@@ -215,7 +214,6 @@ export default function MarketingCampaignsPage() {
         name: campaign.name,
         platform: campaign.platform,
         courseId: campaign.course?.id || "",
-        budget: "", // Don't show total spent in the budget field for editing
         status: campaign.status,
         startDate: campaign.startDate?.split("T")[0] || "",
         endDate: campaign.endDate?.split("T")[0] || "",
@@ -229,7 +227,6 @@ export default function MarketingCampaignsPage() {
         name: "",
         platform: "META",
         courseId: courses[0]?.id || "",
-        budget: "",
         status: "ACTIVE",
         startDate: new Date().toISOString().split("T")[0],
         endDate: "",
@@ -254,7 +251,6 @@ export default function MarketingCampaignsPage() {
       name: formData.name,
       platform: formData.platform,
       courseId: formData.courseId,
-      budget: parseFloat(formData.budget) || 0,
       status: formData.status,
       startDate: formData.startDate || null,
       endDate: formData.endDate || null,
@@ -687,25 +683,6 @@ export default function MarketingCampaignsPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    {!editingCampaign && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Spesa Iniziale (€)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={formData.budget}
-                          onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                          placeholder="1000"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Puoi aggiungere altre spese dopo la creazione
-                        </p>
-                      </div>
-                    )}
                     {editingCampaign && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
