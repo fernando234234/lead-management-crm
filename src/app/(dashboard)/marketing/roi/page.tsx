@@ -675,7 +675,7 @@ export default function MarketingROIPage() {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Speso</span>
+                      <span className="text-gray-500">Spesa</span>
                       <span className="font-medium text-red-600">
                         €{totalSpent.toLocaleString("it-IT")}
                       </span>
