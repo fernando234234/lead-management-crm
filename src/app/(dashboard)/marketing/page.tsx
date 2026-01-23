@@ -138,7 +138,7 @@ export default function MarketingDashboard() {
   const campaignBarData = useMemo(() => {
     return activeCampaigns.slice(0, 6).map((c) => ({
       nome: c.name.length > 12 ? c.name.substring(0, 12) + "..." : c.name,
-      lead: c.leadCount || 0,
+      lead: c.metrics?.totalLeads || 0,
     }));
   }, [activeCampaigns]);
 
@@ -264,10 +264,10 @@ export default function MarketingDashboard() {
                     </td>
                     <td className="py-4">{campaign.course?.name || "-"}</td>
                     <td className="py-4">€{(campaign.totalSpent || 0).toLocaleString()}</td>
-                    <td className="py-4">{campaign.leadCount || 0}</td>
+                    <td className="py-4">{campaign.metrics?.totalLeads || 0}</td>
                     <td className="py-4">
-                      €{campaign.leadCount > 0
-                        ? ((campaign.totalSpent || 0) / campaign.leadCount).toFixed(2)
+                      €{(campaign.metrics?.totalLeads || 0) > 0
+                        ? ((campaign.totalSpent || 0) / (campaign.metrics?.totalLeads || 1)).toFixed(2)
                         : "0.00"}
                     </td>
                   </tr>
