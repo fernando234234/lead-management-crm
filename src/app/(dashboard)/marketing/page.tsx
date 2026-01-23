@@ -193,7 +193,7 @@ export default function MarketingDashboard() {
         {/* Platform Spend Distribution */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-lg font-semibold mb-2">Distribuzione Spesa per Piattaforma</h2>
-          <p className="text-sm text-gray-500 mb-4">Mostra come il budget e distribuito tra le diverse piattaforme pubblicitarie</p>
+          <p className="text-sm text-gray-500 mb-4">Mostra come la spesa è distribuita tra le diverse piattaforme pubblicitarie</p>
           {platformSpendData.length > 0 ? (
             <PieChart
               data={platformSpendData}

@@ -329,34 +329,35 @@ export default function DashboardCommercialePage() {
       const leadsForCourse = filteredLeads.filter(l => l.course?.id === selectedCourseForCommercial);
       viewTotalLeads = leadsForCourse.length;
 
-      // Filter spend just for campaigns of this course
+      // Filter spend just for campaigns of this course with PRO-RATA calculation
+      const filterStart = startDate ? new Date(startDate) : null;
+      const filterEnd = endDate ? new Date(endDate) : null;
+      if (filterStart) filterStart.setHours(0, 0, 0, 0);
+      if (filterEnd) filterEnd.setHours(23, 59, 59, 999);
+      
       viewTotalSpend = campaigns.reduce((sum, campaign) => {
         // Skip campaigns not for this course
         if (campaign.course?.id !== selectedCourseForCommercial) return sum;
 
-        if (!campaign.spendRecords) return sum + (campaign.totalSpent || 0);
+        if (!campaign.spendRecords || campaign.spendRecords.length === 0) {
+          return sum + (campaign.totalSpent || 0);
+        }
         
-        // Apply date filter to records
-        const filteredRecords = campaign.spendRecords.filter((record) => {
-          const recordDate = new Date(record.startDate);
-          recordDate.setHours(0, 0, 0, 0);
+        // Apply pro-rata calculation for date-filtered spend
+        const proRataTotal = campaign.spendRecords.reduce((recordSum, record) => {
+          const recordStart = new Date(record.startDate);
+          const recordEnd = record.endDate ? new Date(record.endDate) : (filterEnd || new Date());
           
-          if (startDate) {
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            if (recordDate < start) return false;
-          }
+          // Check if record overlaps with filter range
+          const hasOverlap = (!filterEnd || recordStart <= filterEnd) && 
+                            (!filterStart || recordEnd >= filterStart);
           
-          if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            if (recordDate > end) return false;
-          }
+          if (!hasOverlap) return recordSum;
           
-          return true;
-        });
+          return recordSum + calculateProRataSpend(record, filterStart, filterEnd);
+        }, 0);
         
-        return sum + filteredRecords.reduce((s, r) => s + Number(r.amount), 0);
+        return sum + proRataTotal;
       }, 0);
     }
     
