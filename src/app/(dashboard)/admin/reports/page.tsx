@@ -74,6 +74,7 @@ interface Lead {
   contacted: boolean;
   createdAt: string;
   acquisitionCost: number | null;
+  revenue: number | string | null; // Lead-specific revenue
   course: { id: string; name: string; price: number } | null;
   campaign: { id: string; name: string; platform: string } | null;
   assignedTo: { id: string; name: string } | null;
@@ -100,6 +101,7 @@ interface Campaign {
   metrics: {
     totalLeads: number;
     enrolledLeads: number;
+    totalRevenue?: number; // Actual revenue from leads
     conversionRate: string;
     costPerLead: string;
   };
@@ -370,7 +372,11 @@ export default function ReportsPage() {
     const data = campaigns.map((campaign) => {
       const spent = campaign.totalSpent || 0;
       const cpl = campaign.leadCount > 0 ? spent / campaign.leadCount : 0;
-      const revenue = campaign.metrics.enrolledLeads * (campaign.course?.price || 0);
+      // Use pre-calculated totalRevenue from API (which uses lead.revenue)
+      // Fall back to enrolled * course.price for backwards compatibility
+      const revenue = campaign.metrics.totalRevenue !== undefined 
+        ? campaign.metrics.totalRevenue 
+        : campaign.metrics.enrolledLeads * (campaign.course?.price || 0);
       const roi = spent > 0 ? ((revenue - spent) / spent) * 100 : 0;
 
       return {
@@ -419,8 +425,13 @@ export default function ReportsPage() {
   const coursePerformance = useMemo(() => {
     const data = courses.map((course) => {
       const courseLeads = leads.filter((l) => l.course?.id === course.id);
-      const enrolled = courseLeads.filter((l) => l.enrolled).length;
-      const revenue = enrolled * course.price;
+      const enrolledLeads = courseLeads.filter((l) => l.enrolled);
+      const enrolled = enrolledLeads.length;
+      // Use lead.revenue if set, otherwise fall back to course.price
+      const revenue = enrolledLeads.reduce((sum, lead) => {
+        const leadRevenue = lead.revenue ? Number(lead.revenue) : 0;
+        return sum + (leadRevenue > 0 ? leadRevenue : course.price);
+      }, 0);
       const activeCampaigns = campaigns.filter((c) => c.course?.id === course.id).length;
 
       return {

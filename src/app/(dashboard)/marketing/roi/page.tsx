@@ -39,6 +39,7 @@ interface Lead {
   enrolled: boolean;
   contacted: boolean;
   createdAt: string;
+  revenue?: number | string | null; // Lead-specific revenue (takes priority over course price)
   campaign: {
     id: string;
     name: string;
@@ -178,9 +179,14 @@ export default function MarketingROIPage() {
           campaign.metrics?.enrolledLeads ||
           campaignLeads.filter((l) => l.enrolled || l.status === "ISCRITTO").length;
 
-        // Calculate revenue (enrolled * course price)
+        // Calculate revenue from enrolled leads
+        // Priority: use lead.revenue if set, otherwise fall back to course.price
+        const enrolledLeads = campaignLeads.filter((l) => l.enrolled || l.status === "ISCRITTO");
         const coursePrice = campaign.course?.price || 0;
-        const revenue = enrolledCount * coursePrice;
+        const revenue = enrolledLeads.reduce((sum, lead) => {
+          const leadRevenue = lead.revenue ? Number(lead.revenue) : 0;
+          return sum + (leadRevenue > 0 ? leadRevenue : coursePrice);
+        }, 0);
 
         // Calculate ROI
         const profit = revenue - spent;

@@ -28,6 +28,7 @@ interface Campaign {
     totalLeads: number;
     contactedLeads: number;
     enrolledLeads: number;
+    totalRevenue?: number; // Actual revenue from leads (uses lead.revenue or course.price)
     costPerLead: string;
     conversionRate: string;
   };
@@ -91,8 +92,13 @@ export default function MarketingDashboard() {
   const totalCost = campaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
   const costPerLead = totalLeads > 0 ? totalCost / totalLeads : 0;
 
-  // Calculate ROI (estimated based on enrolled leads and course prices)
+  // Calculate ROI using actual revenue from campaigns (already calculated server-side)
   const totalRevenue = campaigns.reduce((sum, c) => {
+    // Use the pre-calculated totalRevenue from metrics (which uses lead.revenue)
+    // Fall back to enrolled * course.price for backwards compatibility
+    if (c.metrics?.totalRevenue !== undefined) {
+      return sum + c.metrics.totalRevenue;
+    }
     const enrolled = c.metrics?.enrolledLeads || 0;
     const price = c.course?.price || 0;
     return sum + (enrolled * price);

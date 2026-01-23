@@ -28,6 +28,7 @@ interface Lead {
   contacted: boolean;
   enrolled: boolean;
   acquisitionCost: number | null;
+  revenue: number | string | null; // Lead-specific revenue
   createdAt: string;
   course: { id: string; name: string; price: number } | null;
   campaign: { id: string; name: string; platform: string } | null;
@@ -216,11 +217,15 @@ export default function DashboardCommercialePage() {
     // CPA (Cost Per Acquisition/Enrollment)
     const cpa = enrolledLeads > 0 ? totalSpend / enrolledLeads : 0;
     
-    // Total revenue (enrolled * course price)
-    // Note: Prisma returns Decimal as string, so we must convert to Number
+    // Total revenue from enrolled leads
+    // Priority: use lead.revenue if set, otherwise fall back to course.price
     const totalRevenue = filteredLeads
-      .filter((l) => l.enrolled && l.course)
-      .reduce((sum, l) => sum + Number(l.course?.price || 0), 0);
+      .filter((l) => l.enrolled)
+      .reduce((sum, l) => {
+        const leadRevenue = l.revenue ? Number(l.revenue) : 0;
+        const coursePrice = Number(l.course?.price || 0);
+        return sum + (leadRevenue > 0 ? leadRevenue : coursePrice);
+      }, 0);
     
     // Net result
     const netResult = totalRevenue - totalSpend;

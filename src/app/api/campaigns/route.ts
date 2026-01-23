@@ -88,6 +88,19 @@ export async function GET(request: NextRequest) {
           where: { campaignId: campaign.id, enrolled: true },
         });
 
+        // Calculate total revenue from enrolled leads
+        // Priority: use lead.revenue if set, otherwise fall back to course.price
+        const enrolledLeads = await prisma.lead.findMany({
+          where: { campaignId: campaign.id, enrolled: true },
+          select: { revenue: true },
+        });
+        
+        const coursePrice = Number(campaign.course?.price) || 0;
+        const totalRevenue = enrolledLeads.reduce((sum, lead) => {
+          const leadRevenue = lead.revenue ? Number(lead.revenue) : 0;
+          return sum + (leadRevenue > 0 ? leadRevenue : coursePrice);
+        }, 0);
+
         // Calculate total spent from spend records (filtered by date if provided)
         const totalSpent = campaign.spendRecords.reduce(
           (sum, record) => sum + Number(record.amount),
@@ -105,6 +118,7 @@ export async function GET(request: NextRequest) {
             totalLeads: leadStats._count._all,
             contactedLeads: contactedCount,
             enrolledLeads: enrolledCount,
+            totalRevenue, // New field: actual revenue from leads
             costPerLead: costPerLead.toFixed(2),
             conversionRate: leadStats._count._all > 0
               ? ((enrolledCount / leadStats._count._all) * 100).toFixed(1)

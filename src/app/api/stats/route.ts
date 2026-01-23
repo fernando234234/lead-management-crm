@@ -104,14 +104,23 @@ export async function GET(request: NextRequest) {
       _sum: { amount: true },
     });
 
-    // Get total revenue (enrolled leads * course price) with date filter
+    // Get total revenue from enrolled leads
+    // Priority: use lead.revenue if set, otherwise fall back to course.price
     const enrolledLeadsWithCourse = await prisma.lead.findMany({
       where: { ...dateFilter, enrolled: true },
-      include: { course: { select: { price: true } } },
+      select: { 
+        revenue: true,
+        course: { select: { price: true } } 
+      },
     });
 
     const totalRevenue = enrolledLeadsWithCourse.reduce(
-      (sum, lead) => sum + (Number(lead.course?.price) || 0),
+      (sum, lead) => {
+        // Use lead.revenue if explicitly set, otherwise fall back to course price
+        const leadRevenue = lead.revenue ? Number(lead.revenue) : 0;
+        const coursePrice = Number(lead.course?.price) || 0;
+        return sum + (leadRevenue > 0 ? leadRevenue : coursePrice);
+      },
       0
     );
 
