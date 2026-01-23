@@ -43,7 +43,7 @@ const campaignExportColumns = [
   { key: "name", label: "Nome" },
   { key: "platform", label: "Piattaforma" },
   { key: "course.name", label: "Corso" },
-  { key: "budget", label: "Spesa Totale" },
+  { key: "totalSpent", label: "Spesa Totale" },
   { key: "leadCount", label: "Lead" },
   { key: "costPerLead", label: "CPL" },
   { key: "status", label: "Stato" },

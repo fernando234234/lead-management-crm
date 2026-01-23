@@ -103,6 +103,8 @@ export default function ActivityTimeline({
   compact = false,
 }: ActivityTimelineProps) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showQuickNote, setShowQuickNote] = useState(false);
+  const [quickNoteText, setQuickNoteText] = useState("");
   const [newActivity, setNewActivity] = useState({
     type: "NOTE",
     description: "",
@@ -143,12 +145,17 @@ export default function ActivityTimeline({
   };
 
   const handleQuickNote = async () => {
-    const note = prompt("Aggiungi una nota veloce:");
-    if (note?.trim()) {
+    if (!quickNoteText.trim()) return;
+    setIsSubmitting(true);
+    try {
       await onAddActivity({
         type: "NOTE",
-        description: note.trim(),
+        description: quickNoteText.trim(),
       });
+      setQuickNoteText("");
+      setShowQuickNote(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -169,7 +176,7 @@ export default function ActivityTimeline({
         </h3>
         <div className="flex gap-2">
           <button
-            onClick={handleQuickNote}
+            onClick={() => setShowQuickNote(true)}
             className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
           >
             <Plus size={16} />
@@ -184,6 +191,43 @@ export default function ActivityTimeline({
           </button>
         </div>
       </div>
+
+      {/* Quick Note Inline Input */}
+      {showQuickNote && (
+        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-start gap-2">
+            <FileText size={18} className="text-blue-500 mt-1" />
+            <div className="flex-1">
+              <textarea
+                value={quickNoteText}
+                onChange={(e) => setQuickNoteText(e.target.value)}
+                placeholder="Scrivi una nota veloce..."
+                rows={2}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setShowQuickNote(false);
+                    setQuickNoteText("");
+                  }}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleQuickNote}
+                  disabled={isSubmitting || !quickNoteText.trim()}
+                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : "Salva"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
       {activities.length === 0 ? (

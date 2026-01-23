@@ -113,9 +113,11 @@ export default function AdminCoursesPage() {
         });
       }
       setShowModal(false);
+      toast.success(editingCourse ? "Corso aggiornato" : "Corso creato");
       fetchCourses();
     } catch (error) {
       console.error("Failed to save course");
+      toast.error("Errore nel salvataggio del corso");
     }
   };
 

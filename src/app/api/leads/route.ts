@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
     const enrolled = searchParams.get("enrolled");
     const search = searchParams.get("search");
     const source = searchParams.get("source"); // Filter by lead source: LEGACY_IMPORT, MANUAL, CAMPAIGN
+    const startDate = searchParams.get("startDate"); // Filter by createdAt >= startDate
+    const endDate = searchParams.get("endDate"); // Filter by createdAt <= endDate
 
     const where: Record<string, unknown> = {};
 
@@ -31,6 +33,21 @@ export async function GET(request: NextRequest) {
     if (status) where.status = status;
     if (contacted !== null && contacted !== "") where.contacted = contacted === "true";
     if (enrolled !== null && enrolled !== "") where.enrolled = enrolled === "true";
+    
+    // Date range filter on createdAt
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        (where.createdAt as Record<string, Date>).gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        (where.createdAt as Record<string, Date>).lte = end;
+      }
+    }
     
     // Handle source filter (supports comma-separated values like "MANUAL,CAMPAIGN")
     if (source) {

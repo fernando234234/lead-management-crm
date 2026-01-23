@@ -89,6 +89,8 @@ export default function LeadDetailModal({
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [quickNote, setQuickNote] = useState("");
+  const [showCallNote, setShowCallNote] = useState(false);
+  const [callNote, setCallNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
 
@@ -219,20 +221,26 @@ export default function LeadDetailModal({
   };
 
   const handleLogCall = async () => {
-    const notes = prompt("Note sulla chiamata:");
-    if (!notes) return;
+    if (!callNote.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await handleAddActivity({
+        type: "CALL",
+        description: callNote.trim(),
+      });
 
-    await handleAddActivity({
-      type: "CALL",
-      description: notes,
-    });
-
-    // Auto-set contacted to true if not already
-    if (!lead.contacted && onUpdate) {
-      await onUpdate(lead.id, {
-        contacted: true,
-        contactedAt: new Date().toISOString(),
-      } as Partial<Lead>);
+      // Auto-set contacted to true if not already
+      if (!lead.contacted && onUpdate) {
+        await onUpdate(lead.id, {
+          contacted: true,
+          contactedAt: new Date().toISOString(),
+        } as Partial<Lead>);
+      }
+      
+      setCallNote("");
+      setShowCallNote(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -391,7 +399,7 @@ export default function LeadDetailModal({
                 Aggiungi Nota
               </button>
               <button
-                onClick={handleLogCall}
+                onClick={() => setShowCallNote(true)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition`}
               >
                 <PhoneCall size={18} />
@@ -436,6 +444,44 @@ export default function LeadDetailModal({
                         className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                       >
                         {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Salva"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Call Note Input */}
+            {showCallNote && (
+              <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-start gap-2">
+                  <PhoneCall size={20} className="text-green-600 mt-1" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-green-800 mb-2">Registra Chiamata</p>
+                    <textarea
+                      value={callNote}
+                      onChange={(e) => setCallNote(e.target.value)}
+                      placeholder="Note sulla chiamata..."
+                      rows={3}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button
+                        onClick={() => {
+                          setShowCallNote(false);
+                          setCallNote("");
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900"
+                      >
+                        Annulla
+                      </button>
+                      <button
+                        onClick={handleLogCall}
+                        disabled={isSubmitting || !callNote.trim()}
+                        className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Registra"}
                       </button>
                     </div>
                   </div>

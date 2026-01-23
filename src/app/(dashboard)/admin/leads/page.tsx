@@ -496,9 +496,11 @@ export default function AdminLeadsPage() {
         });
       }
       setShowModal(false);
+      toast.success(editingLead ? "Lead aggiornato" : "Lead creato");
       fetchData();
     } catch (error) {
       console.error("Failed to save lead:", error);
+      toast.error("Errore nel salvataggio del lead");
     }
   };
 
@@ -507,9 +509,11 @@ export default function AdminLeadsPage() {
 
     try {
       await fetch(`/api/leads/${id}`, { method: "DELETE" });
+      toast.success("Lead eliminato");
       fetchData();
     } catch (error) {
       console.error("Failed to delete lead:", error);
+      toast.error("Errore nell'eliminazione del lead");
     }
   };
 
