@@ -26,8 +26,7 @@ const campaignPerformanceExportColumns = [
   { key: "name", label: "Campagna" },
   { key: "platform", label: "Piattaforma" },
   { key: "course.name", label: "Corso" },
-  { key: "budget", label: "Budget" },
-  { key: "totalSpent", label: "Speso" },
+  { key: "budget", label: "Spesa Totale" },
   { key: "leadCount", label: "Lead" },
   { key: "cpl", label: "CPL" },
   { key: "conversionRate", label: "Conversione %" },
@@ -82,8 +81,7 @@ interface Campaign {
   id: string;
   name: string;
   platform: string;
-  budget: number;
-  totalSpent: number;
+  budget: number; // This is now "total spent"
   leadCount: number;
   course: { id: string; name: string; price: number } | null;
   metrics: {
@@ -109,7 +107,7 @@ interface User {
 }
 
 type SortDirection = "asc" | "desc" | null;
-type CampaignSortField = "name" | "platform" | "budget" | "totalSpent" | "leadCount" | "cpl" | "conversionRate" | "roi";
+type CampaignSortField = "name" | "platform" | "budget" | "leadCount" | "cpl" | "conversionRate" | "roi";
 type CourseSortField = "name" | "price" | "leads" | "enrolled" | "revenue" | "campaigns";
 type CommercialSortField = "name" | "assigned" | "contacted" | "enrolled" | "conversionRate";
 
@@ -248,7 +246,7 @@ export default function ReportsPage() {
     return platforms
       .map((platform) => {
         const platformCampaigns = campaigns.filter((c) => c.platform === platform);
-        const totalSpent = platformCampaigns.reduce((sum, c) => sum + c.totalSpent, 0);
+        const totalSpent = platformCampaigns.reduce((sum, c) => sum + c.budget, 0);
         return {
           name: platformLabels[platform],
           value: totalSpent,
@@ -316,9 +314,9 @@ export default function ReportsPage() {
   // Calculate campaign performance with sorting
   const campaignPerformance = useMemo(() => {
     const data = campaigns.map((campaign) => {
-      const cpl = campaign.leadCount > 0 ? campaign.totalSpent / campaign.leadCount : 0;
+      const cpl = campaign.leadCount > 0 ? campaign.budget / campaign.leadCount : 0;
       const revenue = campaign.metrics.enrolledLeads * (campaign.course?.price || 0);
-      const roi = campaign.totalSpent > 0 ? ((revenue - campaign.totalSpent) / campaign.totalSpent) * 100 : 0;
+      const roi = campaign.budget > 0 ? ((revenue - campaign.budget) / campaign.budget) * 100 : 0;
 
       return {
         ...campaign,
@@ -346,8 +344,6 @@ export default function ReportsPage() {
           return a.platform.localeCompare(b.platform) * multiplier;
         case "budget":
           return (a.budget - b.budget) * multiplier;
-        case "totalSpent":
-          return (a.totalSpent - b.totalSpent) * multiplier;
         case "leadCount":
           return (a.leadCount - b.leadCount) * multiplier;
         case "cpl":
@@ -457,7 +453,7 @@ export default function ReportsPage() {
     return platforms.map((platform) => {
       const platformCampaigns = campaigns.filter((c) => c.platform === platform);
       const totalLeads = platformCampaigns.reduce((sum, c) => sum + c.leadCount, 0);
-      const totalSpent = platformCampaigns.reduce((sum, c) => sum + c.totalSpent, 0);
+      const totalSpent = platformCampaigns.reduce((sum, c) => sum + c.budget, 0);
       const cpl = totalLeads > 0 ? totalSpent / totalLeads : 0;
       const enrolled = platformCampaigns.reduce((sum, c) => sum + c.metrics.enrolledLeads, 0);
       const conversionRate = totalLeads > 0 ? (enrolled / totalLeads) * 100 : 0;
@@ -681,17 +677,8 @@ export default function ReportsPage() {
                   onClick={() => handleSort("budget", campaignSort, setCampaignSort)}
                 >
                   <div className="flex items-center gap-1.5">
-                    Budget
+                    Spesa Totale
                     <SortIndicator field="budget" currentSort={campaignSort} />
-                  </div>
-                </th>
-                <th
-                  className="sortable"
-                  onClick={() => handleSort("totalSpent", campaignSort, setCampaignSort)}
-                >
-                  <div className="flex items-center gap-1.5">
-                    Speso
-                    <SortIndicator field="totalSpent" currentSort={campaignSort} />
                   </div>
                 </th>
                 <th
@@ -759,7 +746,6 @@ export default function ReportsPage() {
                     </td>
                     <td className="p-4 text-gray-500">{campaign.course?.name || "-"}</td>
                     <td className="p-4">€{campaign.budget.toLocaleString()}</td>
-                    <td className="p-4">€{campaign.totalSpent.toLocaleString()}</td>
                     <td className="p-4">{campaign.leadCount}</td>
                     <td className="p-4">€{campaign.cpl.toFixed(2)}</td>
                     <td className="p-4">{campaign.conversionRate.toFixed(1)}%</td>
@@ -771,7 +757,7 @@ export default function ReportsPage() {
               })}
               {campaignPerformance.data.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-gray-400">
+                  <td colSpan={8} className="p-8 text-center text-gray-400">
                     Nessuna campagna disponibile
                   </td>
                 </tr>

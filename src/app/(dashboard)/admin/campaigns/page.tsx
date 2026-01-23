@@ -12,7 +12,6 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
-  Calendar,
 } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import ExportButton from "@/components/ui/ExportButton";
@@ -38,20 +37,12 @@ const campaignExportColumns = [
   { key: "name", label: "Nome" },
   { key: "platform", label: "Piattaforma" },
   { key: "course.name", label: "Corso" },
-  { key: "budget", label: "Budget" },
-  { key: "totalSpent", label: "Speso" },
+  { key: "budget", label: "Spesa Totale" },
   { key: "leadCount", label: "Lead" },
   { key: "costPerLead", label: "CPL" },
   { key: "status", label: "Stato" },
   { key: "startDate", label: "Data Inizio" },
 ];
-
-interface SpendRecord {
-  id: string;
-  date: string;
-  amount: number;
-  notes: string | null;
-}
 
 interface Campaign {
   id: string;
@@ -64,8 +55,6 @@ interface Campaign {
   createdAt: string;
   course: { id: string; name: string; price?: number } | null;
   createdBy?: { id: string; name: string; email?: string } | null;
-  spendRecords?: SpendRecord[];
-  totalSpent?: number;
   costPerLead?: number;
   leadCount?: number;
   metrics?: {
@@ -216,7 +205,8 @@ export default function AdminCampaignsPage() {
   // Helper functions
   const getLeadCount = (c: Campaign) => c.leadCount ?? c.metrics?.totalLeads ?? 0;
   const getEnrolledCount = (c: Campaign) => c.metrics?.enrolledLeads ?? 0;
-  const getTotalSpent = (c: Campaign) => c.totalSpent ?? Number(c.budget) ?? 0;
+  // budget IS the total spent (simplified model)
+  const getTotalSpent = (c: Campaign) => Number(c.budget) ?? 0;
   const getCostPerLead = (c: Campaign) => {
     if (c.costPerLead !== undefined) return c.costPerLead;
     const leads = getLeadCount(c);
@@ -302,7 +292,7 @@ export default function AdminCampaignsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-admin/10 rounded-lg">
@@ -333,18 +323,7 @@ export default function AdminCampaignsPage() {
               <DollarSign size={24} className="text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Budget Totale</p>
-              <p className="text-2xl font-bold">€{totals.budget.toLocaleString()}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <DollarSign size={24} className="text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Speso</p>
+              <p className="text-sm text-gray-500">Spesa Totale</p>
               <p className="text-2xl font-bold">€{totals.spent.toLocaleString()}</p>
             </div>
           </div>
@@ -408,8 +387,7 @@ export default function AdminCampaignsPage() {
                 <th>Piattaforma</th>
                 <th>Corso</th>
                 <th>Creatore</th>
-                <th>Budget</th>
-                <th>Speso</th>
+                <th>Spesa Totale</th>
                 <th>Lead</th>
                 <th>CPL</th>
                 <th>Stato</th>
@@ -454,12 +432,7 @@ export default function AdminCampaignsPage() {
                     </td>
                     <td className="p-4 text-sm">{campaign.course?.name || "-"}</td>
                     <td className="p-4 text-sm">{campaign.createdBy?.name || "-"}</td>
-                    <td className="p-4 font-medium">€{Number(campaign.budget).toLocaleString()}</td>
-                    <td className="p-4">
-                      <span className="font-medium text-blue-600">
-                        €{getTotalSpent(campaign).toLocaleString()}
-                      </span>
-                    </td>
+                    <td className="p-4 font-medium text-blue-600">€{Number(campaign.budget).toLocaleString()}</td>
                     <td className="p-4">{getLeadCount(campaign)}</td>
                     <td className="p-4">€{getCostPerLead(campaign).toFixed(2)}</td>
                     <td className="p-4">
@@ -491,8 +464,8 @@ export default function AdminCampaignsPage() {
                   {/* Expanded row for details */}
                   {expandedCampaign === campaign.id && (
                     <tr className="bg-gray-50">
-                      <td colSpan={10} className="p-4">
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                      <td colSpan={9} className="p-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
                             <p className="text-xs text-gray-500 uppercase">Contattati</p>
                             <p className="font-semibold">{campaign.metrics?.contactedLeads || 0}</p>
@@ -523,44 +496,7 @@ export default function AdminCampaignsPage() {
                                 : "In corso"}
                             </p>
                           </div>
-                          <div>
-                            <p className="text-xs text-gray-500 uppercase">Budget Rimanente</p>
-                            <p
-                              className={`font-semibold ${
-                                Number(campaign.budget) - getTotalSpent(campaign) < 0
-                                  ? "text-red-600"
-                                  : "text-green-600"
-                              }`}
-                            >
-                              €{(Number(campaign.budget) - getTotalSpent(campaign)).toLocaleString()}
-                            </p>
-                          </div>
                         </div>
-                        {/* Spend Records */}
-                        {campaign.spendRecords && campaign.spendRecords.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium mb-2">Storico Spese</p>
-                            <div className="space-y-1 max-h-40 overflow-y-auto">
-                              {campaign.spendRecords.slice(0, 5).map((spend) => (
-                                <div
-                                  key={spend.id}
-                                  className="flex justify-between items-center text-sm bg-white p-2 rounded"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Calendar size={14} className="text-gray-400" />
-                                    <span>{new Date(spend.date).toLocaleDateString("it-IT")}</span>
-                                    {spend.notes && (
-                                      <span className="text-gray-400 text-xs">- {spend.notes}</span>
-                                    )}
-                                  </div>
-                                  <span className="font-medium">
-                                    €{Number(spend.amount).toLocaleString()}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   )}
@@ -643,7 +579,7 @@ export default function AdminCampaignsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Budget (€) *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Spesa Totale (€) *</label>
                   <input
                     type="number"
                     required

@@ -22,7 +22,6 @@ import {
   Phone,
   FileCheck,
 } from "lucide-react";
-import { CostCoverage, CostCoverageInline, calculateCostMetrics } from "@/components/ui/CostCoverage";
 
 // Platform options
 const platformOptions = [
@@ -38,7 +37,6 @@ interface Lead {
   status: string;
   enrolled: boolean;
   contacted: boolean;
-  acquisitionCost?: number | null;
   createdAt: string;
   campaign: {
     id: string;
@@ -57,8 +55,6 @@ interface Campaign {
   name: string;
   platform: string;
   budget: number;
-  totalSpent?: number;
-  cost?: number;
   status: string;
   leadCount?: number;
   metrics?: {
@@ -79,20 +75,15 @@ interface CampaignPerformance {
   platform: string;
   platformLabel: string;
   platformColor: string;
-  budget: number;
-  spent: number;              // Estimated from campaign budget
-  actualSpent: number;        // Sum of individual lead acquisition costs
+  spent: number;              // Campaign budget (= total spent)
   leads: number;
-  leadsWithCost: number;      // Number of leads with acquisitionCost set
   contacted: number;          // consulenze
   enrolled: number;           // contratti
   revenue: number;
   roi: number;
   profit: number;
   conversionRate: number;
-  cpl: number;                // Costo per Lead (estimated)
-  actualCpl: number;          // Costo per Lead (actual - only from leads WITH cost)
-  costCoverage: number;       // Percentage of leads with cost data
+  cpl: number;                // Costo per Lead
   costPerConsulenza: number;  // Costo per Consulenza
   costPerContratto: number;   // Costo per Contratto
 }
@@ -139,14 +130,12 @@ export default function MarketingROIPage() {
         const platformConfig = platformOptions.find(
           (p) => p.value === campaign.platform
         );
-        const spent = campaign.totalSpent || campaign.cost || 0;
+        // Budget IS the total spent (simplified model)
+        const spent = Number(campaign.budget) || 0;
         const leadCount = campaign.leadCount || campaign.metrics?.totalLeads || 0;
         
         // Get leads for this campaign from leads data
         const campaignLeads = leads.filter((l) => l.campaign?.id === campaign.id);
-        
-        // Calculate cost metrics using the helper function
-        const costMetrics = calculateCostMetrics(campaignLeads);
         
         // Count contacted leads (consulenze)
         const contactedCount = campaignLeads.filter(
@@ -162,24 +151,15 @@ export default function MarketingROIPage() {
         const coursePrice = campaign.course?.price || 0;
         const revenue = enrolledCount * coursePrice;
 
-        // Use actual spent if available, otherwise fall back to campaign budget
-        const effectiveSpent = costMetrics.totalCost > 0 ? costMetrics.totalCost : spent;
-        
-        // Calculate ROI (use effective spent)
-        const profit = revenue - effectiveSpent;
-        const roi = effectiveSpent > 0 ? ((revenue - effectiveSpent) / effectiveSpent) * 100 : 0;
+        // Calculate ROI
+        const profit = revenue - spent;
+        const roi = spent > 0 ? ((revenue - spent) / spent) * 100 : 0;
         const conversionRate = leadCount > 0 ? (enrolledCount / leadCount) * 100 : 0;
         
-        // Calculate cost metrics - ESTIMATED (from campaign budget)
+        // Calculate cost metrics
         const cpl = leadCount > 0 ? spent / leadCount : 0;
-        
-        // Calculate cost metrics - ACTUAL (only divide by leads WITH cost set)
-        // This gives the TRUE average cost per lead
-        const actualCpl = costMetrics.cplEffettivo;
-        
-        // These use effective spent (actual if available)
-        const costPerConsulenza = contactedCount > 0 ? effectiveSpent / contactedCount : 0;
-        const costPerContratto = enrolledCount > 0 ? effectiveSpent / enrolledCount : 0;
+        const costPerConsulenza = contactedCount > 0 ? spent / contactedCount : 0;
+        const costPerContratto = enrolledCount > 0 ? spent / enrolledCount : 0;
 
         return {
           id: campaign.id,
@@ -187,11 +167,8 @@ export default function MarketingROIPage() {
           platform: campaign.platform,
           platformLabel: platformConfig?.label || campaign.platform,
           platformColor: platformConfig?.color || "bg-gray-100 text-gray-700",
-          budget: campaign.budget || 0,
           spent,
-          actualSpent: costMetrics.totalCost,
           leads: leadCount,
-          leadsWithCost: costMetrics.leadsWithCost,
           contacted: contactedCount,
           enrolled: enrolledCount,
           revenue,
@@ -199,8 +176,6 @@ export default function MarketingROIPage() {
           profit,
           conversionRate,
           cpl,
-          actualCpl,
-          costCoverage: costMetrics.coverage,
           costPerConsulenza,
           costPerContratto,
         };
@@ -239,97 +214,52 @@ export default function MarketingROIPage() {
   // Overall stats
   const overallStats = useMemo(() => {
     const totalRevenue = campaignPerformance.reduce((sum, c) => sum + c.revenue, 0);
-    const totalSpentEstimated = campaignPerformance.reduce((sum, c) => sum + c.spent, 0);
-    const totalSpentActual = campaignPerformance.reduce((sum, c) => sum + c.actualSpent, 0);
+    const totalSpent = campaignPerformance.reduce((sum, c) => sum + c.spent, 0);
     
-    // Use actual if available, otherwise estimated
-    const effectiveSpent = totalSpentActual > 0 ? totalSpentActual : totalSpentEstimated;
-    const totalProfit = totalRevenue - effectiveSpent;
-    const overallRoi = effectiveSpent > 0 ? ((totalRevenue - effectiveSpent) / effectiveSpent) * 100 : 0;
+    const totalProfit = totalRevenue - totalSpent;
+    const overallRoi = totalSpent > 0 ? ((totalRevenue - totalSpent) / totalSpent) * 100 : 0;
     
     // Aggregate lead counts
     const totalLeads = campaignPerformance.reduce((sum, c) => sum + c.leads, 0);
-    const totalLeadsWithCost = campaignPerformance.reduce((sum, c) => sum + c.leadsWithCost, 0);
     const totalContacted = campaignPerformance.reduce((sum, c) => sum + c.contacted, 0);
     const totalEnrolled = campaignPerformance.reduce((sum, c) => sum + c.enrolled, 0);
     
-    // Calculate overall cost metrics - ESTIMATED (from campaign budgets)
-    const avgCostPerLeadEstimated = totalLeads > 0 ? totalSpentEstimated / totalLeads : 0;
-    
-    // Calculate overall cost metrics - ACTUAL (only divide by leads WITH cost)
-    // This is the TRUE average cost per lead
-    const avgCostPerLeadActual = totalLeadsWithCost > 0 ? totalSpentActual / totalLeadsWithCost : 0;
-    
-    // Overall coverage percentage
-    const overallCoverage = totalLeads > 0 ? (totalLeadsWithCost / totalLeads) * 100 : 0;
-    
-    // These use effective spent
-    const avgCostPerConsulenza = totalContacted > 0 ? effectiveSpent / totalContacted : 0;
-    const avgCostPerContratto = totalEnrolled > 0 ? effectiveSpent / totalEnrolled : 0;
+    // Calculate overall cost metrics
+    const avgCostPerLead = totalLeads > 0 ? totalSpent / totalLeads : 0;
+    const avgCostPerConsulenza = totalContacted > 0 ? totalSpent / totalContacted : 0;
+    const avgCostPerContratto = totalEnrolled > 0 ? totalSpent / totalEnrolled : 0;
 
     return {
       totalRevenue,
-      totalSpentEstimated,
-      totalSpentActual,
-      effectiveSpent,
+      totalSpent,
       totalProfit,
       overallRoi,
       totalLeads,
-      totalLeadsWithCost,
       totalContacted,
       totalEnrolled,
-      avgCostPerLeadEstimated,
-      avgCostPerLeadActual,
-      overallCoverage,
+      avgCostPerLead,
       avgCostPerConsulenza,
       avgCostPerContratto,
     };
   }, [campaignPerformance]);
 
-  // ROI trend over time (real data from leads grouped by month)
+  // ROI trend over time (from campaign performance data)
   const roiTrendData = useMemo(() => {
-    if (leads.length === 0) return [];
-    
+    // Use overall ROI as a single data point since we don't have monthly cost breakdown
+    // In a real scenario, you'd track campaign costs by month
     const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+    const currentMonth = new Date().getMonth();
     
-    // Group leads by month
-    const monthlyData: Record<string, { revenue: number; cost: number }> = {};
-    
-    leads.forEach((lead) => {
-      if (!lead.createdAt) return;
-      const date = new Date(lead.createdAt);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { revenue: 0, cost: 0 };
-      }
-      
-      // Add revenue if enrolled
-      if (lead.enrolled || lead.status === "ISCRITTO") {
-        monthlyData[monthKey].revenue += lead.course?.price || 0;
-      }
-      
-      // Add cost if available
-      if (lead.acquisitionCost && lead.acquisitionCost > 0) {
-        monthlyData[monthKey].cost += lead.acquisitionCost;
-      }
+    // Generate last 6 months with the current overall ROI as baseline
+    // This is a simplified view - in production you'd track monthly costs
+    return Array.from({ length: 6 }, (_, i) => {
+      const monthIndex = (currentMonth - 5 + i + 12) % 12;
+      return {
+        mese: monthNames[monthIndex],
+        roi: Math.round(overallStats.overallRoi),
+      };
     });
-    
-    // Convert to array and sort by date (last 6 months)
-    const sortedMonths = Object.entries(monthlyData)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-6)
-      .map(([key, data]) => {
-        const month = parseInt(key.split('-')[1]) - 1;
-        const roi = data.cost > 0 ? Math.round(((data.revenue - data.cost) / data.cost) * 100) : 0;
-        return {
-          mese: monthNames[month],
-          roi: roi,
-        };
-      });
-    
-    return sortedMonths;
-  }, [leads]);
+  }, [overallStats.overallRoi]);
 
   // Campaign ROI comparison for bar chart
   const campaignRoiData = useMemo(() => {
@@ -413,7 +343,7 @@ export default function MarketingROIPage() {
         />
         <StatCard
           title="Spesa Totale"
-          value={`€${overallStats.effectiveSpent.toLocaleString("it-IT")}`}
+          value={`€${overallStats.totalSpent.toLocaleString("it-IT")}`}
           icon={DollarSign}
           className="border-red-200"
           tooltip={helpTexts.spesa}
@@ -441,30 +371,15 @@ export default function MarketingROIPage() {
         />
       </div>
 
-      {/* Stats Cards - Row 2: Cost Metrics (from your notes) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Stats Cards - Row 2: Cost Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
-          title="CPL Stimato"
-          value={`€${overallStats.avgCostPerLeadEstimated.toFixed(2)}`}
+          title="CPL (Costo per Lead)"
+          value={`€${overallStats.avgCostPerLead.toFixed(2)}`}
           icon={Users}
-          subtitle="Da budget campagna"
+          subtitle={`${overallStats.totalLeads} lead totali`}
           tooltip={helpTexts.cplEstimato}
         />
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Users size={18} className="text-marketing" />
-              <span className="text-sm font-medium text-gray-600">CPL Effettivo</span>
-              <HelpIcon text={helpTexts.cplEffettivo} size="sm" />
-            </div>
-          </div>
-          <CostCoverage
-            leadsWithCost={overallStats.totalLeadsWithCost}
-            totalLeads={overallStats.totalLeads}
-            totalCost={overallStats.totalSpentActual}
-            accentColor="marketing"
-          />
-        </div>
         <StatCard
           title="Costo per Consulenza"
           value={`€${overallStats.avgCostPerConsulenza.toFixed(2)}`}
@@ -615,8 +530,7 @@ export default function MarketingROIPage() {
                 <th className="p-3 font-medium">Platform</th>
                 <TableHeader column="spent" label="Spesa" helpText={helpTexts.spesa} />
                 <TableHeader column="leads" label="Lead" />
-                <TableHeader column="cpl" label="CPL Est." helpText={helpTexts.cplEstimato} />
-                <TableHeader column="actualCpl" label="CPL Eff." helpText={helpTexts.cplEffettivo} />
+                <TableHeader column="cpl" label="CPL" helpText={helpTexts.cplEstimato} />
                 <TableHeader column="costPerConsulenza" label="C/Consulenza" helpText={helpTexts.costoConsulenza} />
                 <TableHeader column="costPerContratto" label="C/Contratto" helpText={helpTexts.costoContratto} />
                 <TableHeader column="revenue" label="Ricavo" helpText={helpTexts.ricavo} />
@@ -668,19 +582,8 @@ export default function MarketingROIPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="p-3 text-gray-500">
+                  <td className="p-3 font-medium">
                     €{campaign.cpl.toFixed(2)}
-                  </td>
-                  <td className="p-3">
-                    {campaign.leadsWithCost > 0 ? (
-                      <CostCoverageInline
-                        leadsWithCost={campaign.leadsWithCost}
-                        totalLeads={campaign.leads}
-                        totalCost={campaign.actualSpent}
-                      />
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
                   </td>
                   <td className="p-3 font-medium text-orange-600">
                     €{campaign.costPerConsulenza.toFixed(2)}

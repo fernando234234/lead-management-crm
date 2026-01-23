@@ -113,7 +113,7 @@ const leadExportColumns = [
   { key: "campaign.name", label: "Campagna" },
   { key: "status", label: "Stato" },
   { key: "assignedTo.name", label: "Commerciale" },
-  { key: "acquisitionCost", label: "Costo Acquisizione" },
+
   { key: "createdAt", label: "Data Creazione" },
   { key: "contacted", label: "Contattato" },
   { key: "enrolled", label: "Iscritto" },
@@ -144,7 +144,7 @@ export default function AdminLeadsPage() {
   const [filterCommercial, setFilterCommercial] = useState("");
   
   // Sorting
-  type SortField = "name" | "course" | "commercial" | "status" | "createdAt" | "acquisitionCost";
+  type SortField = "name" | "course" | "commercial" | "status" | "createdAt";
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -167,7 +167,6 @@ export default function AdminLeadsPage() {
     callOutcome: "",
     outcomeNotes: "",
     enrolled: false,
-    acquisitionCost: "",
   });
 
   useEffect(() => {
@@ -251,10 +250,6 @@ export default function AdminLeadsPage() {
         case "createdAt":
           aVal = new Date(a.createdAt).getTime();
           bVal = new Date(b.createdAt).getTime();
-          break;
-        case "acquisitionCost":
-          aVal = a.acquisitionCost || 0;
-          bVal = b.acquisitionCost || 0;
           break;
       }
 
@@ -442,7 +437,6 @@ export default function AdminLeadsPage() {
         callOutcome: lead.callOutcome || "",
         outcomeNotes: lead.outcomeNotes || "",
         enrolled: lead.enrolled,
-        acquisitionCost: lead.acquisitionCost ? String(lead.acquisitionCost) : "",
       });
     } else {
       setEditingLead(null);
@@ -462,7 +456,6 @@ export default function AdminLeadsPage() {
         callOutcome: "",
         outcomeNotes: "",
         enrolled: false,
-        acquisitionCost: "",
       });
     }
     setShowModal(true);
@@ -477,10 +470,6 @@ export default function AdminLeadsPage() {
       return;
     }
 
-    const acquisitionCostValue = formData.acquisitionCost 
-      ? parseFloat(formData.acquisitionCost) 
-      : null;
-
     const payload = {
       ...formData,
       email: formData.email || null,
@@ -490,7 +479,6 @@ export default function AdminLeadsPage() {
       notes: formData.notes || null,
       callOutcome: formData.callOutcome || null,
       outcomeNotes: formData.outcomeNotes || null,
-      acquisitionCost: acquisitionCostValue,
     };
 
     try {
@@ -715,11 +703,6 @@ export default function AdminLeadsPage() {
                 <th scope="col" className="text-center">Contattato</th>
                 <th scope="col" className="text-center">Iscritto</th>
                 <th scope="col">
-                  <button onClick={() => handleSort("acquisitionCost")} className="flex items-center gap-1 hover:text-admin transition-colors">
-                    Costo Acq. <SortIcon field="acquisitionCost" />
-                  </button>
-                </th>
-                <th scope="col">
                   <button onClick={() => handleSort("createdAt")} className="flex items-center gap-1 hover:text-admin transition-colors">
                     Data Creazione <SortIcon field="createdAt" />
                   </button>
@@ -826,9 +809,6 @@ export default function AdminLeadsPage() {
                       <span className="sr-only">Non iscritto</span>
                     </>
                   )}
-                </td>
-                <td className="p-4 text-sm font-medium">
-                  {lead.acquisitionCost ? `€${Number(lead.acquisitionCost).toFixed(2)}` : "-"}
                 </td>
                 <td className="p-4 text-sm text-gray-600">
                   {new Date(lead.createdAt).toLocaleDateString("it-IT")}
@@ -1074,26 +1054,6 @@ export default function AdminLeadsPage() {
                   </div>
                 </fieldset>
               )}
-
-              {/* Acquisition Cost */}
-              <div>
-                <label htmlFor="lead-acquisition-cost" className="block text-sm font-medium text-gray-700 mb-1">
-                  Costo Acquisizione (€)
-                </label>
-                <input
-                  id="lead-acquisition-cost"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.acquisitionCost}
-                  onChange={(e) => setFormData({ ...formData, acquisitionCost: e.target.value })}
-                  placeholder="Es: 25.50"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Costo effettivo per acquisire questo lead (impostato dal Marketing)
-                </p>
-              </div>
 
               {/* Notes */}
               <div>

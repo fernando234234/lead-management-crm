@@ -28,9 +28,6 @@ import {
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
-import { CostCoverage, CostCoverageInline, calculateCostMetrics } from "@/components/ui/CostCoverage";
-import { BulkCostModal } from "@/components/ui/BulkCostModal";
-import { QuickDistributeCostModal } from "@/components/ui/QuickDistributeCostModal";
 import toast from "react-hot-toast";
 
 // Tri-state type (removed, using boolean)
@@ -45,7 +42,6 @@ const leadExportColumns = [
   { key: "enrolled", label: "Iscritto" },
   { key: "campaign.name", label: "Campagna" },
   { key: "campaign.platform", label: "Piattaforma" },
-  { key: "acquisitionCost", label: "Costo Acquisizione" },
   { key: "createdAt", label: "Data Creazione" },
 ];
 
@@ -94,25 +90,19 @@ interface Lead {
   } | null;
 }
 
-interface SpendRecord {
-  id: string;
-  date: string;
-  amount: number;
-}
+
 
 interface Campaign {
   id: string;
   name: string;
   platform: string;
   status?: string;
+  budget?: number;
   course?: {
     id: string;
     name: string;
   };
-  totalSpent?: number;
-  cost?: number;
   leadCount?: number;
-  spendRecords?: SpendRecord[];
   metrics?: {
     totalLeads: number;
   };
@@ -121,11 +111,7 @@ interface Campaign {
 interface GroupedLeads {
   campaign: Campaign;
   leads: Lead[];
-  cpl: number;           // Estimated CPL from campaign budget
-  cplEffettivo: number;  // Actual CPL from lead costs
-  leadsWithCost: number;
-  totalCost: number;
-  costCoverage: number;
+  cpl: number;  // CPL = campaign budget / leads count
 }
 
 export default function MarketingLeadsPage() {
@@ -138,7 +124,6 @@ export default function MarketingLeadsPage() {
   const [filterContattato, setFilterContattato] = useState<string>("");
   const [filterTarget, setFilterTarget] = useState<string>("");
   const [filterIscritto, setFilterIscritto] = useState<string>("");
-  const [filterWithoutCost, setFilterWithoutCost] = useState(false);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   
   // Edit/Detail modal state
@@ -165,18 +150,10 @@ export default function MarketingLeadsPage() {
     contacted: false,
     isTarget: false,
     enrolled: false,
-    acquisitionCost: "",
   });
   
   // Bulk selection state
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
-  const [showBulkCostModal, setShowBulkCostModal] = useState(false);
-  
-  // Quick distribute modal state
-  const [quickDistributeCampaign, setQuickDistributeCampaign] = useState<{
-    campaign: Campaign;
-    leads: Lead[];
-  } | null>(null);
   
   // Available courses (derived from campaigns)
   const availableCourses = useMemo(() => {
@@ -277,10 +254,9 @@ export default function MarketingLeadsPage() {
       const matchesContattato = filterContattato === "" || lead.contacted === (filterContattato === "true");
       const matchesTarget = filterTarget === "" || lead.isTarget === (filterTarget === "true");
       const matchesIscritto = filterIscritto === "" || lead.enrolled === (filterIscritto === "true");
-      const matchesWithoutCost = !filterWithoutCost || !lead.acquisitionCost || lead.acquisitionCost === 0;
-      return matchesSearch && matchesCampaign && matchesContattato && matchesTarget && matchesIscritto && matchesWithoutCost;
+      return matchesSearch && matchesCampaign && matchesContattato && matchesTarget && matchesIscritto;
     });
-  }, [leads, searchTerm, filterCampaign, filterContattato, filterTarget, filterIscritto, filterWithoutCost]);
+  }, [leads, searchTerm, filterCampaign, filterContattato, filterTarget, filterIscritto]);
 
   // Group leads by campaign
   const groupedLeads = useMemo((): GroupedLeads[] => {
@@ -296,10 +272,6 @@ export default function MarketingLeadsPage() {
               campaign,
               leads: [],
               cpl: 0,
-              cplEffettivo: 0,
-              leadsWithCost: 0,
-              totalCost: 0,
-              costCoverage: 0,
             };
           }
         }
@@ -309,19 +281,11 @@ export default function MarketingLeadsPage() {
       }
     });
 
-    // Calculate CPL for each group
+    // Calculate CPL for each group: budget / leads
     Object.values(groups).forEach((group) => {
-      // Estimated CPL from campaign budget
-      const totalSpent = group.campaign.totalSpent || group.campaign.cost || 0;
+      const budget = Number(group.campaign.budget) || 0;
       const leadCount = group.leads.length;
-      group.cpl = leadCount > 0 ? totalSpent / leadCount : 0;
-      
-      // Actual CPL from individual lead costs (only divide by leads WITH cost)
-      const costMetrics = calculateCostMetrics(group.leads);
-      group.cplEffettivo = costMetrics.cplEffettivo;
-      group.leadsWithCost = costMetrics.leadsWithCost;
-      group.totalCost = costMetrics.totalCost;
-      group.costCoverage = costMetrics.coverage;
+      group.cpl = leadCount > 0 ? budget / leadCount : 0;
     });
 
     return Object.values(groups).sort((a, b) => b.leads.length - a.leads.length);
@@ -329,20 +293,22 @@ export default function MarketingLeadsPage() {
 
   // Stats calculations
   const stats = useMemo(() => {
-    const costMetrics = calculateCostMetrics(filteredLeads);
     const uniqueCampaigns = new Set(
       filteredLeads.map((l) => l.campaign?.id).filter(Boolean)
     ).size;
+    
+    // Total spent across all campaigns with filtered leads
+    const totalSpent = groupedLeads.reduce((sum, g) => sum + (Number(g.campaign.budget) || 0), 0);
+    const totalLeads = filteredLeads.length;
+    const avgCpl = totalLeads > 0 ? totalSpent / totalLeads : 0;
 
     return {
-      totalLeads: costMetrics.totalLeads,
-      leadsWithCost: costMetrics.leadsWithCost,
-      totalCost: costMetrics.totalCost,
-      avgCpl: costMetrics.cplEffettivo,
-      costCoverage: costMetrics.coverage,
+      totalLeads,
+      totalSpent,
+      avgCpl,
       uniqueCampaigns,
     };
-  }, [filteredLeads]);
+  }, [filteredLeads, groupedLeads]);
 
   const getPlatformLabel = (platform: string) => {
     return platformOptions.find((p) => p.value === platform)?.label || platform;
@@ -400,79 +366,6 @@ export default function MarketingLeadsPage() {
     setSelectedLeads(new Set());
   };
 
-  // Bulk cost operations
-  const handleBulkSetCost = async (cost: number) => {
-    const leadIds = Array.from(selectedLeads);
-    
-    try {
-      await fetch("/api/leads/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "set_cost",
-          leadIds,
-          data: { acquisitionCost: cost },
-        }),
-      });
-      clearSelection();
-      setShowBulkCostModal(false);
-      toast.success("Costi aggiornati con successo");
-      fetchData();
-    } catch (error) {
-      console.error("Failed to set bulk cost:", error);
-      toast.error("Errore nell'aggiornamento dei costi");
-    }
-  };
-
-  const handleBulkDistributeCost = async (totalBudget: number) => {
-    const leadIds = Array.from(selectedLeads);
-    
-    try {
-      await fetch("/api/leads/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "distribute_cost",
-          leadIds,
-          data: { totalBudget },
-        }),
-      });
-      clearSelection();
-      setShowBulkCostModal(false);
-      toast.success("Costi distribuiti con successo");
-      fetchData();
-    } catch (error) {
-      console.error("Failed to distribute cost:", error);
-      toast.error("Errore nella distribuzione dei costi");
-    }
-  };
-
-  // Handle quick period-wise distribution
-  const handleQuickDistribute = async (distributions: { leadId: string; cost: number }[]) => {
-    try {
-      const response = await fetch("/api/leads/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "distribute_by_period",
-          leadIds: distributions.map(d => d.leadId),
-          data: { distributions },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to distribute costs");
-      }
-
-      toast.success("Costi distribuiti con successo!");
-      fetchData();
-    } catch (error) {
-      console.error("Failed to distribute costs:", error);
-      toast.error("Errore nella distribuzione dei costi");
-      throw error;
-    }
-  };
-
   // Handle lead update from detail modal
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
     try {
@@ -498,7 +391,6 @@ export default function MarketingLeadsPage() {
       contacted: lead.contacted,
       isTarget: lead.isTarget,
       enrolled: lead.enrolled,
-      acquisitionCost: lead.acquisitionCost ? String(lead.acquisitionCost) : "",
     });
     setShowEditModal(true);
   };
@@ -507,10 +399,6 @@ export default function MarketingLeadsPage() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingLead) return;
-
-    const acquisitionCostValue = formData.acquisitionCost 
-      ? parseFloat(formData.acquisitionCost) 
-      : null;
 
     try {
       await fetch(`/api/leads/${editingLead.id}`, {
@@ -524,7 +412,6 @@ export default function MarketingLeadsPage() {
           contacted: formData.contacted,
           isTarget: formData.isTarget,
           enrolled: formData.enrolled,
-          acquisitionCost: acquisitionCostValue,
         }),
       });
       setShowEditModal(false);
@@ -627,23 +514,16 @@ export default function MarketingLeadsPage() {
           icon={Megaphone}
         />
         <StatCard
-          title="Costo Totale"
-          value={`€${stats.totalCost.toLocaleString("it-IT", { minimumFractionDigits: 2 })}`}
+          title="Spesa Totale"
+          value={`€${stats.totalSpent.toLocaleString("it-IT", { minimumFractionDigits: 2 })}`}
           icon={Euro}
-          subtitle={`${stats.leadsWithCost} lead con costo`}
         />
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp size={18} className="text-marketing" />
-            <span className="text-sm font-medium text-gray-600">CPL Effettivo</span>
-          </div>
-          <CostCoverage
-            leadsWithCost={stats.leadsWithCost}
-            totalLeads={stats.totalLeads}
-            totalCost={stats.totalCost}
-            accentColor="marketing"
-          />
-        </div>
+        <StatCard
+          title="CPL Medio"
+          value={`€${stats.avgCpl.toFixed(2)}`}
+          icon={TrendingUp}
+          subtitle="Budget / Lead"
+        />
       </div>
 
       {/* Filters */}
@@ -705,22 +585,6 @@ export default function MarketingLeadsPage() {
             <option value="true">Iscritto: Sì</option>
             <option value="false">Iscritto: No</option>
           </select>
-          <label className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
-            <input
-              type="checkbox"
-              checked={filterWithoutCost}
-              onChange={(e) => setFilterWithoutCost(e.target.checked)}
-              className="w-4 h-4 text-marketing rounded focus:ring-marketing"
-            />
-            <span className="text-sm text-gray-700 whitespace-nowrap">
-              Solo senza costo
-            </span>
-            {filterWithoutCost && (
-              <span className="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
-                {leads.filter(l => !l.acquisitionCost || l.acquisitionCost === 0).length}
-              </span>
-            )}
-          </label>
         </div>
       </div>
 
@@ -739,13 +603,6 @@ export default function MarketingLeadsPage() {
               Deseleziona tutti
             </button>
           </div>
-          <button
-            onClick={() => setShowBulkCostModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-marketing text-white rounded-lg hover:opacity-90 transition"
-          >
-            <Euro size={18} />
-            Imposta Costi
-          </button>
         </div>
       )}
 
@@ -792,40 +649,13 @@ export default function MarketingLeadsPage() {
                     <span className="text-sm text-gray-500">
                       {group.leads.length} lead
                     </span>
-                    <span className="text-sm text-gray-400">
-                      CPL Stim: €{group.cpl.toFixed(2)}
+                    <span className="text-sm font-medium text-marketing">
+                      CPL: €{group.cpl.toFixed(2)}
                     </span>
-                    {group.leadsWithCost > 0 && (
-                      <CostCoverageInline
-                        leadsWithCost={group.leadsWithCost}
-                        totalLeads={group.leads.length}
-                        totalCost={group.totalCost}
-                      />
-                    )}
                   </div>
                 </div>
               </button>
               <div className="flex items-center gap-2">
-                {/* Quick Distribute Button - only show if campaign has spend */}
-                {(group.campaign.totalSpent || 0) > 0 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const fullCampaign = campaigns.find(c => c.id === group.campaign.id);
-                      if (fullCampaign) {
-                        setQuickDistributeCampaign({
-                          campaign: fullCampaign,
-                          leads: group.leads,
-                        });
-                      }
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-marketing/10 text-marketing rounded-lg hover:bg-marketing/20 transition text-sm font-medium"
-                    title="Distribuzione rapida costi per periodo"
-                  >
-                    <Zap size={14} />
-                    Distribuisci
-                  </button>
-                )}
                 <button onClick={() => toggleCampaignExpanded(group.campaign.id)}>
                   {expandedCampaigns.has(group.campaign.id) ? (
                     <ChevronDown size={20} className="text-gray-400" />
@@ -866,7 +696,6 @@ export default function MarketingLeadsPage() {
                       <th className="p-3 font-medium">Target</th>
                       <th className="p-3 font-medium">Iscritto</th>
                       <th className="p-3 font-medium">Data</th>
-                      <th className="p-3 font-medium">Costo Acq.</th>
                       <th className="p-3 font-medium">Azioni</th>
                     </tr>
                   </thead>
@@ -903,13 +732,6 @@ export default function MarketingLeadsPage() {
                         </td>
                         <td className="p-3 text-gray-600">
                           {new Date(lead.createdAt).toLocaleDateString("it-IT")}
-                        </td>
-                        <td className="p-3 font-medium">
-                          {lead.acquisitionCost && lead.acquisitionCost > 0 ? (
-                            <span className="text-marketing">€{lead.acquisitionCost.toFixed(2)}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
                         </td>
                         <td className="p-3">
                           <div className="flex gap-2">
@@ -1007,23 +829,6 @@ export default function MarketingLeadsPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Costo Acquisizione (€)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.acquisitionCost}
-                  onChange={(e) => setFormData({ ...formData, acquisitionCost: e.target.value })}
-                  placeholder="Es: 25.50"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Costo effettivo per acquisire questo lead
-                </p>
-              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Note
@@ -1192,29 +997,6 @@ export default function MarketingLeadsPage() {
           onClose={() => setDetailLead(null)}
           onUpdate={handleLeadUpdate}
           accentColor="marketing"
-        />
-      )}
-
-      {/* Bulk Cost Modal */}
-      {showBulkCostModal && (
-        <BulkCostModal
-          leadIds={Array.from(selectedLeads)}
-          onClose={() => setShowBulkCostModal(false)}
-          onSetCost={handleBulkSetCost}
-          onDistributeCost={handleBulkDistributeCost}
-        />
-      )}
-
-      {/* Quick Distribute Cost Modal */}
-      {quickDistributeCampaign && (
-        <QuickDistributeCostModal
-          campaignName={quickDistributeCampaign.campaign.name}
-          campaignId={quickDistributeCampaign.campaign.id}
-          leads={quickDistributeCampaign.leads}
-          spendRecords={quickDistributeCampaign.campaign.spendRecords || []}
-          totalSpent={quickDistributeCampaign.campaign.totalSpent || 0}
-          onDistribute={handleQuickDistribute}
-          onClose={() => setQuickDistributeCampaign(null)}
         />
       )}
     </div>

@@ -12,12 +12,10 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
-  Calendar,
 } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import ExportButton from "@/components/ui/ExportButton";
 import EmptyState from "@/components/ui/EmptyState";
-import { SpendManagementModal } from "@/components/ui/SpendManagementModal";
 
 // Platform options matching Prisma enum
 const platformOptions = [
@@ -40,20 +38,12 @@ const campaignExportColumns = [
   { key: "name", label: "Nome" },
   { key: "platform", label: "Piattaforma" },
   { key: "course.name", label: "Corso" },
-  { key: "budget", label: "Budget" },
-  { key: "totalSpent", label: "Speso" },
+  { key: "budget", label: "Spesa Totale" },
   { key: "leadCount", label: "Lead" },
   { key: "costPerLead", label: "CPL" },
   { key: "status", label: "Stato" },
   { key: "startDate", label: "Data Inizio" },
 ];
-
-interface SpendRecord {
-  id: string;
-  date: string;
-  amount: number;
-  notes: string | null;
-}
 
 interface Campaign {
   id: string;
@@ -66,8 +56,6 @@ interface Campaign {
   createdAt: string;
   course: { id: string; name: string; price?: number } | null;
   createdBy?: { id: string; name: string; email?: string } | null;
-  spendRecords?: SpendRecord[];
-  totalSpent?: number;
   costPerLead?: number;
   leadCount?: number;
   metrics?: {
@@ -89,9 +77,7 @@ export default function MarketingCampaignsPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showSpendManagement, setShowSpendManagement] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
-  const [selectedCampaignForSpend, setSelectedCampaignForSpend] = useState<Campaign | null>(null);
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
 
   // Pagination
@@ -169,11 +155,6 @@ export default function MarketingCampaignsPage() {
     setShowModal(true);
   };
 
-  const openSpendModal = (campaign: Campaign) => {
-    setSelectedCampaignForSpend(campaign);
-    setShowSpendManagement(true);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -232,7 +213,8 @@ export default function MarketingCampaignsPage() {
   // Helper to get metrics for a campaign
   const getLeadCount = (c: Campaign) => c.leadCount ?? c.metrics?.totalLeads ?? 0;
   const getEnrolledCount = (c: Campaign) => c.metrics?.enrolledLeads ?? 0;
-  const getTotalSpent = (c: Campaign) => c.totalSpent ?? Number(c.budget) ?? 0;
+  // budget IS the total spent (simplified model)
+  const getTotalSpent = (c: Campaign) => Number(c.budget) ?? 0;
   const getCostPerLead = (c: Campaign) => {
     if (c.costPerLead !== undefined) return c.costPerLead;
     const leads = getLeadCount(c);
@@ -357,8 +339,7 @@ export default function MarketingCampaignsPage() {
               <th className="p-4 font-medium">Campagna</th>
               <th className="p-4 font-medium">Piattaforma</th>
               <th className="p-4 font-medium">Corso</th>
-              <th className="p-4 font-medium">Budget</th>
-              <th className="p-4 font-medium">Speso</th>
+              <th className="p-4 font-medium">Spesa Totale</th>
               <th className="p-4 font-medium">Lead</th>
               <th className="p-4 font-medium">CPL</th>
               <th className="p-4 font-medium">Stato</th>
@@ -407,12 +388,7 @@ export default function MarketingCampaignsPage() {
                     </span>
                   </td>
                   <td className="p-4 text-sm">{campaign.course?.name || "-"}</td>
-                  <td className="p-4 font-medium">€{Number(campaign.budget).toLocaleString()}</td>
-                  <td className="p-4">
-                    <span className="font-medium text-blue-600">
-                      €{getTotalSpent(campaign).toLocaleString()}
-                    </span>
-                  </td>
+                  <td className="p-4 font-medium text-blue-600">€{Number(campaign.budget).toLocaleString()}</td>
                   <td className="p-4">{getLeadCount(campaign)}</td>
                   <td className="p-4">€{getCostPerLead(campaign).toFixed(2)}</td>
                   <td className="p-4">
@@ -426,13 +402,6 @@ export default function MarketingCampaignsPage() {
                   </td>
                   <td className="p-4">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => openSpendModal(campaign)}
-                        className="p-2 text-gray-500 hover:text-blue-600 transition"
-                        title="Aggiungi Spesa"
-                      >
-                        <DollarSign size={18} />
-                      </button>
                       <button
                         onClick={() => openModal(campaign)}
                         className="p-2 text-gray-500 hover:text-marketing transition"
@@ -454,11 +423,11 @@ export default function MarketingCampaignsPage() {
                     </div>
                   </td>
                 </tr>
-                {/* Expanded row for spend details */}
+                {/* Expanded row for details */}
                 {expandedCampaign === campaign.id && (
                   <tr className="bg-gray-50">
-                    <td colSpan={9} className="p-4">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <td colSpan={8} className="p-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                           <p className="text-xs text-gray-500 uppercase">Contattati</p>
                           <p className="font-semibold">
@@ -492,35 +461,6 @@ export default function MarketingCampaignsPage() {
                           </p>
                         </div>
                       </div>
-                      {/* Spend Records */}
-                      {campaign.spendRecords && campaign.spendRecords.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium mb-2">Storico Spese</p>
-                          <div className="space-y-1 max-h-40 overflow-y-auto">
-                            {campaign.spendRecords.slice(0, 5).map((spend) => (
-                              <div
-                                key={spend.id}
-                                className="flex justify-between items-center text-sm bg-white p-2 rounded"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Calendar size={14} className="text-gray-400" />
-                                  <span>
-                                    {new Date(spend.date).toLocaleDateString("it-IT")}
-                                  </span>
-                                  {spend.notes && (
-                                    <span className="text-gray-400 text-xs">
-                                      - {spend.notes}
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="font-medium">
-                                  €{Number(spend.amount).toLocaleString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 )}
@@ -612,7 +552,7 @@ export default function MarketingCampaignsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Budget (€) *
+                    Spesa Totale (€) *
                   </label>
                   <input
                     type="number"
@@ -687,18 +627,6 @@ export default function MarketingCampaignsPage() {
             </form>
           </div>
         </div>
-      )}
-
-      {/* Spend Management Modal */}
-      {showSpendManagement && selectedCampaignForSpend && (
-        <SpendManagementModal
-          campaign={selectedCampaignForSpend}
-          onClose={() => {
-            setShowSpendManagement(false);
-            setSelectedCampaignForSpend(null);
-          }}
-          onUpdate={fetchData}
-        />
       )}
     </div>
   );
