@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { calculateTotalProRataSpend, parseDateParam } from "@/lib/spendProRata";
 
 // GET /api/stats - Get dashboard statistics
 export async function GET(request: NextRequest) {
@@ -77,7 +78,8 @@ export async function GET(request: NextRequest) {
       _count: { status: true },
     });
 
-    // Get total campaign spend from CampaignSpend records (supports date filtering)
+    // Get total campaign spend from CampaignSpend records with PRO-RATA calculation
+    // When filtering by date, spend is attributed proportionally to the overlap period
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const spendFilter: Record<string, any> = {};
     if (startDateParam || endDateParam) {
@@ -99,10 +101,24 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    const campaignSpendTotal = await prisma.campaignSpend.aggregate({
+    // Fetch all overlapping spend records for pro-rata calculation
+    const spendRecords = await prisma.campaignSpend.findMany({
       where: spendFilter,
-      _sum: { amount: true },
+      select: { startDate: true, endDate: true, amount: true },
     });
+    
+    // Calculate pro-rata spend based on filter overlap
+    const filterRange = {
+      start: parseDateParam(startDateParam),
+      end: parseDateParam(endDateParam, true),
+    };
+    // Convert Decimal to number for pro-rata calculation
+    const spendRecordsForCalc = spendRecords.map(r => ({
+      startDate: r.startDate,
+      endDate: r.endDate,
+      amount: Number(r.amount),
+    }));
+    const campaignSpendProRata = calculateTotalProRataSpend(spendRecordsForCalc, filterRange);
 
     // Get total revenue from enrolled leads
     // Priority: use lead.revenue if set, otherwise fall back to course.price
@@ -250,8 +266,8 @@ export async function GET(request: NextRequest) {
     // Calculate conversion rate
     const conversionRate = totalLeads > 0 ? (enrolledLeads / totalLeads) * 100 : 0;
 
-    // Calculate cost per lead (from CampaignSpend records)
-    const totalCost = Number(campaignSpendTotal._sum.amount) || 0;
+    // Calculate cost per lead (from CampaignSpend records with pro-rata)
+    const totalCost = campaignSpendProRata;
     const costPerLead = totalLeads > 0 ? totalCost / totalLeads : 0;
 
     return NextResponse.json({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { calculateTotalProRataSpend, parseDateParam } from "@/lib/spendProRata";
 
 // GET /api/campaigns - Fetch all campaigns with optional date-filtered spend
 export async function GET(request: NextRequest) {
@@ -101,11 +102,18 @@ export async function GET(request: NextRequest) {
           return sum + (leadRevenue > 0 ? leadRevenue : coursePrice);
         }, 0);
 
-        // Calculate total spent from spend records (filtered by date if provided)
-        const totalSpent = campaign.spendRecords.reduce(
-          (sum, record) => sum + Number(record.amount),
-          0
-        );
+        // Calculate total spent from spend records with PRO-RATA calculation
+        // When date filters are applied, spend is attributed proportionally to the overlap
+        const filterRange = {
+          start: parseDateParam(spendStartDate),
+          end: parseDateParam(spendEndDate, true),
+        };
+        const spendRecordsForCalc = campaign.spendRecords.map(r => ({
+          startDate: r.startDate,
+          endDate: r.endDate,
+          amount: Number(r.amount),
+        }));
+        const totalSpent = calculateTotalProRataSpend(spendRecordsForCalc, filterRange);
 
         const costPerLead = leadStats._count._all > 0
           ? totalSpent / leadStats._count._all

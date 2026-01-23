@@ -44,6 +44,7 @@ interface User {
 interface SpendRecord {
   id: string;
   startDate: string;
+  endDate: string | null;
   amount: number;
 }
 
@@ -57,6 +58,55 @@ interface Campaign {
 }
 
 type SortDirection = "asc" | "desc" | null;
+
+// Pro-rata spend calculation for date-filtered dashboards
+function calculateProRataSpend(
+  record: { startDate: string; endDate: string | null; amount: number },
+  filterStart: Date | null,
+  filterEnd: Date | null
+): number {
+  const amount = Number(record.amount);
+  if (isNaN(amount) || amount <= 0) return 0;
+  
+  // If no filter range, return full amount
+  if (!filterStart && !filterEnd) return amount;
+  
+  const recordStart = new Date(record.startDate);
+  recordStart.setHours(0, 0, 0, 0);
+  
+  // For endDate: use provided date, or if null (ongoing), use filter end or today
+  let recordEnd: Date;
+  if (record.endDate) {
+    recordEnd = new Date(record.endDate);
+  } else {
+    recordEnd = filterEnd ? new Date(filterEnd) : new Date();
+  }
+  recordEnd.setHours(23, 59, 59, 999);
+  
+  if (recordEnd < recordStart) recordEnd = recordStart;
+  
+  // Total days in spend period
+  const totalDays = Math.max(1, Math.ceil(
+    (recordEnd.getTime() - recordStart.getTime()) / (1000 * 60 * 60 * 24)
+  ) + 1);
+  
+  // Calculate overlap
+  const overlapStart = filterStart 
+    ? new Date(Math.max(recordStart.getTime(), filterStart.getTime()))
+    : recordStart;
+  const overlapEnd = filterEnd
+    ? new Date(Math.min(recordEnd.getTime(), filterEnd.getTime()))
+    : recordEnd;
+  
+  // No overlap
+  if (overlapEnd < overlapStart) return 0;
+  
+  const overlapDays = Math.max(1, Math.ceil(
+    (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)
+  ) + 1);
+  
+  return amount * (overlapDays / totalDays);
+}
 
 // Export configurations
 const commercialExportColumns = [
@@ -171,37 +221,41 @@ export default function DashboardCommercialePage() {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [leads]);
 
-  // Calculate filtered spend based on date range
+  // Calculate filtered spend based on date range with PRO-RATA attribution
+  // When filtering by date, spend is proportionally split across the spend period
   const filteredSpend = useMemo(() => {
+    // Parse filter dates
+    const filterStart = startDate ? new Date(startDate) : null;
+    const filterEnd = endDate ? new Date(endDate) : null;
+    if (filterStart) filterStart.setHours(0, 0, 0, 0);
+    if (filterEnd) filterEnd.setHours(23, 59, 59, 999);
+    
     if (!startDate && !endDate) {
       // No date filter - use total spent
       return campaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
     }
     
-    // Filter spend records by date range
+    // Calculate pro-rata spend for each campaign's spend records
     return campaigns.reduce((sum, campaign) => {
-      if (!campaign.spendRecords) return sum + (campaign.totalSpent || 0);
+      if (!campaign.spendRecords || campaign.spendRecords.length === 0) {
+        return sum + (campaign.totalSpent || 0);
+      }
       
-      const filteredRecords = campaign.spendRecords.filter((record) => {
-        const recordDate = new Date(record.startDate);
-        recordDate.setHours(0, 0, 0, 0);
+      // Filter to records that overlap with the date range, then calculate pro-rata
+      const proRataTotal = campaign.spendRecords.reduce((recordSum, record) => {
+        const recordStart = new Date(record.startDate);
+        const recordEnd = record.endDate ? new Date(record.endDate) : (filterEnd || new Date());
         
-        if (startDate) {
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
-          if (recordDate < start) return false;
-        }
+        // Check if record overlaps with filter range
+        const hasOverlap = (!filterEnd || recordStart <= filterEnd) && 
+                          (!filterStart || recordEnd >= filterStart);
         
-        if (endDate) {
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
-          if (recordDate > end) return false;
-        }
+        if (!hasOverlap) return recordSum;
         
-        return true;
-      });
+        return recordSum + calculateProRataSpend(record, filterStart, filterEnd);
+      }, 0);
       
-      return sum + filteredRecords.reduce((s, r) => s + Number(r.amount), 0);
+      return sum + proRataTotal;
     }, 0);
   }, [campaigns, startDate, endDate]);
 

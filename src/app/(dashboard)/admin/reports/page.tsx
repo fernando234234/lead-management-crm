@@ -123,6 +123,57 @@ interface User {
 
 type SortDirection = "asc" | "desc" | null;
 type CampaignSortField = "name" | "platform" | "budget" | "leadCount" | "cpl" | "conversionRate" | "roi";
+
+// Pro-rata spend calculation: distribute spend across months proportionally
+function distributeSpendAcrossMonths(
+  record: SpendRecord,
+  monthData: Map<string, { ricavi: number; costi: number }>
+): void {
+  const amount = typeof record.amount === "string" ? parseFloat(record.amount) : Number(record.amount);
+  if (isNaN(amount) || amount <= 0) return;
+  
+  const recordStart = new Date(record.startDate);
+  recordStart.setHours(0, 0, 0, 0);
+  
+  // For endDate: use provided date, or if null (ongoing), use today
+  let recordEnd: Date;
+  if (record.endDate) {
+    recordEnd = new Date(record.endDate);
+  } else {
+    recordEnd = new Date();
+  }
+  recordEnd.setHours(23, 59, 59, 999);
+  
+  if (recordEnd < recordStart) recordEnd = recordStart;
+  
+  // Total days in spend period
+  const totalDays = Math.max(1, Math.ceil(
+    (recordEnd.getTime() - recordStart.getTime()) / (1000 * 60 * 60 * 24)
+  ) + 1);
+  
+  // Iterate through each month in our data and calculate overlap
+  monthData.forEach((data, monthKey) => {
+    const [year, month] = monthKey.split('-').map(Number);
+    const monthStart = new Date(year, month - 1, 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthEnd = new Date(year, month, 0); // Last day of month
+    monthEnd.setHours(23, 59, 59, 999);
+    
+    // Calculate overlap
+    const overlapStart = new Date(Math.max(recordStart.getTime(), monthStart.getTime()));
+    const overlapEnd = new Date(Math.min(recordEnd.getTime(), monthEnd.getTime()));
+    
+    // No overlap
+    if (overlapEnd < overlapStart) return;
+    
+    const overlapDays = Math.max(1, Math.ceil(
+      (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1);
+    
+    const proRataAmount = amount * (overlapDays / totalDays);
+    data.costi += proRataAmount;
+  });
+}
 type CourseSortField = "name" | "price" | "leads" | "enrolled" | "revenue" | "campaigns";
 type CommercialSortField = "name" | "assigned" | "contacted" | "enrolled" | "conversionRate";
 
@@ -339,22 +390,16 @@ export default function ReportsPage() {
       }
     });
     
-    // Aggregate costs from spend records by their startDate (more accurate than campaign startDate)
+    // Aggregate costs from spend records with PRO-RATA distribution across months
+    // When a spend record spans multiple months, distribute proportionally
     campaigns.forEach((campaign) => {
       if (campaign.spendRecords && campaign.spendRecords.length > 0) {
-        // Use individual spend record dates
+        // Distribute each spend record across months proportionally
         campaign.spendRecords.forEach((record) => {
-          const recordDate = new Date(record.startDate);
-          const key = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
-          
-          if (monthData.has(key)) {
-            const data = monthData.get(key)!;
-            const amount = typeof record.amount === "string" ? parseFloat(record.amount) : record.amount;
-            data.costi += amount || 0;
-          }
+          distributeSpendAcrossMonths(record, monthData);
         });
       } else if (campaign.totalSpent > 0 && campaign.startDate) {
-        // Fallback: use campaign startDate if no spend records
+        // Fallback: use campaign startDate if no spend records (legacy behavior)
         const campaignDate = new Date(campaign.startDate);
         const key = `${campaignDate.getFullYear()}-${String(campaignDate.getMonth() + 1).padStart(2, '0')}`;
         
