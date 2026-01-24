@@ -24,6 +24,7 @@ import {
   Plus,
   Layers,
   HelpCircle,
+  ShieldCheck,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -46,6 +47,7 @@ const roleConfig = {
       { href: "/admin/leads", label: "Tutti i Lead", icon: Users },
       { href: "/admin/pipeline", label: "Pipeline", icon: Columns3 },
       { href: "/admin/reports", label: "Report", icon: BarChart3 },
+      { href: "/admin/sanity-check", label: "Sanity Check", icon: ShieldCheck },
       { href: "/admin/settings", label: "Impostazioni", icon: Settings },
     ],
   },
