@@ -119,10 +119,29 @@ export async function GET(request: NextRequest) {
         });
 
         // Calculate total revenue from enrolled leads in period
+        // Revenue is recognized by enrolledAt date (when sale happened), not createdAt
         // Priority: use lead.revenue if set, otherwise fall back to course.price
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const revenueFilter: Record<string, any> = { 
+          campaignId: campaign.id, 
+          enrolled: true 
+        };
+        if (spendStartDate || spendEndDate) {
+          revenueFilter.enrolledAt = {};
+          if (spendStartDate) {
+            const start = new Date(spendStartDate);
+            start.setHours(0, 0, 0, 0);
+            revenueFilter.enrolledAt.gte = start;
+          }
+          if (spendEndDate) {
+            const end = new Date(spendEndDate);
+            end.setHours(23, 59, 59, 999);
+            revenueFilter.enrolledAt.lte = end;
+          }
+        }
         const enrolledLeads = await prisma.lead.findMany({
-          where: { ...leadDateFilter, enrolled: true },
-          select: { revenue: true },
+          where: revenueFilter,
+          select: { revenue: true, enrolledAt: true },
         });
         
         const coursePrice = Number(campaign.course?.price) || 0;

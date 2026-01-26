@@ -99,6 +99,11 @@ export async function PUT(
     if (body.acquisitionCost !== undefined) {
       updateData.acquisitionCost = body.acquisitionCost;
     }
+    
+    // Revenue tracking (for custom pricing, discounts, etc.)
+    if (body.revenue !== undefined) {
+      updateData.revenue = body.revenue;
+    }
 
     const lead = await prisma.lead.update({
       where: { id },
