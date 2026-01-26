@@ -111,6 +111,7 @@ export default function CommercialLeadsPage() {
   const [filterTarget, setFilterTarget] = useState<string>("");
   const [filterIscritto, setFilterIscritto] = useState<string>("");
   const [filterCourse, setFilterCourse] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("active"); // Default: hide PERSO
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -183,6 +184,9 @@ export default function CommercialLeadsPage() {
     if (filterTarget !== "" && lead.isTarget !== (filterTarget === "true")) return false;
     if (filterIscritto !== "" && lead.enrolled !== (filterIscritto === "true")) return false;
     if (filterCourse && lead.course?.id !== filterCourse) return false;
+    // Status filter: "active" hides PERSO, "perso" shows only PERSO, "" shows all
+    if (filterStatus === "active" && lead.status === "PERSO") return false;
+    if (filterStatus === "perso" && lead.status !== "PERSO") return false;
     return true;
   });
 
@@ -196,7 +200,7 @@ export default function CommercialLeadsPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterContattato, filterTarget, filterIscritto, filterCourse]);
+  }, [search, filterContattato, filterTarget, filterIscritto, filterCourse, filterStatus]);
 
   const openEditModal = (lead: Lead) => {
     setEditingLead(lead);
@@ -580,7 +584,16 @@ export default function CommercialLeadsPage() {
               </option>
             ))}
           </select>
-          {(search || filterContattato || filterTarget || filterIscritto || filterCourse) && (
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
+          >
+            <option value="active">Attivi (no PERSO)</option>
+            <option value="">Tutti</option>
+            <option value="perso">Solo PERSO</option>
+          </select>
+          {(search || filterContattato || filterTarget || filterIscritto || filterCourse || filterStatus !== "active") && (
             <button
               onClick={() => {
                 setSearch("");
@@ -588,6 +601,7 @@ export default function CommercialLeadsPage() {
                 setFilterTarget("");
                 setFilterIscritto("");
                 setFilterCourse("");
+                setFilterStatus("active");
               }}
               className="px-3 py-2 text-gray-500 hover:text-gray-700 flex items-center gap-1"
             >
