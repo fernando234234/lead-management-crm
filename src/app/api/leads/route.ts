@@ -151,8 +151,35 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // 1. Check for Duplicate (Homonym + Same Course)
-    // "quando un commerciale aggiunge un lead - se omonimo E sullo stesso cors, lascialo fare ma admin riceve un alltrt"
+    // Validate required fields
+    if (!body.name || !body.name.trim()) {
+      return NextResponse.json({ error: "Il nome del lead è obbligatorio" }, { status: 400 });
+    }
+    if (!body.courseId) {
+      return NextResponse.json({ error: "Il corso è obbligatorio" }, { status: 400 });
+    }
+    if (!body.campaignId) {
+      return NextResponse.json({ error: "La campagna è obbligatoria. Seleziona una campagna esistente o creane una nuova." }, { status: 400 });
+    }
+
+    // Verify campaign exists and belongs to the course
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: body.campaignId },
+      select: { id: true, courseId: true, createdById: true, name: true },
+    });
+    
+    if (!campaign) {
+      return NextResponse.json({ error: "Campagna non trovata" }, { status: 400 });
+    }
+    
+    if (campaign.courseId !== body.courseId) {
+      return NextResponse.json({ error: "La campagna selezionata non appartiene al corso selezionato" }, { status: 400 });
+    }
+
+    const campaignId = body.campaignId;
+    const campaignOwnerId = campaign.createdById;
+
+    // Check for Duplicate (Homonym + Same Course)
     const existingLead = await prisma.lead.findFirst({
       where: {
         name: { equals: body.name, mode: "insensitive" },
@@ -160,40 +187,13 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    let campaignId = body.campaignId;
-    let campaignOwnerId: string | null = null;
-
-    // 2. Resolve Campaign if not provided but Platform is (Condition 9)
-    if (!campaignId && body.courseId && body.platform) {
-      // Find most recent active campaign for this course and platform
-      const campaign = await prisma.campaign.findFirst({
-        where: {
-          courseId: body.courseId,
-          platform: body.platform, 
-          status: "ACTIVE"
-        },
-        orderBy: { createdAt: "desc" }
-      });
-      
-      if (campaign) {
-        campaignId = campaign.id;
-        campaignOwnerId = campaign.createdById;
-      }
-    } else if (campaignId) {
-      const campaign = await prisma.campaign.findUnique({
-        where: { id: campaignId },
-        select: { createdById: true, name: true },
-      });
-      campaignOwnerId = campaign?.createdById || null;
-    }
-
     const lead = await prisma.lead.create({
       data: {
-        name: body.name,
+        name: body.name.trim(),
         email: body.email || null,
         phone: body.phone || null,
         courseId: body.courseId,
-        campaignId: campaignId || null,
+        campaignId: campaignId, // Required - validated above
         assignedToId: body.assignedToId || null,
         createdById: body.createdById || null,
         notes: body.notes || null,
@@ -203,7 +203,6 @@ export async function POST(request: NextRequest) {
         contacted: body.contacted ?? false,
         isTarget: body.isTarget ?? false,
         enrolled: body.enrolled ?? false,
-        // Legacy fields for backwards compatibility (no longer needed but keeping clean)
         status: body.status || "NUOVO",
       },
       include: {

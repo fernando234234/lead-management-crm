@@ -440,13 +440,17 @@ export default function AdminLeadsPage() {
       });
     } else {
       setEditingLead(null);
-      // Default to first/latest campaign (required field)
-      const defaultCampaign = campaigns[0];
+      // Default to first course, then find campaigns for that course
+      const defaultCourse = courses[0];
+      const courseCampaigns = defaultCourse 
+        ? campaigns.filter(c => c.course?.id === defaultCourse.id)
+        : [];
+      const defaultCampaign = courseCampaigns[0];
       setFormData({
         name: "",
         email: "",
         phone: "",
-        courseId: defaultCampaign?.course?.id || courses[0]?.id || "",
+        courseId: defaultCourse?.id || "",
         campaignId: defaultCampaign?.id || "",
         assignedToId: "",
         isTarget: false,
@@ -467,6 +471,12 @@ export default function AdminLeadsPage() {
     // Campaign is required
     if (!formData.campaignId) {
       toast.error("Seleziona una campagna per il lead");
+      return;
+    }
+
+    // Call outcome is required when contacted
+    if (formData.contacted && !formData.callOutcome) {
+      toast.error("Seleziona l'esito della chiamata");
       return;
     }
 
@@ -929,9 +939,9 @@ export default function AdminLeadsPage() {
                 </div>
               </fieldset>
 
-              {/* Course & Assignment */}
+              {/* Course & Campaign */}
               <fieldset>
-                <legend className="sr-only">Corso e assegnazione</legend>
+                <legend className="sr-only">Corso e campagna</legend>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="lead-course" className="block text-sm font-medium text-gray-700 mb-1">
@@ -942,7 +952,17 @@ export default function AdminLeadsPage() {
                       required
                       aria-required="true"
                       value={formData.courseId}
-                      onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
+                      onChange={(e) => {
+                        const newCourseId = e.target.value;
+                        // Find first campaign for this course
+                        const courseCampaigns = campaigns.filter(c => c.course?.id === newCourseId);
+                        const defaultCampaign = courseCampaigns[0];
+                        setFormData({ 
+                          ...formData, 
+                          courseId: newCourseId,
+                          campaignId: defaultCampaign?.id || ""
+                        });
+                      }}
                       className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
                     >
                       <option value="">Seleziona corso</option>
@@ -952,21 +972,52 @@ export default function AdminLeadsPage() {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="lead-assigned" className="block text-sm font-medium text-gray-700 mb-1">
-                      Assegna a Commerciale
+                    <label htmlFor="lead-campaign" className="block text-sm font-medium text-gray-700 mb-1">
+                      Campagna <span aria-hidden="true">*</span>
                     </label>
                     <select
-                      id="lead-assigned"
-                      value={formData.assignedToId}
-                      onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
+                      id="lead-campaign"
+                      required
+                      aria-required="true"
+                      value={formData.campaignId}
+                      onChange={(e) => setFormData({ ...formData, campaignId: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
+                      disabled={!formData.courseId}
                     >
-                      <option value="">Non assegnato</option>
-                      {commercials.map((user) => (
-                        <option key={user.id} value={user.id}>{user.name}</option>
-                      ))}
+                      <option value="">{formData.courseId ? "Seleziona campagna" : "Prima seleziona un corso"}</option>
+                      {campaigns
+                        .filter(campaign => campaign.course?.id === formData.courseId)
+                        .map((campaign) => (
+                          <option key={campaign.id} value={campaign.id}>{campaign.name}</option>
+                        ))}
                     </select>
+                    {formData.courseId && campaigns.filter(c => c.course?.id === formData.courseId).length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Nessuna campagna per questo corso. Creane una prima.
+                      </p>
+                    )}
                   </div>
+                </div>
+              </fieldset>
+
+              {/* Assignment */}
+              <fieldset>
+                <legend className="sr-only">Assegnazione</legend>
+                <div>
+                  <label htmlFor="lead-assigned" className="block text-sm font-medium text-gray-700 mb-1">
+                    Assegna a Commerciale
+                  </label>
+                  <select
+                    id="lead-assigned"
+                    value={formData.assignedToId}
+                    onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
+                  >
+                    <option value="">Non assegnato</option>
+                    {commercials.map((user) => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))}
+                  </select>
                 </div>
               </fieldset>
 
@@ -1021,17 +1072,18 @@ export default function AdminLeadsPage() {
                 </div>
               </fieldset>
 
-              {/* Call Outcome (if contacted) */}
+              {/* Call Outcome (required when contacted) */}
               {formData.contacted && (
                 <fieldset>
                   <legend className="sr-only">Esito chiamata</legend>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="lead-outcome" className="block text-sm font-medium text-gray-700 mb-1">
-                        Esito Chiamata
+                        Esito Chiamata <span className="text-red-500">*</span>
                       </label>
                       <select
                         id="lead-outcome"
+                        required
                         value={formData.callOutcome}
                         onChange={(e) => setFormData({ ...formData, callOutcome: e.target.value })}
                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"

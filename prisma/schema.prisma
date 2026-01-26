@@ -109,6 +109,9 @@ model Lead {
   appointmentNotes  String?
   callOutcome       CallOutcome?
   outcomeNotes      String?
+  callAttempts      Int            @default(0)
+  firstAttemptAt    DateTime?
+  lastAttemptAt     DateTime?
   status            LeadStatus     @default(NUOVO)
   assignedTo        User?          @relation("AssignedTo", fields: [assignedToId], references: [id])
   campaign          Campaign?      @relation(fields: [campaignId], references: [id])

@@ -45,12 +45,15 @@ export async function POST(request: NextRequest) {
     // Fetch all courses and campaigns for name matching
     const [courses, campaigns, users] = await Promise.all([
       prisma.course.findMany({ select: { id: true, name: true } }),
-      prisma.campaign.findMany({ select: { id: true, name: true } }),
+      prisma.campaign.findMany({ select: { id: true, name: true, courseId: true } }),
       prisma.user.findMany({ 
         where: { role: "COMMERCIAL" },
         select: { id: true, username: true, name: true } 
       }),
     ]);
+    
+    // Use session user ID (admin who is doing the import) for creating campaigns
+    const campaignCreatorId = session.user.id;
 
     // Create lookup maps for efficient matching
     const courseMap = new Map(
@@ -140,9 +143,11 @@ export async function POST(request: NextRequest) {
              continue;
           }
 
-          // Find campaign by name (case-insensitive)
+          // Find or create campaign
           let campaignId: string | null = null;
+          
           if (lead.campaignName) {
+            // Try exact match first
             const foundCampaignId = campaignMap.get(lead.campaignName.toLowerCase().trim());
             if (foundCampaignId) {
               campaignId = foundCampaignId;
@@ -155,6 +160,39 @@ export async function POST(request: NextRequest) {
               if (partialMatch) {
                 campaignId = partialMatch[1];
               }
+            }
+          }
+          
+          // If no campaign found, create a default one for this course
+          if (!campaignId) {
+            // Look for existing "Import - {CourseName}" campaign for this course
+            const importCampaignName = `Import - ${lead.courseName?.trim() || "Senza Corso"}`;
+            const existingImportCampaign = Array.from(campaignMap.entries()).find(
+              ([name, id]) => {
+                // Check if this is an import campaign for the same course
+                const campaign = campaigns.find(c => c.id === id);
+                return name === importCampaignName.toLowerCase() && campaign?.courseId === courseId;
+              }
+            );
+            
+            if (existingImportCampaign) {
+              campaignId = existingImportCampaign[1];
+            } else {
+              // Create new import campaign for this course
+              const newCampaign = await prisma.campaign.create({
+                data: {
+                  name: importCampaignName,
+                  platform: "META", // Default platform for imports
+                  courseId: courseId,
+                  createdById: campaignCreatorId,
+                  status: "ACTIVE",
+                  startDate: new Date(),
+                }
+              });
+              campaignId = newCampaign.id;
+              // Add to map for subsequent rows with same course
+              campaignMap.set(importCampaignName.toLowerCase(), newCampaign.id);
+              campaigns.push({ id: newCampaign.id, name: importCampaignName, courseId: courseId });
             }
           }
 
@@ -173,15 +211,16 @@ export async function POST(request: NextRequest) {
             ? lead.status.toUpperCase()
             : "NUOVO";
 
-          // Create the lead
+          // Create the lead (campaignId is now always set - either from CSV or auto-created)
           const createdLead = await prisma.lead.create({
             data: {
               name: lead.name.trim(),
               email: lead.email?.trim() || null,
               phone: lead.phone?.trim() || null,
               courseId,
-              campaignId,
+              campaignId: campaignId!, // Always set now
               assignedToId,
+              source: "LEGACY_IMPORT", // Mark as imported
               status: status as "NUOVO" | "CONTATTATO" | "IN_TRATTATIVA" | "ISCRITTO" | "PERSO",
               notes: lead.notes?.trim() || null,
               isTarget: false,

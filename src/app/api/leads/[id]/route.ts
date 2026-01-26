@@ -57,6 +57,10 @@ export async function PUT(
         contacted: true, 
         enrolled: true,
         isTarget: true,
+        callAttempts: true,
+        firstAttemptAt: true,
+        lastAttemptAt: true,
+        callOutcome: true,
       },
     });
 
@@ -90,9 +94,57 @@ export async function PUT(
       }
     }
     
-    // Legacy support
+    // Status and call outcome with attempt tracking
     if (body.status !== undefined) updateData.status = body.status;
-    if (body.callOutcome !== undefined) updateData.callOutcome = body.callOutcome;
+    if (body.callOutcome !== undefined) {
+      updateData.callOutcome = body.callOutcome;
+      
+      // Track call attempts
+      const isSuccessfulContact = body.callOutcome === 'POSITIVO' || body.callOutcome === 'NEGATIVO';
+      
+      if (!isSuccessfulContact) {
+        // NON_RISPONDE or RICHIAMARE - increment attempts
+        const newAttempts = (currentLead?.callAttempts || 0) + 1;
+        const firstAttempt = currentLead?.firstAttemptAt || new Date();
+        const daysSinceFirst = (Date.now() - new Date(firstAttempt).getTime()) / (1000 * 60 * 60 * 24);
+        
+        updateData.callAttempts = newAttempts;
+        updateData.lastAttemptAt = new Date();
+        if (!currentLead?.firstAttemptAt) {
+          updateData.firstAttemptAt = new Date();
+        }
+        
+        // Auto-mark as PERSO if 8 attempts reached OR 15 days passed
+        if (newAttempts >= 8 || daysSinceFirst >= 15) {
+          updateData.status = 'PERSO';
+        }
+      }
+      
+      // Auto-mark as PERSO if call outcome is NEGATIVO
+      if (body.callOutcome === 'NEGATIVO') {
+        updateData.status = 'PERSO';
+        // Also track this attempt
+        updateData.callAttempts = (currentLead?.callAttempts || 0) + 1;
+        updateData.lastAttemptAt = new Date();
+        if (!currentLead?.firstAttemptAt) {
+          updateData.firstAttemptAt = new Date();
+        }
+      }
+      
+      // POSITIVO = successful contact, track attempt but don't auto-PERSO
+      if (body.callOutcome === 'POSITIVO') {
+        updateData.callAttempts = (currentLead?.callAttempts || 0) + 1;
+        updateData.lastAttemptAt = new Date();
+        if (!currentLead?.firstAttemptAt) {
+          updateData.firstAttemptAt = new Date();
+        }
+        // Auto-mark as contacted when positive outcome
+        if (!currentLead?.contacted) {
+          updateData.contacted = true;
+          updateData.contactedAt = new Date();
+        }
+      }
+    }
     if (body.outcomeNotes !== undefined) updateData.outcomeNotes = body.outcomeNotes;
     
     // Acquisition cost tracking (for Marketing)
@@ -138,6 +190,22 @@ export async function PUT(
           type: 'CONTACT' as ActivityType,
           description: `Lead contattato${body.callOutcome ? ` - Esito: ${body.callOutcome}` : ''}`,
           metadata: { callOutcome: body.callOutcome, outcomeNotes: body.outcomeNotes },
+        });
+      }
+
+      // Log each call attempt (even if already contacted)
+      if (body.callOutcome) {
+        const attemptNumber = (currentLead?.callAttempts || 0) + 1;
+        activities.push({
+          leadId: id,
+          userId: session.user.id,
+          type: 'CALL' as ActivityType,
+          description: `Chiamata #${attemptNumber} - Esito: ${body.callOutcome}${body.outcomeNotes ? ` - ${body.outcomeNotes}` : ''}`,
+          metadata: { 
+            callOutcome: body.callOutcome, 
+            outcomeNotes: body.outcomeNotes,
+            attemptNumber,
+          },
         });
       }
 

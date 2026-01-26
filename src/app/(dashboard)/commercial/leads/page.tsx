@@ -58,15 +58,15 @@ interface Lead {
   course: { id: string; name: string; price?: number } | null;
   campaign: { id: string; name: string; platform?: string } | null;
   assignedTo: { id: string; name: string; email: string } | null;
+  // Call tracking fields
+  callAttempts: number;
+  firstAttemptAt: string | null;
+  lastAttemptAt: string | null;
+  callOutcome: string | null;
+  status: string;
 }
 
-// Platforms - matching Prisma enum
-const PLATFORMS = [
-  { id: "META", label: "Meta (FB/IG)" },
-  { id: "LINKEDIN", label: "LinkedIn" },
-  { id: "GOOGLE_ADS", label: "Google Ads" },
-  { id: "TIKTOK", label: "TikTok" },
-];
+
 
 interface Course {
   id: string;
@@ -97,6 +97,14 @@ export default function CommercialLeadsPage() {
   const [pendingEnrolledLead, setPendingEnrolledLead] = useState<string | null>(null);
   const [showEditEnrolledConfirm, setShowEditEnrolledConfirm] = useState(false);
 
+  // Call outcome modal (required when marking as contacted)
+  const [showCallOutcomeModal, setShowCallOutcomeModal] = useState(false);
+  const [pendingContactedLead, setPendingContactedLead] = useState<Lead | null>(null);
+  const [callOutcomeData, setCallOutcomeData] = useState({
+    callOutcome: "",
+    outcomeNotes: "",
+  });
+
   // Filters
   const [search, setSearch] = useState("");
   const [filterContattato, setFilterContattato] = useState<string>("");
@@ -112,7 +120,7 @@ export default function CommercialLeadsPage() {
   const [createFormData, setCreateFormData] = useState({
     name: "",
     courseId: "",
-    platform: "",
+    campaignId: "",
     notes: "",
   });
 
@@ -272,8 +280,8 @@ export default function CommercialLeadsPage() {
       toast.error("Seleziona un corso");
       return;
     }
-    if (!createFormData.platform) {
-      toast.error("Seleziona una piattaforma");
+    if (!createFormData.campaignId) {
+      toast.error("Seleziona una campagna");
       return;
     }
 
@@ -285,12 +293,11 @@ export default function CommercialLeadsPage() {
         body: JSON.stringify({
           name: createFormData.name,
           courseId: createFormData.courseId,
-          platform: createFormData.platform,
+          campaignId: createFormData.campaignId,
           assignedToId: session?.user?.id,
           createdById: session?.user?.id,
           notes: createFormData.notes || null,
           source: "MANUAL",
-          // Initialize with false (default)
           contacted: false,
           isTarget: false,
           enrolled: false,
@@ -298,16 +305,17 @@ export default function CommercialLeadsPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create lead");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create lead");
       }
 
       setShowCreateModal(false);
-      setCreateFormData({ name: "", courseId: "", platform: "", notes: "" });
+      setCreateFormData({ name: "", courseId: "", campaignId: "", notes: "" });
       toast.success("Lead creato con successo!");
       fetchData();
     } catch (error) {
       console.error("Failed to create lead:", error);
-      toast.error("Errore nella creazione del lead");
+      toast.error(error instanceof Error ? error.message : "Errore nella creazione del lead");
     } finally {
       setCreating(false);
     }
@@ -319,6 +327,17 @@ export default function CommercialLeadsPage() {
     if (field === "enrolled" && value === true) {
       setPendingEnrolledLead(leadId);
       setShowEnrolledConfirm(true);
+      return;
+    }
+
+    // If setting contacted to true, show call outcome modal first
+    if (field === "contacted" && value === true) {
+      const lead = leads.find(l => l.id === leadId);
+      if (lead) {
+        setPendingContactedLead(lead);
+        setCallOutcomeData({ callOutcome: "", outcomeNotes: "" });
+        setShowCallOutcomeModal(true);
+      }
       return;
     }
 
@@ -366,6 +385,53 @@ export default function CommercialLeadsPage() {
     setPendingEnrolledLead(null);
   };
 
+  // Handle call outcome submission
+  const handleCallOutcomeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingContactedLead || !callOutcomeData.callOutcome) return;
+
+    try {
+      await fetch(`/api/leads/${pendingContactedLead.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contacted: true,
+          contactedAt: new Date().toISOString(),
+          callOutcome: callOutcomeData.callOutcome,
+          outcomeNotes: callOutcomeData.outcomeNotes || null,
+        }),
+      });
+      fetchData();
+      
+      // Show appropriate message based on outcome
+      if (callOutcomeData.callOutcome === 'NEGATIVO') {
+        toast.success("Lead segnato come PERSO (non interessato)");
+      } else if (callOutcomeData.callOutcome === 'NON_RISPONDE' || callOutcomeData.callOutcome === 'RICHIAMARE') {
+        const newAttempts = (pendingContactedLead.callAttempts || 0) + 1;
+        if (newAttempts >= 8) {
+          toast.success("Lead segnato come PERSO (8 tentativi raggiunti)");
+        } else {
+          toast.success(`Chiamata #${newAttempts} registrata - ${8 - newAttempts} tentativi rimanenti`);
+        }
+      } else {
+        toast.success("Esito chiamata registrato");
+      }
+    } catch (error) {
+      console.error("Failed to log call outcome:", error);
+      toast.error("Errore nel salvataggio");
+    }
+    
+    setShowCallOutcomeModal(false);
+    setPendingContactedLead(null);
+    setCallOutcomeData({ callOutcome: "", outcomeNotes: "" });
+  };
+
+  const handleCallOutcomeCancel = () => {
+    setShowCallOutcomeModal(false);
+    setPendingContactedLead(null);
+    setCallOutcomeData({ callOutcome: "", outcomeNotes: "" });
+  };
+
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
     try {
       await fetch(`/api/leads/${leadId}`, {
@@ -378,11 +444,6 @@ export default function CommercialLeadsPage() {
       console.error("Failed to update lead:", error);
     }
   };
-
-  // Filter campaigns by selected course
-  const filteredCampaigns = createFormData.courseId
-    ? campaigns.filter((c) => c.course?.id === createFormData.courseId)
-    : campaigns;
 
   // Boolean Toggle Component
   const BooleanToggle = ({
@@ -592,11 +653,27 @@ export default function CommercialLeadsPage() {
                     )}
                   </td>
                   <td className="p-4">
-                    <BooleanToggle
-                      value={lead.contacted}
-                      onChange={(v) => handleQuickStateUpdate(lead.id, "contacted", v)}
-                      compact
-                    />
+                    <div className="flex items-center gap-2">
+                      <BooleanToggle
+                        value={lead.contacted}
+                        onChange={(v) => handleQuickStateUpdate(lead.id, "contacted", v)}
+                        compact
+                      />
+                      {lead.callAttempts > 0 && !lead.contacted && (
+                        <span 
+                          className={`text-xs px-1.5 py-0.5 rounded-full ${
+                            lead.callAttempts >= 6 
+                              ? 'bg-red-100 text-red-700' 
+                              : lead.callAttempts >= 4 
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-gray-100 text-gray-600'
+                          }`}
+                          title={`${lead.callAttempts} tentativi effettuati`}
+                        >
+                          {lead.callAttempts}/8
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-4">
                     <BooleanToggle
@@ -791,12 +868,17 @@ export default function CommercialLeadsPage() {
                 <select
                   required
                   value={createFormData.courseId}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newCourseId = e.target.value;
+                    // Find first campaign for this course
+                    const courseCampaigns = campaigns.filter(c => c.course?.id === newCourseId);
+                    const defaultCampaign = courseCampaigns[0];
                     setCreateFormData({
                       ...createFormData,
-                      courseId: e.target.value,
-                    })
-                  }
+                      courseId: newCourseId,
+                      campaignId: defaultCampaign?.id || "",
+                    });
+                  }}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
                 >
                   <option value="">Seleziona un corso</option>
@@ -809,21 +891,29 @@ export default function CommercialLeadsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Piattaforma <span className="text-red-500">*</span>
+                  Campagna <span className="text-red-500">*</span>
                 </label>
                 <select
                   required
-                  value={createFormData.platform}
-                  onChange={(e) => setCreateFormData({ ...createFormData, platform: e.target.value })}
+                  value={createFormData.campaignId}
+                  onChange={(e) => setCreateFormData({ ...createFormData, campaignId: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
+                  disabled={!createFormData.courseId}
                 >
-                  <option value="">Seleziona una piattaforma</option>
-                  {PLATFORMS.map((platform) => (
-                    <option key={platform.id} value={platform.id}>
-                      {platform.label}
-                    </option>
-                  ))}
+                  <option value="">{createFormData.courseId ? "Seleziona una campagna" : "Prima seleziona un corso"}</option>
+                  {campaigns
+                    .filter(campaign => campaign.course?.id === createFormData.courseId)
+                    .map((campaign) => (
+                      <option key={campaign.id} value={campaign.id}>
+                        {campaign.name}
+                      </option>
+                    ))}
                 </select>
+                {createFormData.courseId && campaigns.filter(c => c.course?.id === createFormData.courseId).length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Nessuna campagna per questo corso. Contatta l&apos;amministratore.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -848,7 +938,7 @@ export default function CommercialLeadsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating || !createFormData.name || !createFormData.courseId || !createFormData.platform}
+                  disabled={creating || !createFormData.name || !createFormData.courseId || !createFormData.campaignId}
                   className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {creating ? (
@@ -892,6 +982,122 @@ export default function CommercialLeadsPage() {
         cancelText="No, annulla"
         variant="warning"
       />
+
+      {/* Call Outcome Modal */}
+      {showCallOutcomeModal && pendingContactedLead && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-2">Registra Chiamata</h2>
+            
+            {/* Call Attempt Tracking Info */}
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">
+                  Tentativo #{(pendingContactedLead.callAttempts || 0) + 1} di 8
+                </span>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  (pendingContactedLead.callAttempts || 0) >= 6 
+                    ? 'bg-red-100 text-red-700' 
+                    : (pendingContactedLead.callAttempts || 0) >= 4 
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-green-100 text-green-700'
+                }`}>
+                  {8 - (pendingContactedLead.callAttempts || 0) - 1} tentativi rimanenti
+                </span>
+              </div>
+              {pendingContactedLead.firstAttemptAt && (
+                <div className="mt-2 text-xs text-gray-500">
+                  Primo tentativo: {new Date(pendingContactedLead.firstAttemptAt).toLocaleDateString('it-IT')}
+                  {(() => {
+                    const daysSinceFirst = Math.floor((Date.now() - new Date(pendingContactedLead.firstAttemptAt!).getTime()) / (1000 * 60 * 60 * 24));
+                    const daysRemaining = 15 - daysSinceFirst;
+                    return daysRemaining > 0 
+                      ? ` (${daysRemaining} giorni prima di auto-PERSO)` 
+                      : ' (limite 15 giorni superato!)';
+                  })()}
+                </div>
+              )}
+              {(pendingContactedLead.callAttempts || 0) >= 7 && (
+                <div className="mt-2 text-xs text-red-600 font-medium">
+                  Attenzione: questo è l&apos;ultimo tentativo! Se non risponde, il lead diventerà PERSO.
+                </div>
+              )}
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              Seleziona l&apos;esito della chiamata per <strong>{pendingContactedLead.name}</strong>
+            </p>
+            <form onSubmit={handleCallOutcomeSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Esito <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "POSITIVO", label: "Interessato", color: "green", icon: CheckCircle },
+                    { value: "NEGATIVO", label: "Non Interessato", color: "red", icon: XCircle },
+                    { value: "RICHIAMARE", label: "Richiamare", color: "yellow", icon: Phone },
+                    { value: "NON_RISPONDE", label: "Non Risponde", color: "gray", icon: HelpCircle },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setCallOutcomeData({ ...callOutcomeData, callOutcome: option.value })}
+                      className={`p-3 rounded-lg border-2 transition text-sm font-medium flex items-center justify-center gap-2 ${
+                        callOutcomeData.callOutcome === option.value
+                          ? "border-commercial bg-commercial/10"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <option.icon size={16} />
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {callOutcomeData.callOutcome === 'NEGATIVO' && (
+                  <p className="mt-2 text-xs text-red-600">
+                    Il lead sarà automaticamente segnato come PERSO.
+                  </p>
+                )}
+                {(callOutcomeData.callOutcome === 'NON_RISPONDE' || callOutcomeData.callOutcome === 'RICHIAMARE') && 
+                 (pendingContactedLead.callAttempts || 0) >= 7 && (
+                  <p className="mt-2 text-xs text-red-600">
+                    Il lead sarà automaticamente segnato come PERSO (8° tentativo).
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note (opzionale)
+                </label>
+                <textarea
+                  value={callOutcomeData.outcomeNotes}
+                  onChange={(e) => setCallOutcomeData({ ...callOutcomeData, outcomeNotes: e.target.value })}
+                  rows={2}
+                  placeholder="Aggiungi note sulla chiamata..."
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCallOutcomeCancel}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  disabled={!callOutcomeData.callOutcome}
+                  className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Salva Esito
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
