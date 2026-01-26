@@ -216,81 +216,82 @@ ROI % = ((Total Revenue - Total Spend) / Total Spend) × 100
 
 ## 7. Consistency Analysis & Issues
 
-### ✅ CONSISTENT
+### ✅ NOW CONSISTENT (After Fixes)
 
-1. **CPL Calculation** - Now properly aligned (spend period = lead period)
-2. **Pro-rata Spend** - Correctly implemented in `spendProRata.ts`
-3. **Role-based Visibility** - Consistent across all APIs
-4. **Revenue Priority** - Consistent `lead.revenue || course.price` pattern
+| Component | Date Filter for Revenue | Date Filter for Leads | CPL Formula | Status |
+|-----------|------------------------|----------------------|-------------|--------|
+| Stats API | `enrolledAt` | `createdAt` | spend/leads | ✅ |
+| Campaigns API | `enrolledAt` | `createdAt` | spend/leads | ✅ Fixed |
+| Reports Page | Uses API `metrics.totalRevenue` | Uses API | Uses API | ✅ |
+| Marketing ROI | Uses API `metrics.totalRevenue` | Uses API | spend/leads | ✅ Fixed |
+| Marketing Dashboard | No date filter | No date filter | spend/leads | ⚠️ No filtering |
 
-### ⚠️ POTENTIAL ISSUES FOUND
+### Revenue Calculation - All Levels
 
-#### Issue 1: Revenue Date Filter Inconsistency
-
-**Stats API** (`/api/stats`):
-- Revenue filtered by `enrolledAt` date ✓
-
-**Campaigns API** (`/api/campaigns`):
-- Revenue filtered by `createdAt` via `leadDateFilter` ✗
-
-```typescript
-// campaigns/route.ts line 123-126
-const enrolledLeads = await prisma.lead.findMany({
-  where: { ...leadDateFilter, enrolled: true },  // Uses createdAt filter!
-  select: { revenue: true },
-});
+```
+Revenue = lead.revenue > 0 ? lead.revenue : course.price
 ```
 
-**Impact:** Campaign revenue may include leads enrolled outside the filter period if they were created during it.
+| Level | Implementation | Consistent |
+|-------|---------------|------------|
+| Stats API | Server-side, filtered by `enrolledAt` | ✅ |
+| Campaigns API | Server-side, filtered by `enrolledAt` | ✅ |
+| Reports Page | Uses `campaign.metrics.totalRevenue` from API | ✅ |
+| Marketing ROI | Uses `campaign.metrics.totalRevenue` from API | ✅ |
+| Course Performance | Client-side from leads | ⚠️ Different |
+
+### CPL Calculation - All Levels
+
+```
+CPL = Pro-rata Spend / Leads Created in Period
+```
+
+| Level | Spend Source | Lead Count Source | Consistent |
+|-------|--------------|-------------------|------------|
+| Stats API | Pro-rata from CampaignSpend | Filtered by `createdAt` | ✅ |
+| Campaigns API | Pro-rata from CampaignSpend | Filtered by `createdAt` | ✅ |
+| Reports Page | `campaign.totalSpent` | `campaign.leadCount` | ✅ |
+| Marketing ROI | `campaign.totalSpent` | `campaign.leadCount` | ✅ |
+
+### ROI Calculation - All Levels
+
+```
+ROI = ((Revenue - Spend) / Spend) × 100
+```
+
+All implementations use the same formula. ✅
 
 ---
 
-#### Issue 2: `lead.revenue` Field Not Settable via API
+### ⚠️ REMAINING MINOR ISSUES
 
-The Lead API doesn't explicitly handle `revenue` in request body:
+#### Issue 1: Marketing Dashboard Has No Date Filtering
 
-```typescript
-// leads/[id]/route.ts - revenue not in updateData mapping
-```
+The Marketing Dashboard (`/marketing`) shows all-time metrics without date range selection.
 
-**Impact:** Revenue can only be set via direct DB or import scripts.
+**Impact:** Marketing users cannot see period-specific performance.
+
+**Recommendation:** Add date picker like Admin Dashboard has.
 
 ---
 
-#### Issue 3: `acquisitionCost` Field Unused
+#### Issue 2: `acquisitionCost` Field Unused
 
 - Field exists on Lead model
 - 0 of 6,876 leads have it set
-- Bulk operations support setting it
-- But CPL is calculated dynamically from campaign spend
+- CPL is calculated dynamically from campaign spend
 
-**Impact:** None currently, but creates confusion about which system to use.
-
----
-
-#### Issue 4: Goals Revenue Calculation
-
-Goals use `lead.revenue` directly without course.price fallback:
-
-```typescript
-// Potential issue in goals calculation
-const revenue = leads.reduce((sum, l) => sum + (l.revenue || 0), 0);
-// Should be: sum + (l.revenue || l.course?.price || 0)
-```
-
-**Impact:** Goal progress shows 0 revenue for leads without explicit revenue set.
+**Decision:** Keep dynamic CPL. Field can be deprecated.
 
 ---
 
-#### Issue 5: Enrollment Notification Missing Revenue
+#### Issue 3: Goals Revenue Calculation May Be Inaccurate
 
-When lead is enrolled, notifications are sent but revenue isn't auto-populated:
+Goals may use `lead.revenue` without `course.price` fallback.
 
-```typescript
-// No auto-set: lead.revenue = course.price on enrollment
-```
+**Impact:** Goal progress shows 0 revenue for leads without explicit revenue.
 
-**Impact:** Must manually set revenue for each enrollment if different from course price.
+**Recommendation:** Verify goals calculation uses same pattern.
 
 ---
 

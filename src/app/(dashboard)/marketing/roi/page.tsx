@@ -71,7 +71,10 @@ interface Campaign {
   leadCount?: number;
   metrics?: {
     totalLeads: number;
+    totalLeadsAllTime?: number;
     enrolledLeads: number;
+    totalRevenue?: number;
+    costPerLead?: string;
     conversionRate: string;
   };
   course?: {
@@ -179,14 +182,22 @@ export default function MarketingROIPage() {
           campaign.metrics?.enrolledLeads ||
           campaignLeads.filter((l) => l.enrolled || l.status === "ISCRITTO").length;
 
-        // Calculate revenue from enrolled leads
-        // Priority: use lead.revenue if set, otherwise fall back to course.price
-        const enrolledLeads = campaignLeads.filter((l) => l.enrolled || l.status === "ISCRITTO");
+        // Use pre-calculated revenue from campaigns API (properly filtered by enrolledAt)
+        // This ensures revenue aligns with the selected date range
+        // Fallback to client-side calculation only for backwards compatibility
         const coursePrice = campaign.course?.price || 0;
-        const revenue = enrolledLeads.reduce((sum, lead) => {
-          const leadRevenue = lead.revenue ? Number(lead.revenue) : 0;
-          return sum + (leadRevenue > 0 ? leadRevenue : coursePrice);
-        }, 0);
+        let revenue: number;
+        if (campaign.metrics?.totalRevenue !== undefined) {
+          // Use API-calculated revenue (filtered by enrolledAt date range)
+          revenue = campaign.metrics.totalRevenue;
+        } else {
+          // Fallback: calculate from leads (unfiltered - less accurate)
+          const enrolledLeads = campaignLeads.filter((l) => l.enrolled || l.status === "ISCRITTO");
+          revenue = enrolledLeads.reduce((sum, lead) => {
+            const leadRevenue = lead.revenue ? Number(lead.revenue) : 0;
+            return sum + (leadRevenue > 0 ? leadRevenue : coursePrice);
+          }, 0);
+        }
 
         // Calculate ROI
         const profit = revenue - spent;

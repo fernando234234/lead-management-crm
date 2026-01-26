@@ -1,0 +1,1390 @@
+{
+  "leads": [
+    {
+      "name": "Flaminia Balzani",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": false,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Edoardo Angelo Orlando",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Alisia Albanesi",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Giovanni Cucinella",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Cristian Parillo",
+      "email": null,
+      "phone": null,
+      "courseName": "Illustrazione Digitale",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Elena Chessa",
+      "email": null,
+      "phone": null,
+      "courseName": "Narrative Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Enrico Gusella",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Ai",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Fulvia Cantagalli",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Ai",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Ilaria Budetta",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Alessia Cavezza",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Silvia Malentacchi",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Lea Liberatore",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Alessandra Sementino",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Catia Rossi",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Filippo Parise",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Jonathan Sposato",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Game Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Chiara Niglio",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Nicole Proietto",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Letizia Ferretti",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Sofia Dong",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Giada Ranno",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Cristina Rizzi",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Sebastian Negrea",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": false,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Gian Luigi Di Saru",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Giovanni Russo",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Raffaele Catinello",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Giulia Mamone",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Martina Rita Villani",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Viola Nannelli",
+      "email": null,
+      "phone": null,
+      "courseName": "Social Media Manager",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Fortunato Straluzzi",
+      "email": null,
+      "phone": null,
+      "courseName": "Blender / 3D",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Franco Braccaro",
+      "email": null,
+      "phone": null,
+      "courseName": "Autocad",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Andrea Avesani",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Full Developer",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Francesca Congia",
+      "email": null,
+      "phone": null,
+      "courseName": "Revit",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Duolim M. B",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Architectural Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "22/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Piera Pia Pisani",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Stella Bertulli",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Sebastian Colmenares",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Ilaria Francavilla",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Alessandra Carlomagno",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Giulia Bartolini",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Alessia Sellan",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Flavio Tarabù",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Alice Mascaro",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Silvana",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Ludovica Trevisan",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Sara Rissone",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Erica Poloni",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Matteo Conte",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Pierluigi Nocente",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Federica Castellano",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marcella",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Daniela Didi",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Ai",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Sara Tufo",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Ai",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Giuseppe Albanese",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Ai",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Emanuela Pasquali Coluzzi",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Ai",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Andrea Ambrosino",
+      "email": null,
+      "phone": null,
+      "courseName": "Autocad",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Damiano Procaccianti",
+      "email": null,
+      "phone": null,
+      "courseName": "Digital marketing",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Asia Ferrazza",
+      "email": null,
+      "phone": null,
+      "courseName": "Unity",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Maria Luisa Caracciolo",
+      "email": null,
+      "phone": null,
+      "courseName": "Interior Planner",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Jennifer Perillo Galdi",
+      "email": null,
+      "phone": null,
+      "courseName": "Narrative Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Marah Ricciardi Ricciardi",
+      "email": null,
+      "phone": null,
+      "courseName": "Interior Planner",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Mauro Sanfilippo",
+      "email": null,
+      "phone": null,
+      "courseName": "Narrative Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Natascia",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Serena Di Lizia",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Maria Salvini",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Elisabetta Lubrani",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Alessandro Alfaroli",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Alessia Spoti",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Gabriel Ligorio",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Chiara Toffolo",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Sharon Gaiarini",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Noemi Pierpaoli",
+      "email": null,
+      "phone": null,
+      "courseName": "Graphic Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Rita Cornacchione",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Graphic Web Design",
+      "campaignName": null,
+      "status": "NUOVO",
+      "notes": null,
+      "assignedToName": "Marilena",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": false,
+        "contacted": false,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": null
+      }
+    },
+    {
+      "name": "Gioele Vimercati",
+      "email": null,
+      "phone": null,
+      "courseName": "After Effects",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Simona Lilla Di Fede",
+      "email": null,
+      "phone": null,
+      "courseName": "Revit",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Ginevra Scalco",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Architectural Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Dylan Franzoso",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Architectural Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Elena Riciu",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Architectural Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Laura Tufano",
+      "email": null,
+      "phone": null,
+      "courseName": "Masterclass Architectural Design",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    },
+    {
+      "name": "Francesca Guida",
+      "email": null,
+      "phone": null,
+      "courseName": "Revit",
+      "campaignName": null,
+      "status": "CONTATTATO",
+      "notes": null,
+      "assignedToName": "Simone",
+      "_extra": {
+        "originalDate": "23/01/2026",
+        "isTarget": true,
+        "contacted": true,
+        "enrolled": false,
+        "revenue": null,
+        "callOutcome": "POSITIVO"
+      }
+    }
+  ]
+}
