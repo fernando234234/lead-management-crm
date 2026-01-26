@@ -206,12 +206,12 @@ export default function AdminDashboard() {
       <OnboardingTour steps={adminTourSteps} tourKey="admin-dashboard" />
 
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard Admin</h1>
-          <p className="text-gray-500">Panoramica completa del sistema</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard Admin</h1>
+          <p className="text-sm sm:text-base text-gray-500">Panoramica completa del sistema</p>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-start sm:items-end gap-1 w-full sm:w-auto">
           <DateRangeFilter
             startDate={startDate}
             endDate={endDate}
@@ -363,42 +363,42 @@ export default function AdminDashboard() {
       </div>
 
       {/* Profitability Summary */}
-      <div data-tour="profitability" className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold mb-6">Riepilogo Profittabilità</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <p className="text-sm text-gray-600">Ricavo Totale</p>
-            <p className="text-2xl font-bold text-green-600">
+      <div data-tour="profitability" className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6">Riepilogo Profittabilità</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg">
+            <p className="text-xs sm:text-sm text-gray-600">Ricavo Totale</p>
+            <p className="text-lg sm:text-2xl font-bold text-green-600">
               €{stats.financial.totalRevenue.toLocaleString()}
             </p>
           </div>
-          <div className="text-center p-4 bg-red-50 rounded-lg">
-            <p className="text-sm text-gray-600">Spesa Totale</p>
-            <p className="text-2xl font-bold text-red-600">
+          <div className="text-center p-3 sm:p-4 bg-red-50 rounded-lg">
+            <p className="text-xs sm:text-sm text-gray-600">Spesa Totale</p>
+            <p className="text-lg sm:text-2xl font-bold text-red-600">
               €{stats.financial.totalCost.toLocaleString()}
             </p>
           </div>
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-gray-600">Profitto Netto</p>
-            <p className={`text-2xl font-bold ${profit >= 0 ? "text-blue-600" : "text-red-600"}`}>
+          <div className="text-center p-3 sm:p-4 bg-blue-50 rounded-lg">
+            <p className="text-xs sm:text-sm text-gray-600">Profitto Netto</p>
+            <p className={`text-lg sm:text-2xl font-bold ${profit >= 0 ? "text-blue-600" : "text-red-600"}`}>
               €{profit.toLocaleString()}
             </p>
           </div>
-          <div className="text-center p-4 bg-yellow-50 rounded-lg">
-            <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
+          <div className="text-center p-3 sm:p-4 bg-yellow-50 rounded-lg">
+            <p className="text-xs sm:text-sm text-gray-600 flex items-center justify-center gap-1">
               CPL
               <HelpIcon text={helpTexts.cplEstimato} size="sm" />
             </p>
-            <p className="text-2xl font-bold text-yellow-600">
+            <p className="text-lg sm:text-2xl font-bold text-yellow-600">
               €{stats.financial.costPerLead}
             </p>
           </div>
-          <div className="text-center p-4 bg-purple-50 rounded-lg">
-            <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
+          <div className="text-center p-3 sm:p-4 bg-purple-50 rounded-lg col-span-2 md:col-span-1">
+            <p className="text-xs sm:text-sm text-gray-600 flex items-center justify-center gap-1">
               ROI
               <HelpIcon text={helpTexts.roi} size="sm" />
             </p>
-            <p className="text-2xl font-bold text-admin">
+            <p className="text-lg sm:text-2xl font-bold text-admin">
               {stats.financial.roi}%
             </p>
           </div>

@@ -17,14 +17,18 @@ export default function AdminLayout({
         Vai al contenuto principale
       </a>
       <Sidebar role="admin" />
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-200 px-4 md:px-8 py-4" role="banner">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header - hidden on mobile since Sidebar has mobile header */}
+        <header className="hidden md:block bg-white border-b border-gray-200 px-4 md:px-8 py-4" role="banner">
           <div className="flex items-center justify-end gap-4">
             <GlobalSearch role="admin" />
             <NotificationBell role="admin" />
           </div>
         </header>
-        <main id="main-content" className="flex-1 p-4 md:p-8" role="main" tabIndex={-1}>
+        {/* Mobile header spacer - accounts for fixed mobile header from Sidebar */}
+        <div className="md:hidden h-14" />
+        {/* Main content - responsive padding */}
+        <main id="main-content" className="flex-1 p-4 md:p-8 overflow-x-hidden" role="main" tabIndex={-1}>
           {children}
         </main>
       </div>

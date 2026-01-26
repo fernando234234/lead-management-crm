@@ -96,7 +96,7 @@ export function StatCard({
   return (
     <article
       className={cn(
-        "relative bg-white rounded-xl border border-gray-100 p-6",
+        "relative bg-white rounded-xl border border-gray-100 p-4 sm:p-6",
         "shadow-sm hover:shadow-md transition-all duration-300 ease-out",
         "hover:-translate-y-0.5",
         gradient && "bg-gradient-to-br from-white to-gray-50/50",
@@ -108,7 +108,7 @@ export function StatCard({
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm text-gray-500 font-medium truncate">{title}</p>
+            <p className="text-xs sm:text-sm text-gray-500 font-medium truncate">{title}</p>
             {tooltip && (
               <div className="relative">
                 <button
@@ -130,7 +130,7 @@ export function StatCard({
               </div>
             )}
           </div>
-          <p className="text-2xl font-bold mt-1.5 text-gray-900 tracking-tight">
+          <p className="text-xl sm:text-2xl font-bold mt-1 sm:mt-1.5 text-gray-900 tracking-tight">
             {displayValue}
           </p>
           {subtitle && (
@@ -160,13 +160,14 @@ export function StatCard({
         {Icon && (
           <div 
             className={cn(
-              "p-3 rounded-xl transition-transform duration-300",
+              "p-2 sm:p-3 rounded-xl transition-transform duration-300",
               "bg-gradient-to-br from-admin/10 to-admin/5",
-              "group-hover:scale-105"
+              "group-hover:scale-105",
+              "hidden xs:block"
             )}
             aria-hidden="true"
           >
-            <Icon className={cn(iconColor, "transition-colors")} size={24} />
+            <Icon className={cn(iconColor, "transition-colors")} size={20} />
           </div>
         )}
       </div>
