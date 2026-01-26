@@ -320,7 +320,8 @@ export default function AdminPipelinePage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px]">
             <thead>
               <tr className="text-left text-sm text-gray-500 border-b bg-gray-50">
                 <th className="p-4 font-medium">Lead</th>
@@ -395,6 +396,7 @@ export default function AdminPipelinePage() {
               ))}
             </tbody>
           </table>
+          </div>
           {filteredLeads.length === 0 && (
             <div className="p-8 text-center text-gray-500">Nessun lead trovato</div>
           )}

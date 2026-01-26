@@ -311,8 +311,8 @@ export default function AdminDashboard() {
             <h2 className="text-lg font-semibold">Lead Recenti</h2>
             <p className="text-sm text-gray-500">Ultimi 5 lead aggiunti</p>
           </div>
-          <div className="p-6">
-            <table className="w-full text-sm">
+          <div className="p-6 overflow-x-auto">
+            <table className="w-full text-sm min-w-[400px]">
               <thead>
                 <tr className="text-left text-gray-500 border-b">
                   <th className="pb-3">Nome</th>

@@ -160,19 +160,20 @@ export default function AdminCoursesPage() {
       </div>
 
       {/* Courses Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <table className="w-full">
-          <thead>
-            <tr className="text-left text-sm text-gray-500 border-b">
-              <th className="p-4 font-medium">Corso</th>
-              <th className="p-4 font-medium">Prezzo</th>
-              <th className="p-4 font-medium">Periodo</th>
-              <th className="p-4 font-medium">Lead</th>
-              <th className="p-4 font-medium">Campagne</th>
-              <th className="p-4 font-medium">Stato</th>
-              <th className="p-4 font-medium">Azioni</th>
-            </tr>
-          </thead>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px]">
+            <thead>
+              <tr className="text-left text-sm text-gray-500 border-b">
+                <th className="p-4 font-medium">Corso</th>
+                <th className="p-4 font-medium">Prezzo</th>
+                <th className="p-4 font-medium">Periodo</th>
+                <th className="p-4 font-medium">Lead</th>
+                <th className="p-4 font-medium">Campagne</th>
+                <th className="p-4 font-medium">Stato</th>
+                <th className="p-4 font-medium">Azioni</th>
+              </tr>
+            </thead>
           <tbody>
             {paginatedCourses.map((course) => (
               <tr key={course.id} className="border-b hover:bg-gray-50">
@@ -230,6 +231,7 @@ export default function AdminCoursesPage() {
             ))}
           </tbody>
         </table>
+        </div>
         {/* Pagination */}
         <Pagination
           currentPage={currentPage}
