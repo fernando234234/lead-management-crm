@@ -1019,12 +1019,12 @@ export default function CommercialLeadsPage() {
                   {8 - (pendingContactedLead.callAttempts || 0) - 1} tentativi rimanenti
                 </span>
               </div>
-              {pendingContactedLead.firstAttemptAt && (
+              {pendingContactedLead.lastAttemptAt && (
                 <div className="mt-2 text-xs text-gray-500">
-                  Primo tentativo: {new Date(pendingContactedLead.firstAttemptAt).toLocaleDateString('it-IT')}
+                  Ultima chiamata: {new Date(pendingContactedLead.lastAttemptAt).toLocaleDateString('it-IT')}
                   {(() => {
-                    const daysSinceFirst = Math.floor((Date.now() - new Date(pendingContactedLead.firstAttemptAt!).getTime()) / (1000 * 60 * 60 * 24));
-                    const daysRemaining = 15 - daysSinceFirst;
+                    const daysSinceLast = Math.floor((Date.now() - new Date(pendingContactedLead.lastAttemptAt!).getTime()) / (1000 * 60 * 60 * 24));
+                    const daysRemaining = 15 - daysSinceLast;
                     return daysRemaining > 0 
                       ? ` (${daysRemaining} giorni prima di auto-PERSO)` 
                       : ' (limite 15 giorni superato!)';

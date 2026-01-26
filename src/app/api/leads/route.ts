@@ -4,12 +4,53 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createNotification, createNotificationForRole } from "@/lib/notifications";
 
+// Auto-cleanup: Mark stale leads as PERSO
+// Runs on each GET request (lightweight, uses indexed query)
+async function autoCleanupStaleLeads() {
+  const fifteenDaysAgo = new Date();
+  fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+  
+  // Mark as PERSO: leads with lastAttemptAt > 15 days ago that are still being worked
+  // (not already PERSO, ISCRITTO, or enrolled)
+  await prisma.lead.updateMany({
+    where: {
+      lastAttemptAt: { lt: fifteenDaysAgo },
+      status: { in: ['NUOVO', 'CONTATTATO', 'IN_TRATTATIVA'] },
+      enrolled: false,
+    },
+    data: {
+      status: 'PERSO',
+    }
+  });
+  
+  // Also mark leads contacted > 20 days ago without recent activity
+  const twentyDaysAgo = new Date();
+  twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
+  
+  await prisma.lead.updateMany({
+    where: {
+      status: 'CONTATTATO',
+      contacted: true,
+      contactedAt: { lt: twentyDaysAgo },
+      enrolled: false,
+      // Only if no call tracking started (legacy leads)
+      lastAttemptAt: null,
+    },
+    data: {
+      status: 'PERSO',
+    }
+  });
+}
+
 // GET /api/leads - Fetch leads with visibility rules based on user role
 // - ADMIN: sees all leads
 // - MARKETING: sees leads from campaigns they created
 // - COMMERCIAL: sees leads they created OR are assigned to
 export async function GET(request: NextRequest) {
   try {
+    // Auto-cleanup stale leads on each fetch (lightweight indexed query)
+    await autoCleanupStaleLeads();
+    
     const session = await getServerSession(authOptions);
     const { searchParams } = new URL(request.url);
     

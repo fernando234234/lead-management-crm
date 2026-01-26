@@ -105,8 +105,6 @@ export async function PUT(
       if (!isSuccessfulContact) {
         // NON_RISPONDE or RICHIAMARE - increment attempts
         const newAttempts = (currentLead?.callAttempts || 0) + 1;
-        const firstAttempt = currentLead?.firstAttemptAt || new Date();
-        const daysSinceFirst = (Date.now() - new Date(firstAttempt).getTime()) / (1000 * 60 * 60 * 24);
         
         updateData.callAttempts = newAttempts;
         updateData.lastAttemptAt = new Date();
@@ -114,8 +112,9 @@ export async function PUT(
           updateData.firstAttemptAt = new Date();
         }
         
-        // Auto-mark as PERSO if 8 attempts reached OR 15 days passed
-        if (newAttempts >= 8 || daysSinceFirst >= 15) {
+        // Auto-mark as PERSO if 8 attempts reached
+        // (15-day inactivity check happens on page load via autoCleanupStaleLeads)
+        if (newAttempts >= 8) {
           updateData.status = 'PERSO';
         }
       }
