@@ -36,6 +36,7 @@ interface Campaign {
 }
 
 const platformColors: Record<string, string> = {
+  META: "bg-blue-100 text-blue-700",
   FACEBOOK: "bg-blue-100 text-blue-700",
   GOOGLE_ADS: "bg-red-100 text-red-700",
   LINKEDIN: "bg-sky-100 text-sky-700",
@@ -45,6 +46,7 @@ const platformColors: Record<string, string> = {
 };
 
 const platformLabels: Record<string, string> = {
+  META: "Meta (FB/IG)",
   FACEBOOK: "Facebook",
   GOOGLE_ADS: "Google",
   LINKEDIN: "LinkedIn",
@@ -54,6 +56,7 @@ const platformLabels: Record<string, string> = {
 };
 
 const PLATFORM_CHART_COLORS: Record<string, string> = {
+  META: "#1877f2",
   FACEBOOK: "#1877f2",
   GOOGLE_ADS: "#ea4335",
   LINKEDIN: "#0077b5",
@@ -132,7 +135,7 @@ export default function MarketingDashboard() {
 
   // Platform spend distribution for pie chart
   const platformSpendData = useMemo(() => {
-    const platforms = ["FACEBOOK", "GOOGLE_ADS", "LINKEDIN", "INSTAGRAM", "TIKTOK", "OTHER"];
+    const platforms = ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK", "OTHER"];
     return platforms
       .map((platform) => {
         const platformCampaigns = campaigns.filter((c) => c.platform === platform);

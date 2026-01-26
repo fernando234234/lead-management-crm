@@ -26,10 +26,9 @@ import {
 
 // Platform options
 const platformOptions = [
-  { value: "FACEBOOK", label: "Facebook", color: "bg-blue-100 text-blue-700" },
-  { value: "INSTAGRAM", label: "Instagram", color: "bg-pink-100 text-pink-700" },
-  { value: "LINKEDIN", label: "LinkedIn", color: "bg-sky-100 text-sky-700" },
+  { value: "META", label: "Meta (FB/IG)", color: "bg-blue-100 text-blue-700" },
   { value: "GOOGLE_ADS", label: "Google Ads", color: "bg-red-100 text-red-700" },
+  { value: "LINKEDIN", label: "LinkedIn", color: "bg-sky-100 text-sky-700" },
   { value: "TIKTOK", label: "TikTok", color: "bg-gray-100 text-gray-700" },
 ];
 

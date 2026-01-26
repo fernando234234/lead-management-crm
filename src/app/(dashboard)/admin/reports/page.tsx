@@ -181,6 +181,7 @@ type CourseSortField = "name" | "price" | "leads" | "enrolled" | "revenue" | "ca
 type CommercialSortField = "name" | "assigned" | "contacted" | "enrolled" | "conversionRate";
 
 const platformLabels: Record<string, string> = {
+  META: "Meta (FB/IG)",
   FACEBOOK: "Facebook",
   INSTAGRAM: "Instagram",
   LINKEDIN: "LinkedIn",
@@ -189,6 +190,7 @@ const platformLabels: Record<string, string> = {
 };
 
 const platformIcons: Record<string, React.ReactNode> = {
+  META: <Facebook size={16} className="text-blue-600" />,
   FACEBOOK: <Facebook size={16} className="text-blue-600" />,
   INSTAGRAM: <div className="w-4 h-4 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 rounded" />,
   LINKEDIN: <Linkedin size={16} className="text-blue-700" />,
@@ -212,6 +214,7 @@ const FUNNEL_COLORS = {
 };
 
 const PLATFORM_COLORS: Record<string, string> = {
+  META: "#1877f2",
   FACEBOOK: "#1877f2",
   INSTAGRAM: "#e4405f",
   LINKEDIN: "#0077b5",
@@ -338,7 +341,7 @@ export default function ReportsPage() {
 
   // Platform breakdown for pie chart
   const platformPieData = useMemo(() => {
-    const platforms = ["FACEBOOK", "INSTAGRAM", "LINKEDIN", "GOOGLE_ADS", "TIKTOK"];
+    const platforms = ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK"];
     return platforms
       .map((platform) => {
         const platformCampaigns = campaigns.filter((c) => c.platform === platform);
@@ -572,7 +575,7 @@ export default function ReportsPage() {
 
   // Calculate platform breakdown
   const platformBreakdown = useMemo(() => {
-    const platforms = ["FACEBOOK", "INSTAGRAM", "LINKEDIN", "GOOGLE_ADS", "TIKTOK"];
+    const platforms = ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK"];
 
     return platforms.map((platform) => {
       const platformCampaigns = campaigns.filter((c) => c.platform === platform);
