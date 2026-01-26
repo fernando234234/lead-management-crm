@@ -36,6 +36,10 @@ interface Lead {
   course: { id: string; name: string; price: number } | null;
   campaign: { id: string; name: string; platform?: string } | null;
   assignedTo: { id: string; name: string; email: string } | null;
+  // Call tracking fields
+  callAttempts: number;
+  firstAttemptAt: string | null;
+  lastAttemptAt: string | null;
 }
 
 interface Course {

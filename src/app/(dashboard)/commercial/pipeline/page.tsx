@@ -38,6 +38,10 @@ interface Lead {
   course: { id: string; name: string; price: number } | null;
   campaign: { id: string; name: string; platform?: string } | null;
   assignedTo: { id: string; name: string; email: string } | null;
+  // Call tracking fields
+  callAttempts: number;
+  firstAttemptAt: string | null;
+  lastAttemptAt: string | null;
 }
 
 interface Course {
@@ -100,6 +104,7 @@ export default function CommercialPipelinePage() {
   // Filters
   const [filterCourse, setFilterCourse] = useState("");
   const [filterCampaign, setFilterCampaign] = useState("");
+  const [filterPerso, setFilterPerso] = useState<string>("active"); // active = hide PERSO
 
   // Outcome form
   const [outcomeData, setOutcomeData] = useState({
@@ -141,6 +146,9 @@ export default function CommercialPipelinePage() {
   const filteredLeads = leads.filter((lead) => {
     if (filterCourse && lead.course?.id !== filterCourse) return false;
     if (filterCampaign && lead.campaign?.id !== filterCampaign) return false;
+    // PERSO filter: "active" hides PERSO, "perso" shows only PERSO, "" shows all
+    if (filterPerso === "active" && lead.status === "PERSO") return false;
+    if (filterPerso === "perso" && lead.status !== "PERSO") return false;
     return true;
   });
 
@@ -344,11 +352,21 @@ export default function CommercialPipelinePage() {
               </option>
             ))}
           </select>
-          {(filterCourse || filterCampaign) && (
+          <select
+            value={filterPerso}
+            onChange={(e) => setFilterPerso(e.target.value)}
+            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
+          >
+            <option value="active">Attivi (no PERSO)</option>
+            <option value="">Tutti</option>
+            <option value="perso">Solo PERSO</option>
+          </select>
+          {(filterCourse || filterCampaign || filterPerso !== "active") && (
             <button
               onClick={() => {
                 setFilterCourse("");
                 setFilterCampaign("");
+                setFilterPerso("active");
               }}
               className="px-3 py-2 text-gray-500 hover:text-gray-700 flex items-center gap-1"
             >
@@ -593,8 +611,44 @@ export default function CommercialPipelinePage() {
       {showOutcomeModal && selectedLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-2">Registra Esito Chiamata</h2>
-            <p className="text-gray-500 mb-4">Lead: {selectedLead.name}</p>
+            <h2 className="text-xl font-bold mb-2">Registra Chiamata</h2>
+            
+            {/* Call Attempt Tracking Info */}
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">
+                  Tentativo #{(selectedLead.callAttempts || 0) + 1} di 8
+                </span>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  (selectedLead.callAttempts || 0) >= 6 
+                    ? 'bg-red-100 text-red-700' 
+                    : (selectedLead.callAttempts || 0) >= 4 
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-green-100 text-green-700'
+                }`}>
+                  {8 - (selectedLead.callAttempts || 0) - 1} tentativi rimanenti
+                </span>
+              </div>
+              {selectedLead.lastAttemptAt && (
+                <div className="mt-2 text-xs text-gray-500">
+                  Ultima chiamata: {new Date(selectedLead.lastAttemptAt).toLocaleDateString('it-IT')}
+                  {(() => {
+                    const daysSinceLast = Math.floor((Date.now() - new Date(selectedLead.lastAttemptAt!).getTime()) / (1000 * 60 * 60 * 24));
+                    const daysRemaining = 15 - daysSinceLast;
+                    return daysRemaining > 0 
+                      ? ` (${daysRemaining} giorni prima di auto-PERSO)` 
+                      : ' (limite 15 giorni superato!)';
+                  })()}
+                </div>
+              )}
+              {(selectedLead.callAttempts || 0) >= 7 && (
+                <div className="mt-2 text-xs text-red-600 font-medium">
+                  Attenzione: questo è l&apos;ultimo tentativo! Se non risponde, il lead diventerà PERSO.
+                </div>
+              )}
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-4">Lead: <strong>{selectedLead.name}</strong></p>
             <form onSubmit={handleOutcomeSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -617,6 +671,17 @@ export default function CommercialPipelinePage() {
                     </button>
                   ))}
                 </div>
+                {outcomeData.callOutcome === 'NEGATIVO' && (
+                  <p className="mt-2 text-xs text-red-600">
+                    Il lead sarà automaticamente segnato come PERSO.
+                  </p>
+                )}
+                {(outcomeData.callOutcome === 'NON_RISPONDE' || outcomeData.callOutcome === 'RICHIAMARE') && 
+                 (selectedLead.callAttempts || 0) >= 7 && (
+                  <p className="mt-2 text-xs text-red-600">
+                    Il lead sarà automaticamente segnato come PERSO (8° tentativo).
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>

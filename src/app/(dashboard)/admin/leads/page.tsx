@@ -66,6 +66,10 @@ interface Lead {
   course: { id: string; name: string; price?: number } | null;
   campaign: { id: string; name: string; source?: string; platform?: string } | null;
   assignedTo: { id: string; name: string; email: string } | null;
+  // Call tracking fields
+  callAttempts: number;
+  firstAttemptAt: string | null;
+  lastAttemptAt: string | null;
 }
 
 interface Course {
@@ -140,6 +144,7 @@ export default function AdminLeadsPage() {
   // Filters
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterPerso, setFilterPerso] = useState<string>("active"); // active = hide PERSO, "" = all, "perso" = only PERSO
   const [filterCourse, setFilterCourse] = useState("");
   const [filterCommercial, setFilterCommercial] = useState("");
   
@@ -220,6 +225,9 @@ export default function AdminLeadsPage() {
         return false;
       }
       if (filterStatus && lead.status !== filterStatus) return false;
+      // PERSO filter: "active" hides PERSO, "perso" shows only PERSO, "" shows all
+      if (filterPerso === "active" && lead.status === "PERSO") return false;
+      if (filterPerso === "perso" && lead.status !== "PERSO") return false;
       if (filterCourse && lead.course?.id !== filterCourse) return false;
       if (filterCommercial && lead.assignedTo?.id !== filterCommercial) return false;
       return true;
@@ -604,6 +612,15 @@ export default function AdminLeadsPage() {
             </div>
           </div>
           <select
+            value={filterPerso}
+            onChange={(e) => setFilterPerso(e.target.value)}
+            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin"
+          >
+            <option value="active">Attivi (no PERSO)</option>
+            <option value="">Tutti</option>
+            <option value="perso">Solo PERSO</option>
+          </select>
+          <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin"
@@ -633,11 +650,12 @@ export default function AdminLeadsPage() {
               <option key={user.id} value={user.id}>{user.name}</option>
             ))}
           </select>
-          {(search || filterStatus || filterCourse || filterCommercial) && (
+          {(search || filterStatus || filterPerso !== "active" || filterCourse || filterCommercial) && (
             <button
               onClick={() => {
                 setSearch("");
                 setFilterStatus("");
+                setFilterPerso("active");
                 setFilterCourse("");
                 setFilterCommercial("");
               }}
@@ -799,17 +817,33 @@ export default function AdminLeadsPage() {
                   </select>
                 </td>
                 <td className="p-4">
-                  {lead.contacted ? (
-                    <>
-                      <CheckCircle size={20} className="text-green-500" aria-hidden="true" />
-                      <span className="sr-only">Contattato</span>
-                    </>
-                  ) : (
-                    <>
-                      <Clock size={20} className="text-gray-400" aria-hidden="true" />
-                      <span className="sr-only">Non ancora contattato</span>
-                    </>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {lead.contacted ? (
+                      <>
+                        <CheckCircle size={20} className="text-green-500" aria-hidden="true" />
+                        <span className="sr-only">Contattato</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock size={20} className="text-gray-400" aria-hidden="true" />
+                        <span className="sr-only">Non ancora contattato</span>
+                      </>
+                    )}
+                    {lead.callAttempts > 0 && (
+                      <span 
+                        className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          lead.callAttempts >= 6 
+                            ? 'bg-red-100 text-red-700' 
+                            : lead.callAttempts >= 4 
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-gray-100 text-gray-600'
+                        }`}
+                        title={`${lead.callAttempts} tentativi effettuati`}
+                      >
+                        {lead.callAttempts}/8
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="p-4">
                   {lead.enrolled ? (
