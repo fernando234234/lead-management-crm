@@ -11,7 +11,10 @@ import {
   ArrowRight,
   ArrowLeft,
   Loader2,
+  Copy,
+  Bot,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import {
   parseFile,
   getFileType,
@@ -187,6 +190,20 @@ export default function ImportModal({
     window.open("/api/leads/template", "_blank");
   };
 
+  // Copy LLM instructions handler
+  const handleCopyLLMInstructions = async () => {
+    try {
+      const response = await fetch("/api/leads/template?format=llm");
+      if (!response.ok) throw new Error("Failed to fetch instructions");
+      const instructions = await response.text();
+      await navigator.clipboard.writeText(instructions);
+      toast.success("Istruzioni copiate! Incollale in ChatGPT o Claude per convertire i tuoi dati.");
+    } catch (err) {
+      toast.error("Errore durante la copia delle istruzioni");
+      console.error(err);
+    }
+  };
+
   // Close handler
   const handleClose = () => {
     if (importResult) {
@@ -281,6 +298,28 @@ export default function ImportModal({
                   >
                     <Download size={18} />
                     Scarica Template
+                  </button>
+                </div>
+              </div>
+
+              {/* LLM Instructions */}
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <div className="flex items-start gap-3">
+                  <Bot className="text-purple-600 mt-0.5" size={20} />
+                  <div className="flex-1">
+                    <p className="font-medium text-purple-900">Hai dati in formato diverso?</p>
+                    <p className="text-sm text-purple-700 mt-1">
+                      Copia le istruzioni per un LLM (ChatGPT, Claude) che convertira automaticamente 
+                      i tuoi dati nel formato corretto, gestendo errori di encoding, stati non standard 
+                      e problemi comuni.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCopyLLMInstructions}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition whitespace-nowrap"
+                  >
+                    <Copy size={18} />
+                    Copia Istruzioni per LLM
                   </button>
                 </div>
               </div>
