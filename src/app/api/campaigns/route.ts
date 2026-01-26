@@ -73,26 +73,55 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
+    // Build date filter for leads (when date range is specified, filter leads by createdAt)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buildLeadDateFilter = (campaignId: string): Record<string, any> => {
+      const filter: Record<string, any> = { campaignId };
+      if (spendStartDate || spendEndDate) {
+        filter.createdAt = {};
+        if (spendStartDate) {
+          const start = new Date(spendStartDate);
+          start.setHours(0, 0, 0, 0);
+          filter.createdAt.gte = start;
+        }
+        if (spendEndDate) {
+          const end = new Date(spendEndDate);
+          end.setHours(23, 59, 59, 999);
+          filter.createdAt.lte = end;
+        }
+      }
+      return filter;
+    };
+
     // Calculate additional metrics for each campaign
     const campaignsWithMetrics = await Promise.all(
       campaigns.map(async (campaign) => {
+        // When date filter is applied, count leads created in that period
+        // This ensures CPL = (pro-rata spend for period) / (leads created in period)
+        const leadDateFilter = buildLeadDateFilter(campaign.id);
+        
         const leadStats = await prisma.lead.aggregate({
-          where: { campaignId: campaign.id },
+          where: leadDateFilter,
           _count: { _all: true },
         });
 
         const contactedCount = await prisma.lead.count({
-          where: { campaignId: campaign.id, contacted: true },
+          where: { ...leadDateFilter, contacted: true },
         });
 
         const enrolledCount = await prisma.lead.count({
-          where: { campaignId: campaign.id, enrolled: true },
+          where: { ...leadDateFilter, enrolled: true },
         });
 
-        // Calculate total revenue from enrolled leads
+        // Also get total leads (all time) for reference
+        const totalLeadsAllTime = await prisma.lead.count({
+          where: { campaignId: campaign.id },
+        });
+
+        // Calculate total revenue from enrolled leads in period
         // Priority: use lead.revenue if set, otherwise fall back to course.price
         const enrolledLeads = await prisma.lead.findMany({
-          where: { campaignId: campaign.id, enrolled: true },
+          where: { ...leadDateFilter, enrolled: true },
           select: { revenue: true },
         });
         
@@ -115,21 +144,25 @@ export async function GET(request: NextRequest) {
         }));
         const totalSpent = calculateTotalProRataSpend(spendRecordsForCalc, filterRange);
 
-        const costPerLead = leadStats._count._all > 0
-          ? totalSpent / leadStats._count._all
+        // CPL = pro-rata spend / leads in same period (properly aligned!)
+        const leadsInPeriod = leadStats._count._all;
+        const costPerLead = leadsInPeriod > 0
+          ? totalSpent / leadsInPeriod
           : 0;
 
         return {
           ...campaign,
           totalSpent,
+          leadCount: leadsInPeriod, // Override with date-filtered count
           metrics: {
-            totalLeads: leadStats._count._all,
+            totalLeads: leadsInPeriod,
+            totalLeadsAllTime, // Include all-time count for reference
             contactedLeads: contactedCount,
             enrolledLeads: enrolledCount,
-            totalRevenue, // New field: actual revenue from leads
+            totalRevenue,
             costPerLead: costPerLead.toFixed(2),
-            conversionRate: leadStats._count._all > 0
-              ? ((enrolledCount / leadStats._count._all) * 100).toFixed(1)
+            conversionRate: leadsInPeriod > 0
+              ? ((enrolledCount / leadsInPeriod) * 100).toFixed(1)
               : "0",
           },
         };

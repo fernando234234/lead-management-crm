@@ -511,6 +511,82 @@ body {
   border-width: 0;
 }
 
+/* Responsive utilities */
+@layer utilities {
+  /* Hide on mobile, show on larger screens */
+  .hide-mobile {
+    @apply hidden sm:block;
+  }
+  
+  /* Show on mobile, hide on larger screens */
+  .show-mobile {
+    @apply block sm:hidden;
+  }
+  
+  /* Responsive table wrapper - enables horizontal scroll on mobile */
+  .table-responsive {
+    @apply overflow-x-auto -mx-4 sm:mx-0;
+  }
+  
+  .table-responsive > table {
+    @apply min-w-[600px] sm:min-w-full;
+  }
+  
+  /* Mobile-friendly card stack */
+  .card-stack-mobile {
+    @apply space-y-3 sm:space-y-0 sm:grid sm:gap-4;
+  }
+  
+  /* Responsive text sizes */
+  .text-responsive-sm {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-base {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-lg {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-xl {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  
+  /* Responsive padding */
+  .p-responsive {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  .px-responsive {
+    @apply px-3 sm:px-4 md:px-6;
+  }
+  
+  .py-responsive {
+    @apply py-3 sm:py-4 md:py-6;
+  }
+  
+  /* Mobile-first flex utilities */
+  .flex-col-mobile {
+    @apply flex flex-col sm:flex-row;
+  }
+  
+  .flex-col-mobile-lg {
+    @apply flex flex-col lg:flex-row;
+  }
+  
+  /* Gap responsive */
+  .gap-responsive {
+    @apply gap-2 sm:gap-4 md:gap-6;
+  }
+  
+  /* Truncate text on mobile */
+  .truncate-mobile {
+    @apply truncate sm:whitespace-normal;
+  }
+}
+
 /* Custom scrollbar for webkit browsers */
 @layer utilities {
   .scrollbar-thin {

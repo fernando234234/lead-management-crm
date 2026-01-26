@@ -20,6 +20,9 @@ import {
   Facebook,
   Linkedin,
   Filter,
+  Info,
+  GraduationCap,
+  Globe,
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
 
@@ -644,15 +647,15 @@ export default function ReportsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
             <BarChart3 className="text-admin" />
             Report e Analisi
           </h1>
-          <p className="text-gray-500">Analisi dettagliata delle performance</p>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">Dashboard completa per monitorare le performance aziendali</p>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-start lg:items-end gap-2 w-full lg:w-auto">
           <DateRangeFilter
             startDate={startDate}
             endDate={endDate}
@@ -660,70 +663,150 @@ export default function ReportsPage() {
             presets
           />
           {(startDate || endDate) && (
-            <div className="flex items-center gap-2 text-xs text-admin">
+            <div className="flex items-center gap-2 text-xs text-admin bg-admin/5 px-3 py-1.5 rounded-full">
               <Filter size={12} />
               <span>
-                Dati filtrati: {startDate ? new Date(startDate).toLocaleDateString("it-IT") : "inizio"} - {endDate ? new Date(endDate).toLocaleDateString("it-IT") : "oggi"}
+                Periodo: {startDate ? new Date(startDate).toLocaleDateString("it-IT") : "inizio"} - {endDate ? new Date(endDate).toLocaleDateString("it-IT") : "oggi"}
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Section 1: Overview Stats */}
-      <section>
-        <h2 className="text-lg font-semibold mb-4">Panoramica</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="Lead Totali"
-            value={stats?.overview.totalLeads || 0}
-            icon={Users}
-            tooltip="Numero totale di lead acquisiti da tutte le campagne attive."
-          />
-          <StatCard
-            title="Tasso Conversione"
-            value={`${stats?.overview.conversionRate || 0}%`}
-            icon={TrendingUp}
-            tooltip={helpTexts.conversionRate}
-          />
-          <StatCard
-            title="Ricavi"
-            value={`€${(stats?.financial.totalRevenue || 0).toLocaleString()}`}
-            icon={Euro}
-            tooltip={helpTexts.ricavo}
-          />
-          <StatCard
-            title="ROI"
-            value={`${stats?.financial.roi || 0}%`}
-            icon={Target}
-            tooltip={helpTexts.roi}
-          />
+      {/* Quick Summary Banner */}
+      <div className="bg-gradient-to-r from-admin/10 via-admin/5 to-transparent rounded-xl p-4 sm:p-5 border border-admin/20">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-admin/20 rounded-full flex items-center justify-center">
+              <TrendingUp className="text-admin" size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Riepilogo Periodo</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900">
+                {stats?.overview.totalLeads || 0} lead → {stats?.overview.enrolledLeads || 0} iscritti
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3 sm:gap-4 text-sm">
+            <div className="bg-white px-3 py-2 rounded-lg shadow-sm">
+              <span className="text-gray-500">Conversione:</span>{" "}
+              <span className="font-bold text-admin">{stats?.overview.conversionRate || 0}%</span>
+            </div>
+            <div className="bg-white px-3 py-2 rounded-lg shadow-sm">
+              <span className="text-gray-500">ROI:</span>{" "}
+              <span className={`font-bold ${parseFloat(stats?.financial.roi || "0") >= 0 ? "text-green-600" : "text-red-600"}`}>
+                {stats?.financial.roi || 0}%
+              </span>
+            </div>
+            <div className="bg-white px-3 py-2 rounded-lg shadow-sm">
+              <span className="text-gray-500">Ricavi:</span>{" "}
+              <span className="font-bold text-green-600">€{(stats?.financial.totalRevenue || 0).toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 1: Overview Stats - Key Performance Indicators */}
+      <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <Target size={20} className="text-admin" />
+            <h2 className="text-base sm:text-lg font-semibold">Metriche Chiave (KPI)</h2>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">Indicatori principali delle performance aziendali</p>
+        </div>
+        <div className="p-4 sm:p-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+            <StatCard
+              title="Lead Totali"
+              value={stats?.overview.totalLeads || 0}
+              icon={Users}
+              tooltip="Numero totale di lead acquisiti da tutte le campagne attive nel periodo."
+            />
+            <StatCard
+              title="Tasso Conversione"
+              value={`${stats?.overview.conversionRate || 0}%`}
+              icon={TrendingUp}
+              tooltip={helpTexts.conversionRate}
+            />
+            <StatCard
+              title="Ricavi Totali"
+              value={`€${(stats?.financial.totalRevenue || 0).toLocaleString()}`}
+              icon={Euro}
+              tooltip={helpTexts.ricavo}
+            />
+            <StatCard
+              title="ROI Complessivo"
+              value={`${stats?.financial.roi || 0}%`}
+              icon={Target}
+              tooltip={helpTexts.roi}
+            />
+          </div>
         </div>
       </section>
 
       {/* Section 2: Lead Funnel with FunnelChart */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold mb-6">Funnel Lead</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <FunnelChart
-            stages={funnelData.stages}
-            height={320}
-            showPercentages
-            showDropoff
-          />
-          <div className="flex flex-col justify-center">
-            <div className="bg-red-50 text-center p-6 rounded-lg mb-4">
-              <p className="text-sm font-medium text-gray-600">Lead Persi</p>
-              <p className="text-3xl font-bold text-red-600">{funnelData.perso.count}</p>
-              <p className="text-sm text-gray-500">{funnelData.perso.percentage.toFixed(1)}% del totale</p>
-            </div>
-            <div className="bg-green-50 text-center p-6 rounded-lg">
-              <p className="text-sm font-medium text-gray-600">Tasso Conversione Finale</p>
-              <p className="text-3xl font-bold text-green-600">
-                {funnelData.total > 0
-                  ? ((funnelData.stages[3].value / funnelData.total) * 100).toFixed(1)
-                  : 0}%
+      <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <ArrowDown size={20} className="text-admin" />
+            <h2 className="text-base sm:text-lg font-semibold">Funnel di Conversione</h2>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Il percorso dei lead: dalla generazione all&apos;iscrizione
+          </p>
+        </div>
+        <div className="p-4 sm:p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            <div>
+              <FunnelChart
+                stages={funnelData.stages}
+                height={320}
+                showPercentages
+                showDropoff
+              />
+              <p className="text-xs text-gray-400 text-center mt-2">
+                Le percentuali indicano il tasso di passaggio tra fasi
               </p>
+            </div>
+            <div className="flex flex-col justify-center gap-4">
+              {/* Funnel Summary Cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50 text-center p-4 rounded-lg border border-blue-100">
+                  <p className="text-xs font-medium text-blue-600 mb-1">Nuovi</p>
+                  <p className="text-2xl font-bold text-blue-700">{funnelData.stages[0]?.value || 0}</p>
+                </div>
+                <div className="bg-yellow-50 text-center p-4 rounded-lg border border-yellow-100">
+                  <p className="text-xs font-medium text-yellow-600 mb-1">Contattati</p>
+                  <p className="text-2xl font-bold text-yellow-700">{funnelData.stages[1]?.value || 0}</p>
+                </div>
+                <div className="bg-purple-50 text-center p-4 rounded-lg border border-purple-100">
+                  <p className="text-xs font-medium text-purple-600 mb-1">In Trattativa</p>
+                  <p className="text-2xl font-bold text-purple-700">{funnelData.stages[2]?.value || 0}</p>
+                </div>
+                <div className="bg-green-50 text-center p-4 rounded-lg border border-green-100">
+                  <p className="text-xs font-medium text-green-600 mb-1">Iscritti</p>
+                  <p className="text-2xl font-bold text-green-700">{funnelData.stages[3]?.value || 0}</p>
+                </div>
+              </div>
+              
+              {/* Loss vs Success Summary */}
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="bg-red-50 text-center p-4 rounded-lg border border-red-100">
+                  <p className="text-xs font-medium text-gray-600 mb-1">Lead Persi</p>
+                  <p className="text-2xl font-bold text-red-600">{funnelData.perso.count}</p>
+                  <p className="text-xs text-gray-500">{funnelData.perso.percentage.toFixed(1)}% del totale</p>
+                </div>
+                <div className="bg-green-50 text-center p-4 rounded-lg border border-green-100">
+                  <p className="text-xs font-medium text-gray-600 mb-1">Conversione Finale</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {funnelData.total > 0
+                      ? ((funnelData.stages[3].value / funnelData.total) * 100).toFixed(1)
+                      : 0}%
+                  </p>
+                  <p className="text-xs text-gray-500">Iscritti / Totale</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -732,59 +815,127 @@ export default function ReportsPage() {
       {/* Section 2b: Charts Grid */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Platform Distribution */}
-        <div className="chart-container hover:shadow-md transition-shadow duration-300">
-          <h2 className="chart-container-title">Distribuzione Spesa per Piattaforma</h2>
-          <PieChart
-            data={platformPieData}
-            nameKey="name"
-            valueKey="value"
-            colors={platformPieData.map((p) => PLATFORM_COLORS[p.platform] || "#6b7280")}
-            height={280}
-            formatValue={(value) => `€${value.toLocaleString("it-IT")}`}
-          />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300">
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-gradient-to-r from-blue-500 to-purple-500"></div>
+              <h2 className="text-sm sm:text-base font-semibold">Distribuzione Spesa Pubblicitaria</h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Come viene ripartito il budget tra le piattaforme</p>
+          </div>
+          <div className="p-4">
+            <PieChart
+              data={platformPieData}
+              nameKey="name"
+              valueKey="value"
+              colors={platformPieData.map((p) => PLATFORM_COLORS[p.platform] || "#6b7280")}
+              height={260}
+              formatValue={(value) => `€${value.toLocaleString("it-IT")}`}
+            />
+            {platformPieData.length === 0 && (
+              <p className="text-center text-gray-400 text-sm py-8">Nessuna spesa registrata nel periodo</p>
+            )}
+          </div>
         </div>
 
         {/* Commercial Performance */}
-        <div className="chart-container hover:shadow-md transition-shadow duration-300">
-          <h2 className="chart-container-title">Performance Commerciali (Iscritti)</h2>
-          <BarChart
-            data={commercialBarData}
-            xKey="nome"
-            yKey="iscritti"
-            color="#22c55e"
-            height={280}
-          />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300">
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <Users size={16} className="text-green-600" />
+              <h2 className="text-sm sm:text-base font-semibold">Iscrizioni per Commerciale</h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Lead convertiti in iscritti da ogni commerciale</p>
+          </div>
+          <div className="p-4">
+            <BarChart
+              data={commercialBarData}
+              xKey="nome"
+              yKey="iscritti"
+              color="#22c55e"
+              height={260}
+            />
+            {commercialBarData.length === 0 && (
+              <p className="text-center text-gray-400 text-sm py-8">Nessun dato disponibile</p>
+            )}
+          </div>
         </div>
       </section>
 
       {/* Section 2c: Revenue/Cost Trend */}
-      <section className="chart-container hover:shadow-md transition-shadow duration-300">
-        <h2 className="chart-container-title">Trend Ricavi vs Costi</h2>
-        <LineChart
-          data={revenueCostTrend}
-          xKey="mese"
-          lines={[
-            { dataKey: "ricavi", color: "#22c55e", name: "Ricavi" },
-            { dataKey: "costi", color: "#ef4444", name: "Costi" },
-          ]}
-          height={300}
-          showLegend
-          formatValue={(value) => `€${value.toLocaleString("it-IT")}`}
-        />
+      <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <Euro size={20} className="text-admin" />
+            <h2 className="text-base sm:text-lg font-semibold">Andamento Ricavi vs Costi (Ultimi 6 Mesi)</h2>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Confronto mensile tra ricavi generati dalle iscrizioni e costi pubblicitari sostenuti.
+            Un trend positivo indica che i ricavi superano i costi.
+          </p>
+        </div>
+        <div className="p-4 sm:p-6">
+          <LineChart
+            data={revenueCostTrend}
+            xKey="mese"
+            lines={[
+              { dataKey: "ricavi", color: "#22c55e", name: "Ricavi (da iscrizioni)" },
+              { dataKey: "costi", color: "#ef4444", name: "Costi (spesa ads)" },
+            ]}
+            height={280}
+            showLegend
+            formatValue={(value) => `€${value.toLocaleString("it-IT")}`}
+          />
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mt-4 text-xs">
+            <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span className="text-gray-700">Verde = Ricavi dalle vendite</span>
+            </div>
+            <div className="flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-full">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span className="text-gray-700">Rosso = Spesa pubblicitaria</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Section 3: Campaign Performance Table */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-start">
-          <div>
-            <h2 className="section-title">Performance Campagne</h2>
-            <p className="text-sm text-gray-500 mt-1">Clicca sulle intestazioni per ordinare</p>
+      <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <TrendingUp size={20} className="text-admin" />
+                <h2 className="text-base sm:text-lg font-semibold">Performance Campagne Pubblicitarie</h2>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                Analisi dettagliata di ogni campagna: spesa, lead generati, costo per lead e ritorno sull&apos;investimento.
+              </p>
+            </div>
+            <ExportButton
+              data={campaignPerformance.data}
+              columns={campaignPerformanceExportColumns}
+              filename="performance_campagne"
+            />
           </div>
-          <ExportButton
-            data={campaignPerformance.data}
-            columns={campaignPerformanceExportColumns}
-            filename="performance_campagne"
-          />
+          
+          {/* Legend and Glossary */}
+          <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:gap-6">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-200">Top = Miglior ROI</span>
+              <span className="bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200">Peggiore = ROI più basso</span>
+            </div>
+            <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1" title="Costo Per Lead: quanto costa acquisire un singolo contatto">
+                <Info size={12} className="text-gray-400" />
+                <strong>CPL</strong> = Costo Per Lead
+              </span>
+              <span className="flex items-center gap-1" title="Return On Investment: ritorno sull'investimento pubblicitario">
+                <Info size={12} className="text-gray-400" />
+                <strong>ROI</strong> = Ritorno sull&apos;Investimento
+              </span>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto scrollbar-thin">
           <table className="table-enhanced">
@@ -905,84 +1056,92 @@ export default function ReportsPage() {
       </section>
 
       {/* Section 4: Course Performance Table */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-start">
-          <div>
-            <h2 className="text-lg font-semibold">Performance Corsi</h2>
-            <p className="text-sm text-gray-500">Analisi ricavi per corso</p>
+      <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <GraduationCap size={20} className="text-admin" />
+                <h2 className="text-base sm:text-lg font-semibold">Performance per Corso</h2>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                Ricavi e iscrizioni suddivisi per ogni corso offerto. 
+                Utile per capire quali corsi generano più valore.
+              </p>
+            </div>
+            <ExportButton
+              data={coursePerformance}
+              columns={coursePerformanceExportColumns}
+              filename="performance_corsi"
+            />
           </div>
-          <ExportButton
-            data={coursePerformance}
-            columns={coursePerformanceExportColumns}
-            filename="performance_corsi"
-          />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="table-enhanced">
             <thead>
-              <tr className="text-left text-gray-500 border-b bg-gray-50">
+              <tr>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("name", courseSort, setCourseSort)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     Corso
                     <SortIndicator field="name" currentSort={courseSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("price", courseSort, setCourseSort)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     Prezzo
                     <SortIndicator field="price" currentSort={courseSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("leads", courseSort, setCourseSort)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     Lead
                     <SortIndicator field="leads" currentSort={courseSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("enrolled", courseSort, setCourseSort)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     Iscritti
                     <SortIndicator field="enrolled" currentSort={courseSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("revenue", courseSort, setCourseSort)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     Ricavo
                     <SortIndicator field="revenue" currentSort={courseSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("campaigns", courseSort, setCourseSort)}
                 >
-                  <div className="flex items-center gap-1">
-                    Campagne Attive
+                  <div className="flex items-center gap-1.5">
+                    Campagne
                     <SortIndicator field="campaigns" currentSort={courseSort} />
                   </div>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {coursePerformance.map((course) => (
-                <tr key={course.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4">
+              {coursePerformance.map((course, index) => (
+                <tr key={course.id} className={`transition-colors duration-150 ${index % 2 === 0 ? "" : "bg-gray-50/30"}`}>
+                  <td className="p-4 font-medium">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{course.name}</span>
+                      {course.name}
                       {course.active && (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Attivo</span>
                       )}
@@ -1008,65 +1167,80 @@ export default function ReportsPage() {
       </section>
 
       {/* Section 5: Commercial Performance Table */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-start">
-          <div>
-            <h2 className="text-lg font-semibold">Performance Commerciali</h2>
-            <p className="text-sm text-gray-500">Classifica per tasso di conversione</p>
+      <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Users size={20} className="text-admin" />
+                <h2 className="text-base sm:text-lg font-semibold">Classifica Team Commerciale</h2>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                Performance di ogni commerciale ordinata per tasso di conversione.
+                Il tasso indica quanti lead assegnati sono diventati iscritti.
+              </p>
+            </div>
+            <ExportButton
+              data={commercialPerformance}
+              columns={commercialPerformanceExportColumns}
+              filename="performance_commerciali"
+            />
           </div>
-          <ExportButton
-            data={commercialPerformance}
-            columns={commercialPerformanceExportColumns}
-            filename="performance_commerciali"
-          />
+          
+          {/* Podium Legend */}
+          <div className="flex flex-wrap gap-2 mt-4 text-xs">
+            <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded border border-yellow-200">1° posto</span>
+            <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded border border-gray-200">2° posto</span>
+            <span className="bg-orange-50 text-orange-700 px-2 py-1 rounded border border-orange-200">3° posto</span>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="table-enhanced">
             <thead>
-              <tr className="text-left text-gray-500 border-b bg-gray-50">
-                <th className="p-4 w-12">#</th>
+              <tr>
+                <th className="w-12">#</th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("name", commercialSort, setCommercialSort)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     Commerciale
                     <SortIndicator field="name" currentSort={commercialSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("assigned", commercialSort, setCommercialSort)}
                 >
-                  <div className="flex items-center gap-1">
-                    Lead Assegnati
+                  <div className="flex items-center gap-1.5">
+                    Assegnati
                     <SortIndicator field="assigned" currentSort={commercialSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("contacted", commercialSort, setCommercialSort)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     Contattati
                     <SortIndicator field="contacted" currentSort={commercialSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("enrolled", commercialSort, setCommercialSort)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     Iscritti
                     <SortIndicator field="enrolled" currentSort={commercialSort} />
                   </div>
                 </th>
                 <th
-                  className="p-4 cursor-pointer hover:bg-gray-100"
+                  className="sortable"
                   onClick={() => handleSort("conversionRate", commercialSort, setCommercialSort)}
                 >
-                  <div className="flex items-center gap-1">
-                    Tasso Conversione
+                  <div className="flex items-center gap-1.5">
+                    Conversione
                     <SortIndicator field="conversionRate" currentSort={commercialSort} />
                   </div>
                 </th>
@@ -1074,16 +1248,24 @@ export default function ReportsPage() {
             </thead>
             <tbody>
               {commercialPerformance.map((user, index) => (
-                <tr key={user.id} className="border-b hover:bg-gray-50">
+                <tr 
+                  key={user.id} 
+                  className={`transition-colors duration-150 ${
+                    index === 0 ? "!bg-yellow-50/50" : 
+                    index === 1 ? "!bg-gray-50/70" : 
+                    index === 2 ? "!bg-orange-50/50" : 
+                    index % 2 === 0 ? "" : "bg-gray-50/30"
+                  }`}
+                >
                   <td className="p-4">
                     <span
-                      className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${
+                      className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold ${
                         index === 0
-                          ? "bg-yellow-100 text-yellow-700"
+                          ? "bg-yellow-100 text-yellow-700 ring-2 ring-yellow-300"
                           : index === 1
-                          ? "bg-gray-200 text-gray-700"
+                          ? "bg-gray-200 text-gray-700 ring-2 ring-gray-300"
                           : index === 2
-                          ? "bg-orange-100 text-orange-700"
+                          ? "bg-orange-100 text-orange-700 ring-2 ring-orange-300"
                           : "bg-gray-100 text-gray-500"
                       }`}
                     >
@@ -1093,16 +1275,21 @@ export default function ReportsPage() {
                   <td className="p-4 font-medium">{user.name}</td>
                   <td className="p-4">{user.assigned}</td>
                   <td className="p-4">{user.contacted}</td>
-                  <td className="p-4">{user.enrolled}</td>
+                  <td className="p-4 font-medium text-green-600">{user.enrolled}</td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="w-20 sm:w-24 h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-admin rounded-full"
+                          className={`h-full rounded-full transition-all ${
+                            index === 0 ? "bg-yellow-500" : 
+                            index === 1 ? "bg-gray-400" : 
+                            index === 2 ? "bg-orange-400" : 
+                            "bg-admin"
+                          }`}
                           style={{ width: `${Math.min(user.conversionRate, 100)}%` }}
                         />
                       </div>
-                      <span className="font-medium">{user.conversionRate.toFixed(1)}%</span>
+                      <span className="font-medium min-w-[50px]">{user.conversionRate.toFixed(1)}%</span>
                     </div>
                   </td>
                 </tr>
@@ -1120,51 +1307,76 @@ export default function ReportsPage() {
       </section>
 
       {/* Section 6: Platform Breakdown */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold mb-6">Breakdown per Piattaforma</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          {platformBreakdown.map((platform) => (
-            <div
-              key={platform.platform}
-              className="p-4 border border-gray-100 rounded-lg hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                {platformIcons[platform.platform]}
-                <span className="font-medium">{platformLabels[platform.platform]}</span>
+      <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <Globe size={20} className="text-admin" />
+            <h2 className="text-base sm:text-lg font-semibold">Dettaglio per Piattaforma Pubblicitaria</h2>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Confronto delle metriche chiave tra le diverse piattaforme: Facebook/Meta, Google Ads, LinkedIn, TikTok.
+          </p>
+          <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+            <Info size={12} className="text-gray-400" />
+            <strong>CPL</strong> = Costo Per Lead (quanto costa acquisire un singolo contatto)
+          </div>
+        </div>
+        <div className="p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {platformBreakdown.map((platform) => (
+              <div
+                key={platform.platform}
+                className="p-4 border border-gray-200 rounded-xl hover:shadow-lg hover:border-admin/30 transition-all duration-200 bg-white"
+              >
+                {/* Platform Header */}
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                  <div className="p-2 rounded-lg bg-gray-50">
+                    {platformIcons[platform.platform]}
+                  </div>
+                  <span className="font-semibold text-gray-800">{platformLabels[platform.platform]}</span>
+                </div>
+                
+                {/* Metrics */}
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Campagne</span>
+                    <span className="font-medium bg-gray-100 px-2 py-0.5 rounded">{platform.campaignCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Lead</span>
+                    <span className="font-semibold text-blue-600">{platform.totalLeads}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Spesa</span>
+                    <span className="font-medium text-red-600">€{platform.totalSpent.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">CPL</span>
+                    <span className="font-medium">€{platform.cpl.toFixed(2)}</span>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="border-t border-gray-100 pt-2 mt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Iscritti</span>
+                      <span className="font-semibold text-green-600">{platform.enrolled}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-gray-500">Conversione</span>
+                      <span className="font-bold text-admin bg-admin/10 px-2 py-0.5 rounded">
+                        {platform.conversionRate.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Campagne</span>
-                  <span className="font-medium">{platform.campaignCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Lead</span>
-                  <span className="font-medium">{platform.totalLeads}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Spesa</span>
-                  <span className="font-medium">€{platform.totalSpent.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">CPL</span>
-                  <span className="font-medium">€{platform.cpl.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Iscritti</span>
-                  <span className="font-medium">{platform.enrolled}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Conversione</span>
-                  <span className="font-medium text-admin">{platform.conversionRate.toFixed(1)}%</span>
-                </div>
+            ))}
+            {platformBreakdown.length === 0 && (
+              <div className="col-span-full text-center text-gray-400 py-8 bg-gray-50 rounded-lg">
+                Nessuna piattaforma con dati disponibili nel periodo selezionato
               </div>
-            </div>
-          ))}
-          {platformBreakdown.length === 0 && (
-            <div className="col-span-full text-center text-gray-400 py-8">
-              Nessuna piattaforma con dati disponibili
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </section>
     </div>
