@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { StatCard } from "@/components/ui/StatCard";
 import { PieChart } from "@/components/charts/PieChart";
 import { BarChart } from "@/components/charts/BarChart";
+import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { Megaphone, Users, Euro, TrendingUp } from "lucide-react";
 import { HelpIcon } from "@/components/ui/HelpIcon";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
@@ -65,17 +66,28 @@ export default function MarketingDashboard() {
   const { data: session } = useSession();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Date filter state
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
 
   useEffect(() => {
     if (session?.user?.id) {
       fetchCampaigns();
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, startDate, endDate]);
 
   const fetchCampaigns = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/campaigns?createdById=${session?.user?.id}`);
+      const params = new URLSearchParams();
+      params.append("createdById", session?.user?.id || "");
+      
+      // Add date filter parameters
+      if (startDate) params.append("spendStartDate", startDate);
+      if (endDate) params.append("spendEndDate", endDate);
+      
+      const res = await fetch(`/api/campaigns?${params.toString()}`);
       const data = await res.json();
       setCampaigns(data.campaigns || data || []);
     } catch (error) {
@@ -153,10 +165,25 @@ export default function MarketingDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard Marketing</h1>
           <p className="text-gray-500">Campagne, costi e performance</p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+            }}
+          />
+          {(startDate || endDate) && (
+            <span className="text-sm text-marketing font-medium">
+              Dati filtrati: {startDate ? new Date(startDate).toLocaleDateString("it-IT") : "inizio"} - {endDate ? new Date(endDate).toLocaleDateString("it-IT") : "oggi"}
+            </span>
+          )}
         </div>
       </div>
 
@@ -174,17 +201,19 @@ export default function MarketingDashboard() {
           title="Lead Generati"
           value={totalLeads}
           icon={Users}
-          subtitle="Totale"
+          subtitle={startDate || endDate ? "Nel periodo" : "Totale"}
         />
         <StatCard
           title="Spesa Totale"
           value={`€${totalCost.toLocaleString()}`}
           icon={Euro}
+          subtitle={startDate || endDate ? "Nel periodo" : undefined}
         />
         <StatCard
           title="Costo per Lead"
           value={`€${costPerLead.toFixed(2)}`}
           icon={TrendingUp}
+          subtitle={startDate || endDate ? "Nel periodo" : undefined}
         />
       </div>
 
