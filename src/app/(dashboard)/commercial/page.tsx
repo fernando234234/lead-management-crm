@@ -4,13 +4,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { StatCard } from "@/components/ui/StatCard";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
-import { FunnelChart } from "@/components/charts/FunnelChart";
-import { LineChart } from "@/components/charts/LineChart";
-import { PieChart } from "@/components/charts/PieChart";
 import {
   Users,
   Phone,
-  UserCheck,
   Target,
   PhoneCall,
   Star,
@@ -29,7 +25,6 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { commercialTourSteps } from "@/lib/tourSteps";
 import Link from "next/link";
-import { GoalsProgress } from "@/components/ui/GoalsProgress";
 import toast from "react-hot-toast";
 
 // Tri-state type
@@ -78,12 +73,6 @@ interface Activity {
     courseName?: string;
   };
 }
-
-const triStateLabels: Record<TriState, string> = {
-  SI: "Sì",
-  NO: "No",
-  ND: "N/D",
-};
 
 export default function CommercialDashboard() {
   const { data: session } = useSession();
@@ -158,17 +147,12 @@ export default function CommercialDashboard() {
     return lead.contattatoStato === "SI" || lead.contacted === true;
   };
 
-  // Helper function to check if lead is enrolled (using tri-state)
-  const isEnrolled = (lead: Lead): boolean => {
-    return lead.iscrittoStato === "SI" || lead.enrolled === true;
-  };
-
   // Helper function to check if lead is target (using tri-state)
   const isTargetLead = (lead: Lead): boolean => {
     return lead.targetStato === "SI" || lead.isTarget === true;
   };
 
-  // Calculate stats dynamically based on filtered leads
+  // Calculate stats dynamically based on filtered leads (only task-related metrics)
   const stats = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -195,117 +179,16 @@ export default function CommercialDashboard() {
       (lead) => isTargetLead(lead) && !isContacted(lead)
     ).length;
 
-    const enrolled = filteredLeads.filter((lead) => isEnrolled(lead)).length;
-    const contacted = filteredLeads.filter((lead) => isContacted(lead)).length;
-    const conversionRate =
-      filteredLeads.length > 0
-        ? ((enrolled / filteredLeads.length) * 100).toFixed(1)
-        : "0";
-
-    // Calculate comparison with last month
-    const lastMonthLeads = leads.filter((lead) => {
-      const createdDate = new Date(lead.createdAt);
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-      const twoMonthsAgo = new Date();
-      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-      return createdDate >= twoMonthsAgo && createdDate < oneMonthAgo;
-    });
-    const lastMonthEnrolled = lastMonthLeads.filter((l) => isEnrolled(l)).length;
-    const enrolledTrend =
-      lastMonthEnrolled > 0
-        ? Math.round(((enrolled - lastMonthEnrolled) / lastMonthEnrolled) * 100)
-        : enrolled > 0
-        ? 100
-        : 0;
+    const notContacted = filteredLeads.filter((lead) => !isContacted(lead)).length;
 
     return {
       totalLeads: filteredLeads.length,
-      contacted,
       contactedToday,
-      enrolled,
-      conversionRate,
       pendingCallbacks,
       targetLeads,
-      enrolledTrend,
+      notContacted,
     };
-  }, [filteredLeads, leads]);
-
-  // Funnel data for conversion funnel chart
-  const funnelData = useMemo(() => {
-    const statusCounts = {
-      assegnati: filteredLeads.length,
-      contattati: filteredLeads.filter((l) => isContacted(l)).length,
-      inTarget: filteredLeads.filter((l) => isTargetLead(l)).length,
-      iscritti: filteredLeads.filter((l) => isEnrolled(l)).length,
-    };
-
-    return [
-      { name: "Assegnati", value: statusCounts.assegnati, color: "#3B82F6" },
-      { name: "Contattati", value: statusCounts.contattati, color: "#8B5CF6" },
-      { name: "In Target", value: statusCounts.inTarget, color: "#F59E0B" },
-      { name: "Iscritti", value: statusCounts.iscritti, color: "#10B981" },
-    ];
   }, [filteredLeads]);
-
-  // Status distribution for pie chart (tri-state based)
-  const statusDistribution = useMemo(() => {
-    const counts = {
-      nonContattati: filteredLeads.filter((l) => l.contattatoStato === "ND" || (!l.contattatoStato && !l.contacted)).length,
-      contattatiInAttesa: filteredLeads.filter((l) => isContacted(l) && l.iscrittoStato !== "SI" && !l.enrolled).length,
-      inTarget: filteredLeads.filter((l) => isTargetLead(l) && !isEnrolled(l)).length,
-      iscritti: filteredLeads.filter((l) => isEnrolled(l)).length,
-      nonTarget: filteredLeads.filter((l) => l.targetStato === "NO").length,
-    };
-
-    return [
-      { name: "Non Contattati", value: counts.nonContattati, color: "#3B82F6" },
-      { name: "Contattati", value: counts.contattatiInAttesa, color: "#F59E0B" },
-      { name: "In Target", value: counts.inTarget, color: "#8B5CF6" },
-      { name: "Iscritti", value: counts.iscritti, color: "#10B981" },
-      { name: "Non Target", value: counts.nonTarget, color: "#EF4444" },
-    ].filter(item => item.value > 0);
-  }, [filteredLeads]);
-
-  // Performance trend data (last 30 days)
-  const trendData = useMemo(() => {
-    const days = 30;
-    const data: { date: string; contattati: number; iscritti: number }[] = [];
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
-
-      const nextDate = new Date(date);
-      nextDate.setDate(nextDate.getDate() + 1);
-
-      const contacted = leads.filter((lead) => {
-        const contactDate = lead.contattatoAt || lead.contactedAt;
-        if (!contactDate) return false;
-        const d = new Date(contactDate);
-        return d >= date && d < nextDate;
-      }).length;
-
-      const enrolled = leads.filter((lead) => {
-        const enrollDate = lead.iscrittoAt || lead.enrolledAt;
-        if (!enrollDate) return false;
-        const d = new Date(enrollDate);
-        return d >= date && d < nextDate;
-      }).length;
-
-      data.push({
-        date: date.toLocaleDateString("it-IT", {
-          day: "2-digit",
-          month: "2-digit",
-        }),
-        contattati: contacted,
-        iscritti: enrolled,
-      });
-    }
-
-    return data;
-  }, [leads]);
 
   // Leads needing attention
   const leadsNeedingAttention = useMemo(() => {
@@ -385,7 +268,7 @@ export default function CommercialDashboard() {
   const getActivityIcon = (type: Activity["type"], metadata?: Activity["metadata"]) => {
     switch (type) {
       case "ENROLLMENT":
-        return <UserCheck size={16} className="text-green-600" />;
+        return <CheckCircle size={16} className="text-green-600" />;
       case "CALL":
         if (metadata?.callOutcome === "POSITIVO")
           return <CheckCircle size={16} className="text-green-600" />;
@@ -422,7 +305,7 @@ export default function CommercialDashboard() {
             Dashboard Commerciale
           </h1>
           <p className="text-gray-500 mt-1">
-            Panoramica dei tuoi lead e performance
+            I tuoi lead e attività da completare
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -438,17 +321,17 @@ export default function CommercialDashboard() {
       {/* Onboarding Tour */}
       <OnboardingTour steps={commercialTourSteps} tourKey="commercial-dashboard" />
 
-      {/* Stats Grid - 6 cards in 2 rows */}
+      {/* Stats Grid - 4 cards for task-related info only */}
       <div
         data-tour="stats-grid"
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
       >
         <StatCard
           title="Lead Assegnati"
           value={stats.totalLeads}
           icon={Users}
           iconColor="text-commercial"
-          subtitle="Totale"
+          subtitle={`${stats.notContacted} da contattare`}
           animate
         />
         <StatCard
@@ -456,19 +339,6 @@ export default function CommercialDashboard() {
           value={stats.contactedToday}
           icon={Phone}
           iconColor="text-blue-600"
-          subtitle={`${stats.contacted} totali`}
-          animate
-        />
-        <StatCard
-          title="Iscritti"
-          value={stats.enrolled}
-          icon={UserCheck}
-          iconColor="text-green-600"
-          trend={
-            stats.enrolledTrend !== 0
-              ? { value: Math.abs(stats.enrolledTrend), isPositive: stats.enrolledTrend > 0 }
-              : undefined
-          }
           animate
         />
         <StatCard
@@ -477,13 +347,6 @@ export default function CommercialDashboard() {
           icon={PhoneCall}
           iconColor="text-yellow-600"
           subtitle="Scaduti >48h"
-          animate
-        />
-        <StatCard
-          title="Tasso Conversione"
-          value={`${stats.conversionRate}%`}
-          icon={Target}
-          iconColor="text-purple-600"
           animate
         />
         <StatCard
@@ -496,102 +359,42 @@ export default function CommercialDashboard() {
         />
       </div>
 
-      {/* Quick Actions Bar + Goals */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/commercial/leads"
-              className="flex items-center gap-2 px-4 py-2.5 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
-            >
-              <Plus size={18} />
-              Nuovo Lead
-            </Link>
-            <Link
-              href="/commercial/pipeline"
-              className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-            >
-              <LayoutGrid size={18} />
-              Pipeline
-            </Link>
-            <Link
-              href="/commercial/leads"
-              className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-            >
-              <Users size={18} />
-              I Miei Lead
-            </Link>
-            <Link
-              href="/commercial/tasks"
-              className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-            >
-              <ListTodo size={18} />
-              Promemoria
-            </Link>
-          </div>
+      {/* Quick Actions Bar */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/commercial/leads"
+            className="flex items-center gap-2 px-4 py-2.5 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
+          >
+            <Plus size={18} />
+            Nuovo Lead
+          </Link>
+          <Link
+            href="/commercial/pipeline"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+          >
+            <LayoutGrid size={18} />
+            Pipeline
+          </Link>
+          <Link
+            href="/commercial/leads"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+          >
+            <Users size={18} />
+            I Miei Lead
+          </Link>
+          <Link
+            href="/commercial/tasks"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+          >
+            <ListTodo size={18} />
+            Promemoria
+          </Link>
         </div>
-        
-        {/* Monthly Goals Progress - Compact version */}
-        <GoalsProgress compact />
       </div>
 
-      {/* Charts Row */}
+      {/* Two Column Section: Attention + Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Conversion Funnel */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Funnel di Conversione
-          </h2>
-          <FunnelChart
-            stages={funnelData}
-            height={280}
-            showPercentages={true}
-            showDropoff={true}
-          />
-        </div>
-
-        {/* Performance Trend */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Trend Performance (30 giorni)
-          </h2>
-          <LineChart
-            data={trendData}
-            xKey="date"
-            height={280}
-            showGrid={true}
-            showLegend={true}
-            lines={[
-              { dataKey: "contattati", color: "#3B82F6", name: "Contattati" },
-              { dataKey: "iscritti", color: "#10B981", name: "Iscritti" },
-            ]}
-          />
-        </div>
-      </div>
-
-      {/* Status Distribution + Two Column Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Status Distribution Pie */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Distribuzione Stati
-          </h2>
-          {statusDistribution.length > 0 ? (
-            <PieChart 
-              data={statusDistribution} 
-              nameKey="name"
-              valueKey="value"
-              colors={statusDistribution.map(s => s.color)}
-              height={250} 
-              showLegend={true} 
-            />
-          ) : (
-            <div className="flex items-center justify-center h-[250px] text-gray-400">
-              Nessun dato disponibile
-            </div>
-          )}
-        </div>
-
         {/* Leads Needing Attention */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -653,7 +456,7 @@ export default function CommercialDashboard() {
         {/* Activity Timeline */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Attivita Recenti
+            Attività Recenti
           </h2>
           <div className="space-y-3">
             {activities.length > 0 ? (
@@ -678,7 +481,7 @@ export default function CommercialDashboard() {
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                 <Clock size={32} className="mb-2" />
-                <p className="text-sm">Nessuna attivita recente</p>
+                <p className="text-sm">Nessuna attività recente</p>
               </div>
             )}
           </div>
@@ -693,7 +496,7 @@ export default function CommercialDashboard() {
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Lead Recenti da Contattare</h2>
+              <h2 className="text-lg font-semibold">Lead da Contattare</h2>
               <p className="text-sm text-gray-500">
                 Lead non contattati o da richiamare
               </p>
@@ -714,7 +517,7 @@ export default function CommercialDashboard() {
                 <th className="px-6 py-3 font-medium">Data</th>
                 <th className="px-6 py-3 font-medium">Nome</th>
                 <th className="px-6 py-3 font-medium">Corso</th>
-                <th className="px-6 py-3 font-medium">Contattato</th>
+                <th className="px-6 py-3 font-medium">Stato</th>
                 <th className="px-6 py-3 font-medium">Target</th>
                 <th className="px-6 py-3 font-medium">Azioni</th>
               </tr>
@@ -765,7 +568,7 @@ export default function CommercialDashboard() {
                         </Tooltip>
                       ) : (
                         <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                          Sì
+                          Contattato
                         </span>
                       )}
                     </td>
@@ -798,12 +601,9 @@ export default function CommercialDashboard() {
                 (lead) => !isContacted(lead) || lead.callOutcome === "RICHIAMARE"
               ).length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
-                    <CheckCircle
-                      size={32}
-                      className="mx-auto mb-2 text-green-500"
-                    />
-                    <p>Ottimo lavoro! Nessun lead da contattare.</p>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    <CheckCircle size={32} className="mx-auto mb-2" />
+                    <p>Nessun lead in attesa</p>
                   </td>
                 </tr>
               )}

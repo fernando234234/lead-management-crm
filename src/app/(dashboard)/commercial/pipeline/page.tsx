@@ -222,11 +222,8 @@ export default function CommercialPipelinePage() {
     const nuovo = filteredLeads.filter((l) => l.status === "NUOVO").length;
     const contattato = filteredLeads.filter((l) => l.status === "CONTATTATO").length;
     const inTrattativa = filteredLeads.filter((l) => l.status === "IN_TRATTATIVA").length;
-    const iscritto = filteredLeads.filter((l) => l.status === "ISCRITTO").length;
-    const perso = filteredLeads.filter((l) => l.status === "PERSO").length;
-    const conversionRate = total > 0 ? ((iscritto / total) * 100).toFixed(1) : "0";
 
-    return { total, nuovo, contattato, inTrattativa, iscritto, perso, conversionRate };
+    return { total, nuovo, contattato, inTrattativa };
   };
 
   const stats = getStats();
@@ -272,8 +269,8 @@ export default function CommercialPipelinePage() {
         </div>
       </div>
 
-      {/* Stats Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      {/* Stats Summary - Task-related counts only */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
             <Users size={16} />
@@ -301,27 +298,6 @@ export default function CommercialPipelinePage() {
             In Trattativa
           </div>
           <p className="text-2xl font-bold text-purple-600">{stats.inTrattativa}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-2 text-green-500 text-sm mb-1">
-            <CheckCircle size={16} />
-            Iscritti
-          </div>
-          <p className="text-2xl font-bold text-green-600">{stats.iscritto}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-2 text-red-500 text-sm mb-1">
-            <XCircle size={16} />
-            Persi
-          </div>
-          <p className="text-2xl font-bold text-red-600">{stats.perso}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-            <TrendingUp size={16} />
-            Conversione
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.conversionRate}%</p>
         </div>
       </div>
 

@@ -63,7 +63,6 @@ const roleConfig = {
       { href: "/commercial/pipeline", label: "Pipeline", icon: Columns3 },
       { href: "/commercial/tasks", label: "Promemoria", icon: ClipboardList },
       { href: "/commercial/courses", label: "Corsi", icon: BookOpen },
-      { href: "/commercial/stats", label: "Le Mie Stats", icon: BarChart3 },
       { href: "/commercial/faq", label: "Guida e FAQ", icon: HelpCircle },
     ],
   },
