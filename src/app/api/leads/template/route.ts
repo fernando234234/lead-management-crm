@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Force dynamic rendering since we access request.url
+export const dynamic = "force-dynamic";
+
 // =============================================================================
 // LLM INSTRUCTIONS FOR DATA CONVERSION
 // =============================================================================
