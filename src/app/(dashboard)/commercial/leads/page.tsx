@@ -123,6 +123,9 @@ export default function CommercialLeadsPage() {
     courseId: "",
     campaignId: "",
     notes: "",
+    contacted: false,
+    isTarget: false,
+    enrolled: false,
   });
 
   // Edit form data
@@ -170,6 +173,22 @@ export default function CommercialLeadsPage() {
       toast.error("Errore nel caricamento dei dati");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Lightweight fetch that only reloads leads (not courses/campaigns)
+  const fetchLeadsOnly = async () => {
+    try {
+      const leadsRes = await fetch("/api/leads?assignedToMe=true");
+      const leadsData = await leadsRes.json();
+      const myLeads = leadsData.filter(
+        (lead: Lead & { createdBy?: { id: string } }) =>
+          lead.assignedTo?.id === session?.user?.id ||
+          lead.createdBy?.id === session?.user?.id
+      );
+      setLeads(myLeads);
+    } catch (error) {
+      console.error("Failed to fetch leads:", error);
     }
   };
 
@@ -231,34 +250,48 @@ export default function CommercialLeadsPage() {
   const performEditSubmit = async () => {
     if (!editingLead) return;
 
-    try {
-      const updateData: Record<string, unknown> = {
-        name: editFormData.name,
-        notes: editFormData.notes || null,
-        contacted: editFormData.contacted,
-        isTarget: editFormData.isTarget,
-        targetNote: editFormData.targetNote || null,
-        enrolled: editFormData.enrolled,
-      };
+    // Optimistic update
+    const previousLeads = [...leads];
+    const now = new Date().toISOString();
+    
+    const updateData: Partial<Lead> = {
+      name: editFormData.name,
+      notes: editFormData.notes || null,
+      contacted: editFormData.contacted,
+      isTarget: editFormData.isTarget,
+      targetNote: editFormData.targetNote || null,
+      enrolled: editFormData.enrolled,
+    };
+    
+    // Add enrolledAt timestamp if enrolling
+    if (editFormData.enrolled && !editingLead.enrolled) {
+      updateData.enrolledAt = now;
+    }
+    
+    setLeads(prev => prev.map(lead => 
+      lead.id === editingLead.id ? { ...lead, ...updateData } : lead
+    ));
 
-      // Add enrolledAt timestamp if enrolling
+    try {
+      const apiData: Record<string, unknown> = { ...updateData };
       if (editFormData.enrolled && !editingLead.enrolled) {
-        updateData.enrolledAt = new Date().toISOString();
+        apiData.enrolledAt = now;
       }
 
       const response = await fetch(`/api/leads/${editingLead.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify(apiData),
       });
 
       if (!response.ok) throw new Error("Failed to update lead");
       
       toast.success("Lead aggiornato con successo");
       setShowEditModal(false);
-      fetchData();
     } catch (error) {
       console.error("Failed to update lead:", error);
+      // Rollback on error
+      setLeads(previousLeads);
       toast.error("Errore nell'aggiornamento del lead");
     }
   };
@@ -290,6 +323,7 @@ export default function CommercialLeadsPage() {
     }
 
     setCreating(true);
+    const now = new Date().toISOString();
     try {
       const response = await fetch("/api/leads", {
         method: "POST",
@@ -302,9 +336,11 @@ export default function CommercialLeadsPage() {
           createdById: session?.user?.id,
           notes: createFormData.notes || null,
           source: "MANUAL",
-          contacted: false,
-          isTarget: false,
-          enrolled: false,
+          contacted: createFormData.contacted,
+          contactedAt: createFormData.contacted ? now : null,
+          isTarget: createFormData.isTarget,
+          enrolled: createFormData.enrolled,
+          enrolledAt: createFormData.enrolled ? now : null,
         }),
       });
 
@@ -314,9 +350,10 @@ export default function CommercialLeadsPage() {
       }
 
       setShowCreateModal(false);
-      setCreateFormData({ name: "", courseId: "", campaignId: "", notes: "" });
+      setCreateFormData({ name: "", courseId: "", campaignId: "", notes: "", contacted: false, isTarget: false, enrolled: false });
       toast.success("Lead creato con successo!");
-      fetchData();
+      // Use lightweight fetch - only reload leads, not courses/campaigns
+      fetchLeadsOnly();
     } catch (error) {
       console.error("Failed to create lead:", error);
       toast.error(error instanceof Error ? error.message : "Errore nella creazione del lead");
@@ -348,29 +385,61 @@ export default function CommercialLeadsPage() {
     await performStateUpdate(leadId, field, value);
   };
 
-  // Perform the actual state update
+  // Perform the actual state update with optimistic UI
   const performStateUpdate = async (leadId: string, field: string, value: boolean) => {
+    // Optimistic update - immediately update local state
+    const previousLeads = [...leads];
+    const now = new Date().toISOString();
+    
+    setLeads(prev => prev.map(lead => {
+      if (lead.id === leadId) {
+        const updateData: Partial<Lead> = { [field]: value } as Partial<Lead>;
+        if (value) {
+          if (field === "contacted") updateData.contactedAt = now;
+          if (field === "enrolled") updateData.enrolledAt = now;
+        }
+        return { ...lead, ...updateData };
+      }
+      return lead;
+    }));
+    
+    // Also update detailLead if it's the same lead
+    if (detailLead?.id === leadId) {
+      const updateData: Partial<Lead> = { [field]: value } as Partial<Lead>;
+      if (value) {
+        if (field === "contacted") updateData.contactedAt = now;
+        if (field === "enrolled") updateData.enrolledAt = now;
+      }
+      setDetailLead(prev => prev ? { ...prev, ...updateData } : null);
+    }
+
     try {
       const updateData: Record<string, unknown> = { [field]: value };
       
       // Add timestamp for true states
       if (value) {
-        if (field === "contacted") updateData.contactedAt = new Date().toISOString();
-        if (field === "enrolled") updateData.enrolledAt = new Date().toISOString();
+        if (field === "contacted") updateData.contactedAt = now;
+        if (field === "enrolled") updateData.enrolledAt = now;
       }
 
-      await fetch(`/api/leads/${leadId}`, {
+      const response = await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updateData),
       });
-      fetchData();
+      
+      if (!response.ok) throw new Error("Failed to update");
       
       if (field === "enrolled" && value) {
         toast.success("Lead segnato come iscritto!");
       }
     } catch (error) {
       console.error("Failed to update lead state:", error);
+      // Rollback on error
+      setLeads(previousLeads);
+      if (detailLead?.id === leadId) {
+        setDetailLead(previousLeads.find(l => l.id === leadId) || null);
+      }
       toast.error("Errore nell'aggiornamento");
     }
   };
@@ -389,29 +458,52 @@ export default function CommercialLeadsPage() {
     setPendingEnrolledLead(null);
   };
 
-  // Handle call outcome submission
+  // Handle call outcome submission with optimistic update
   const handleCallOutcomeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingContactedLead || !callOutcomeData.callOutcome) return;
 
+    const leadId = pendingContactedLead.id;
+    const previousLeads = [...leads];
+    const now = new Date().toISOString();
+    const newAttempts = (pendingContactedLead.callAttempts || 0) + 1;
+    
+    // Optimistic update
+    const optimisticUpdate: Partial<Lead> = {
+      contacted: true,
+      contactedAt: now,
+      callOutcome: callOutcomeData.callOutcome,
+      callAttempts: newAttempts,
+      lastAttemptAt: now,
+      firstAttemptAt: pendingContactedLead.firstAttemptAt || now,
+    };
+    
+    // Mark as PERSO if negative or 8 attempts reached
+    if (callOutcomeData.callOutcome === 'NEGATIVO' || 
+        ((callOutcomeData.callOutcome === 'NON_RISPONDE' || callOutcomeData.callOutcome === 'RICHIAMARE') && newAttempts >= 8)) {
+      optimisticUpdate.status = 'PERSO';
+    }
+    
+    setLeads(prev => prev.map(lead => 
+      lead.id === leadId ? { ...lead, ...optimisticUpdate } : lead
+    ));
+
     try {
-      await fetch(`/api/leads/${pendingContactedLead.id}`, {
+      await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contacted: true,
-          contactedAt: new Date().toISOString(),
+          contactedAt: now,
           callOutcome: callOutcomeData.callOutcome,
           outcomeNotes: callOutcomeData.outcomeNotes || null,
         }),
       });
-      fetchData();
       
       // Show appropriate message based on outcome
       if (callOutcomeData.callOutcome === 'NEGATIVO') {
         toast.success("Lead segnato come PERSO (non interessato)");
       } else if (callOutcomeData.callOutcome === 'NON_RISPONDE' || callOutcomeData.callOutcome === 'RICHIAMARE') {
-        const newAttempts = (pendingContactedLead.callAttempts || 0) + 1;
         if (newAttempts >= 8) {
           toast.success("Lead segnato come PERSO (8 tentativi raggiunti)");
         } else {
@@ -422,6 +514,8 @@ export default function CommercialLeadsPage() {
       }
     } catch (error) {
       console.error("Failed to log call outcome:", error);
+      // Rollback on error
+      setLeads(previousLeads);
       toast.error("Errore nel salvataggio");
     }
     
@@ -437,15 +531,32 @@ export default function CommercialLeadsPage() {
   };
 
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
+    // Optimistic update
+    const previousLeads = [...leads];
+    const previousDetailLead = detailLead;
+    
+    setLeads(prev => prev.map(lead => 
+      lead.id === leadId ? { ...lead, ...data } : lead
+    ));
+    
+    if (detailLead?.id === leadId) {
+      setDetailLead(prev => prev ? { ...prev, ...data } : null);
+    }
+
     try {
-      await fetch(`/api/leads/${leadId}`, {
+      const response = await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      fetchData();
+      
+      if (!response.ok) throw new Error("Failed to update");
     } catch (error) {
       console.error("Failed to update lead:", error);
+      // Rollback on error
+      setLeads(previousLeads);
+      setDetailLead(previousDetailLead);
+      toast.error("Errore nell'aggiornamento");
     }
   };
 
@@ -941,6 +1052,32 @@ export default function CommercialLeadsPage() {
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
                 />
               </div>
+
+              {/* Status Toggles */}
+              <div className="space-y-3 pt-2">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <BooleanToggle
+                    label="Contattato"
+                    value={createFormData.contacted}
+                    onChange={(v) => setCreateFormData({ ...createFormData, contacted: v })}
+                  />
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <BooleanToggle
+                    label="Target (In obiettivo)"
+                    value={createFormData.isTarget}
+                    onChange={(v) => setCreateFormData({ ...createFormData, isTarget: v })}
+                  />
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <BooleanToggle
+                    label="Iscritto"
+                    value={createFormData.enrolled}
+                    onChange={(v) => setCreateFormData({ ...createFormData, enrolled: v })}
+                  />
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"

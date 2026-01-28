@@ -206,6 +206,17 @@ export default function AdminLeadsPage() {
     }
   };
 
+  // Lightweight fetch - only refetches leads (not courses, users, campaigns)
+  const fetchLeadsOnly = async () => {
+    try {
+      const res = await fetch("/api/leads");
+      const data = await res.json();
+      setLeads(data);
+    } catch (error) {
+      console.error("Failed to fetch leads:", error);
+    }
+  };
+
   // Sort function
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -332,31 +343,81 @@ export default function AdminLeadsPage() {
   // Bulk Actions
   const handleBulkAssign = async (data: { assignedToId: string } | { distribute: true }) => {
     const leadIds = Array.from(selectedLeads);
-
-    try {
-      const response = await fetch("/api/leads/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "assign",
-          leadIds,
-          data,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to assign leads");
-      }
-
-      await fetchData();
+    
+    // For simple assignment (not distribute), we can do optimistic update
+    if ('assignedToId' in data) {
+      const assignedUser = commercials.find(c => c.id === data.assignedToId);
+      const previousLeads = [...leads];
+      
+      setLeads(leads.map(lead => 
+        leadIds.includes(lead.id) 
+          ? { ...lead, assignedTo: assignedUser ? { id: assignedUser.id, name: assignedUser.name, email: assignedUser.email || '' } : null }
+          : lead
+      ));
       clearSelection();
-    } catch (error) {
-      console.error("Failed to bulk assign:", error);
+      
+      try {
+        const response = await fetch("/api/leads/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "assign",
+            leadIds,
+            data,
+          }),
+        });
+
+        if (!response.ok) {
+          setLeads(previousLeads);
+          toast.error("Errore nell'assegnazione");
+        } else {
+          toast.success(`${leadIds.length} lead assegnati`);
+        }
+      } catch (error) {
+        setLeads(previousLeads);
+        console.error("Failed to bulk assign:", error);
+        toast.error("Errore nell'assegnazione");
+      }
+    } else {
+      // For distribute, we need to refetch to get the distributed assignments
+      try {
+        const response = await fetch("/api/leads/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "assign",
+            leadIds,
+            data,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to assign leads");
+        }
+
+        // Only refetch leads, not courses/users/campaigns
+        const leadsRes = await fetch("/api/leads");
+        const leadsData = await leadsRes.json();
+        setLeads(leadsData);
+        clearSelection();
+        toast.success(`${leadIds.length} lead distribuiti`);
+      } catch (error) {
+        console.error("Failed to bulk assign:", error);
+        toast.error("Errore nella distribuzione");
+      }
     }
   };
 
   const handleBulkStatusChange = async (status: string) => {
     const leadIds = Array.from(selectedLeads);
+    
+    // Optimistic update
+    const previousLeads = [...leads];
+    setLeads(leads.map(lead => 
+      leadIds.includes(lead.id) ? { ...lead, status } : lead
+    ));
+    clearSelection();
+    setShowBulkStatusDropdown(false);
 
     try {
       const response = await fetch("/api/leads/bulk", {
@@ -370,19 +431,27 @@ export default function AdminLeadsPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update status");
+        // Rollback on error
+        setLeads(previousLeads);
+        toast.error("Errore nell'aggiornamento dello stato");
+      } else {
+        toast.success(`${leadIds.length} lead aggiornati`);
       }
-
-      await fetchData();
-      clearSelection();
-      setShowBulkStatusDropdown(false);
     } catch (error) {
+      // Rollback on error
+      setLeads(previousLeads);
       console.error("Failed to bulk update status:", error);
+      toast.error("Errore nell'aggiornamento dello stato");
     }
   };
 
   const handleBulkDelete = async () => {
     const leadIds = Array.from(selectedLeads);
+    
+    // Optimistic delete
+    const previousLeads = [...leads];
+    setLeads(leads.filter(lead => !leadIds.includes(lead.id)));
+    clearSelection();
 
     try {
       const response = await fetch("/api/leads/bulk", {
@@ -395,13 +464,15 @@ export default function AdminLeadsPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete leads");
+        setLeads(previousLeads);
+        toast.error("Errore nell'eliminazione");
+      } else {
+        toast.success(`${leadIds.length} lead eliminati`);
       }
-
-      await fetchData();
-      clearSelection();
     } catch (error) {
+      setLeads(previousLeads);
       console.error("Failed to bulk delete:", error);
+      toast.error("Errore nell'eliminazione");
     }
   };
 
@@ -515,7 +586,8 @@ export default function AdminLeadsPage() {
       }
       setShowModal(false);
       toast.success(editingLead ? "Lead aggiornato" : "Lead creato");
-      fetchData();
+      // Only fetch leads, not courses/users/campaigns
+      fetchLeadsOnly();
     } catch (error) {
       console.error("Failed to save lead:", error);
       toast.error("Errore nel salvataggio del lead");
@@ -525,39 +597,81 @@ export default function AdminLeadsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Sei sicuro di voler eliminare questo lead?")) return;
 
+    // Optimistic delete
+    const previousLeads = [...leads];
+    setLeads(leads.filter(lead => lead.id !== id));
+    
     try {
-      await fetch(`/api/leads/${id}`, { method: "DELETE" });
-      toast.success("Lead eliminato");
-      fetchData();
+      const response = await fetch(`/api/leads/${id}`, { method: "DELETE" });
+      if (response.ok) {
+        toast.success("Lead eliminato");
+      } else {
+        setLeads(previousLeads);
+        toast.error("Errore nell'eliminazione del lead");
+      }
     } catch (error) {
+      setLeads(previousLeads);
       console.error("Failed to delete lead:", error);
       toast.error("Errore nell'eliminazione del lead");
     }
   };
 
   const handleQuickStatusUpdate = async (id: string, status: string) => {
+    // Optimistic update - update local state immediately
+    const previousLeads = [...leads];
+    setLeads(leads.map(lead => 
+      lead.id === id ? { ...lead, status } : lead
+    ));
+    
     try {
-      await fetch(`/api/leads/${id}`, {
+      const response = await fetch(`/api/leads/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      fetchData();
+      
+      if (!response.ok) {
+        // Rollback on error
+        setLeads(previousLeads);
+        toast.error("Errore nell'aggiornamento dello stato");
+      }
     } catch (error) {
+      // Rollback on error
+      setLeads(previousLeads);
       console.error("Failed to update status:", error);
+      toast.error("Errore nell'aggiornamento dello stato");
     }
   };
 
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
+    // Optimistic update - update local state immediately
+    const previousLeads = [...leads];
+    setLeads(leads.map(lead => 
+      lead.id === leadId ? { ...lead, ...data } : lead
+    ));
+    
+    // Also update detailLead if it's open
+    if (detailLead?.id === leadId) {
+      setDetailLead({ ...detailLead, ...data });
+    }
+    
     try {
-      await fetch(`/api/leads/${leadId}`, {
+      const response = await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      fetchData();
+      
+      if (!response.ok) {
+        // Rollback on error
+        setLeads(previousLeads);
+        toast.error("Errore nell'aggiornamento del lead");
+      }
     } catch (error) {
+      // Rollback on error
+      setLeads(previousLeads);
       console.error("Failed to update lead:", error);
+      toast.error("Errore nell'aggiornamento del lead");
     }
   };
 

@@ -203,18 +203,22 @@ export default function LeadDetailModal({
         if (field === "enrolled") updateData.enrolledAt = new Date().toISOString();
       }
       
-      await onUpdate(lead.id, updateData as Partial<Lead>);
-      
-      // Log activity
+      // Prepare activity data
       const fieldLabels: Record<string, string> = {
         contacted: "Contattato",
         isTarget: "Target",
         enrolled: "Iscritto",
       };
-      await handleAddActivity({
+      const activityData = {
         type: "STATUS_CHANGE",
         description: `${fieldLabels[field]} cambiato a ${value ? "Sì" : "No"}`,
-      });
+      };
+      
+      // Execute both API calls in parallel for better performance
+      await Promise.all([
+        onUpdate(lead.id, updateData as Partial<Lead>),
+        handleAddActivity(activityData),
+      ]);
     } finally {
       setIsSubmitting(false);
     }
@@ -224,18 +228,26 @@ export default function LeadDetailModal({
     if (!callNote.trim()) return;
     setIsSubmitting(true);
     try {
-      await handleAddActivity({
-        type: "CALL",
-        description: callNote.trim(),
-      });
+      // Prepare promises array
+      const promises: Promise<unknown>[] = [
+        handleAddActivity({
+          type: "CALL",
+          description: callNote.trim(),
+        })
+      ];
 
       // Auto-set contacted to true if not already
       if (!lead.contacted && onUpdate) {
-        await onUpdate(lead.id, {
-          contacted: true,
-          contactedAt: new Date().toISOString(),
-        } as Partial<Lead>);
+        promises.push(
+          onUpdate(lead.id, {
+            contacted: true,
+            contactedAt: new Date().toISOString(),
+          } as Partial<Lead>)
+        );
       }
+      
+      // Execute all calls in parallel
+      await Promise.all(promises);
       
       setCallNote("");
       setShowCallNote(false);

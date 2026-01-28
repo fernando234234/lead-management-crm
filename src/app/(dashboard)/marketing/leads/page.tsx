@@ -141,6 +141,9 @@ export default function MarketingLeadsPage() {
     courseId: "",
     campaignId: "",
     notes: "",
+    contacted: false,
+    isTarget: false,
+    enrolled: false,
   });
 
   const [formData, setFormData] = useState({
@@ -181,6 +184,7 @@ export default function MarketingLeadsPage() {
       return;
     }
 
+    const now = new Date().toISOString();
     try {
       const response = await fetch("/api/leads", {
         method: "POST",
@@ -194,6 +198,11 @@ export default function MarketingLeadsPage() {
           notes: createFormData.notes || null,
           source: "MANUAL",
           createdById: session?.user?.id || null,
+          contacted: createFormData.contacted,
+          contactedAt: createFormData.contacted ? now : null,
+          isTarget: createFormData.isTarget,
+          enrolled: createFormData.enrolled,
+          enrolledAt: createFormData.enrolled ? now : null,
         }),
       });
 
@@ -208,8 +217,12 @@ export default function MarketingLeadsPage() {
         courseId: "",
         campaignId: "",
         notes: "",
+        contacted: false,
+        isTarget: false,
+        enrolled: false,
       });
-      fetchData();
+      // Use lightweight fetch - only reload leads, not campaigns
+      fetchLeadsOnly();
     } catch (error) {
       console.error("Failed to create lead:", error);
       toast.error("Errore nella creazione del lead");
@@ -240,6 +253,17 @@ export default function MarketingLeadsPage() {
       toast.error("Errore nel caricamento dei dati");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Lightweight fetch that only reloads leads (not campaigns)
+  const fetchLeadsOnly = async () => {
+    try {
+      const leadsRes = await fetch("/api/leads");
+      const leadsData = await leadsRes.json();
+      setLeads(leadsData);
+    } catch (error) {
+      console.error("Failed to fetch leads:", error);
     }
   };
 
@@ -367,17 +391,33 @@ export default function MarketingLeadsPage() {
     setSelectedLeads(new Set());
   };
 
-  // Handle lead update from detail modal
+  // Handle lead update from detail modal with optimistic update
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
+    // Optimistic update
+    const previousLeads = [...leads];
+    const previousDetailLead = detailLead;
+    
+    setLeads(prev => prev.map(lead => 
+      lead.id === leadId ? { ...lead, ...data } : lead
+    ));
+    
+    if (detailLead?.id === leadId) {
+      setDetailLead(prev => prev ? { ...prev, ...data } : null);
+    }
+
     try {
-      await fetch(`/api/leads/${leadId}`, {
+      const response = await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      fetchData();
+      
+      if (!response.ok) throw new Error("Failed to update");
     } catch (error) {
       console.error("Failed to update lead:", error);
+      // Rollback on error
+      setLeads(previousLeads);
+      setDetailLead(previousDetailLead);
       toast.error("Errore nell'aggiornamento del lead");
     }
   };
@@ -396,13 +436,29 @@ export default function MarketingLeadsPage() {
     setShowEditModal(true);
   };
 
-  // Handle edit submit
+  // Handle edit submit with optimistic update
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingLead) return;
 
+    // Optimistic update
+    const previousLeads = [...leads];
+    const updateData: Partial<Lead> = {
+      name: formData.name,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      notes: formData.notes || null,
+      contacted: formData.contacted,
+      isTarget: formData.isTarget,
+      enrolled: formData.enrolled,
+    };
+    
+    setLeads(prev => prev.map(lead => 
+      lead.id === editingLead.id ? { ...lead, ...updateData } : lead
+    ));
+
     try {
-      await fetch(`/api/leads/${editingLead.id}`, {
+      const response = await fetch(`/api/leads/${editingLead.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -415,11 +471,15 @@ export default function MarketingLeadsPage() {
           enrolled: formData.enrolled,
         }),
       });
+      
+      if (!response.ok) throw new Error("Failed to update");
+      
       setShowEditModal(false);
       toast.success("Lead aggiornato con successo");
-      fetchData();
     } catch (error) {
       console.error("Failed to update lead:", error);
+      // Rollback on error
+      setLeads(previousLeads);
       toast.error("Errore nell'aggiornamento del lead");
     }
   };
@@ -970,6 +1030,26 @@ export default function MarketingLeadsPage() {
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
                 />
               </div>
+
+              {/* Status Toggles */}
+              <div className="space-y-3 pt-2">
+                <BooleanToggle
+                  label="Contattato"
+                  value={createFormData.contacted}
+                  onChange={(v) => setCreateFormData({ ...createFormData, contacted: v })}
+                />
+                <BooleanToggle
+                  label="Target (In obiettivo)"
+                  value={createFormData.isTarget}
+                  onChange={(v) => setCreateFormData({ ...createFormData, isTarget: v })}
+                />
+                <BooleanToggle
+                  label="Iscritto"
+                  value={createFormData.enrolled}
+                  onChange={(v) => setCreateFormData({ ...createFormData, enrolled: v })}
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"

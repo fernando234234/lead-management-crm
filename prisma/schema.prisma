@@ -126,6 +126,14 @@ model Lead {
   @@index([courseId])
   @@index([createdById])
   @@index([source])
+  // Performance indexes for common queries
+  @@index([status])
+  @@index([contacted])
+  @@index([enrolled])
+  @@index([createdAt])
+  @@index([enrolledAt])
+  @@index([lastAttemptAt])
+  @@index([contactedAt])
 }
 
 model LeadActivity {

@@ -65,27 +65,30 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          // Distribute leads evenly
+          // Distribute leads evenly using transaction for atomicity and performance
           const assignments: { leadId: string; commercialId: string }[] = [];
           leadIds.forEach((leadId, index) => {
             const commercial = commercials[index % commercials.length];
             assignments.push({ leadId, commercialId: commercial.id });
           });
 
-          // Update leads in bulk
-          for (const assignment of assignments) {
-            try {
-              await prisma.lead.update({
-                where: { id: assignment.leadId },
-                data: { assignedToId: assignment.commercialId },
-              });
-              successCount++;
-            } catch (error) {
-              errors.push({
-                leadId: assignment.leadId,
-                error: error instanceof Error ? error.message : "Unknown error",
-              });
-            }
+          // OPTIMIZED: Use transaction to batch all updates
+          try {
+            await prisma.$transaction(
+              assignments.map((assignment) =>
+                prisma.lead.update({
+                  where: { id: assignment.leadId },
+                  data: { assignedToId: assignment.commercialId },
+                })
+              )
+            );
+            successCount = assignments.length;
+          } catch (error) {
+            // Transaction failed - all updates rolled back
+            return NextResponse.json(
+              { error: error instanceof Error ? error.message : "Failed to distribute leads" },
+              { status: 500 }
+            );
           }
         } else if (data?.assignedToId) {
           // Single assignment
@@ -216,20 +219,23 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Update each lead with its specific cost
-        for (const dist of data.distributions) {
-          try {
-            await prisma.lead.update({
-              where: { id: dist.leadId },
-              data: { acquisitionCost: dist.cost },
-            });
-            successCount++;
-          } catch (error) {
-            errors.push({
-              leadId: dist.leadId,
-              error: error instanceof Error ? error.message : "Unknown error",
-            });
-          }
+        // Update each lead with its specific cost using transaction
+        try {
+          await prisma.$transaction(
+            data.distributions.map((dist) =>
+              prisma.lead.update({
+                where: { id: dist.leadId },
+                data: { acquisitionCost: dist.cost },
+              })
+            )
+          );
+          successCount = data.distributions.length;
+        } catch (error) {
+          // Transaction failed - all updates rolled back
+          return NextResponse.json(
+            { error: error instanceof Error ? error.message : "Failed to distribute costs by period" },
+            { status: 500 }
+          );
         }
         break;
       }

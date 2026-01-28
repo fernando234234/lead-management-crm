@@ -4,8 +4,11 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createNotification, createNotificationForRole } from "@/lib/notifications";
 
-// Auto-cleanup: Mark stale leads as PERSO
-// Runs on each GET request (lightweight, uses indexed query)
+// Rate-limited auto-cleanup: Mark stale leads as PERSO
+// Only runs once per minute to avoid unnecessary DB writes on every request
+const CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
+let lastCleanupTime = 0;
+
 async function autoCleanupStaleLeads() {
   const fifteenDaysAgo = new Date();
   fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
@@ -42,14 +45,28 @@ async function autoCleanupStaleLeads() {
   });
 }
 
+// Rate-limited wrapper - only runs cleanup if interval has passed
+async function maybeCleanupStaleLeads() {
+  const now = Date.now();
+  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) {
+    return; // Skip cleanup, ran recently
+  }
+  lastCleanupTime = now;
+  
+  // Run cleanup in background (don't await to avoid blocking the response)
+  autoCleanupStaleLeads().catch(err => {
+    console.error("Auto-cleanup failed:", err);
+  });
+}
+
 // GET /api/leads - Fetch leads with visibility rules based on user role
 // - ADMIN: sees all leads
 // - MARKETING: sees leads from campaigns they created
 // - COMMERCIAL: sees leads they created OR are assigned to
 export async function GET(request: NextRequest) {
   try {
-    // Auto-cleanup stale leads on each fetch (lightweight indexed query)
-    await autoCleanupStaleLeads();
+    // Auto-cleanup stale leads (rate-limited to once per minute, non-blocking)
+    maybeCleanupStaleLeads();
     
     const session = await getServerSession(authOptions);
     const { searchParams } = new URL(request.url);
