@@ -1155,17 +1155,19 @@ export default function AdminLeadsPage() {
                   <label htmlFor="lead-assigned" className="block text-sm font-medium text-gray-700 mb-1">
                     Assegna a Commerciale
                   </label>
-                      <select
-                        id="lead-call-outcome"
-                        value={formData.callOutcome}
-                        onChange={(e) => setFormData({ ...formData, callOutcome: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                      >
-                        <option value="">Seleziona esito</option>
-                        <option value="POSITIVO">Interessato</option>
-                        <option value="RICHIAMARE">Da Richiamare</option>
-                        <option value="NEGATIVO">Non Interessato</option>
-                      </select>
+                  <select
+                    id="lead-assigned"
+                    value={formData.assignedToId}
+                    onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
+                  >
+                    <option value="">Non assegnato</option>
+                    {commercials.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name || user.email}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </fieldset>
 

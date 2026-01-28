@@ -100,7 +100,16 @@ export async function PUT(
     // - RICHIAMARE: No answer / call back later, counter +1
     // - NEGATIVO: Not interested, immediate PERSO
     if (body.status !== undefined) updateData.status = body.status;
+    
+    // Validate call outcome if provided
+    const VALID_CALL_OUTCOMES = ['POSITIVO', 'RICHIAMARE', 'NEGATIVO'] as const;
     if (body.callOutcome !== undefined) {
+      if (!VALID_CALL_OUTCOMES.includes(body.callOutcome)) {
+        return NextResponse.json(
+          { error: `Invalid callOutcome. Must be one of: ${VALID_CALL_OUTCOMES.join(', ')}` },
+          { status: 400 }
+        );
+      }
       updateData.callOutcome = body.callOutcome;
       
       const newAttempts = (currentLead?.callAttempts || 0) + 1;
