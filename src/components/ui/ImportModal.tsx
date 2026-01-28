@@ -45,6 +45,12 @@ interface FuzzyWarning {
   count: number;
 }
 
+// Correction choice - what user decides to do with unmatched value
+interface CorrectionChoice {
+  action: "keep" | "replace"; // keep = create new, replace = use existing
+  replacementValue?: string; // the existing value to use instead
+}
+
 // Lead fields that can be mapped
 const LEAD_FIELDS = [
   { key: "nome", label: "Nome", required: true },
@@ -56,6 +62,52 @@ const LEAD_FIELDS = [
   { key: "note", label: "Note", required: false },
   { key: "assignedTo", label: "Assegnato a (email)", required: false },
 ];
+
+// Helper component for the warnings step import button
+function WarningsImportButton({
+  fuzzyWarnings,
+  corrections,
+  getCorrectionKey,
+  onImport,
+}: {
+  fuzzyWarnings: FuzzyWarning[];
+  corrections: Record<string, CorrectionChoice>;
+  getCorrectionKey: (type: string, inputValue: string) => string;
+  onImport: () => void;
+}) {
+  const allAddressed = fuzzyWarnings.every(w => {
+    const key = getCorrectionKey(w.type, w.inputValue);
+    return corrections[key] !== undefined;
+  });
+  const addressedCount = fuzzyWarnings.filter(w => {
+    const key = getCorrectionKey(w.type, w.inputValue);
+    return corrections[key] !== undefined;
+  }).length;
+
+  return (
+    <button
+      onClick={onImport}
+      disabled={!allAddressed}
+      className={`flex items-center gap-2 px-6 py-2 rounded-lg transition ${
+        allAddressed 
+          ? "bg-green-600 text-white hover:bg-green-700" 
+          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+      }`}
+    >
+      {allAddressed ? (
+        <>
+          <CheckCircle size={18} />
+          Importa con correzioni
+        </>
+      ) : (
+        <>
+          <AlertTriangle size={18} />
+          Seleziona tutte le opzioni ({addressedCount}/{fuzzyWarnings.length})
+        </>
+      )}
+    </button>
+  );
+}
 
 export default function ImportModal({
   onClose,
@@ -80,7 +132,57 @@ export default function ImportModal({
   const [isDragging, setIsDragging] = useState(false);
   const [fuzzyWarnings, setFuzzyWarnings] = useState<FuzzyWarning[]>([]);
   const [isValidating, setIsValidating] = useState(false);
+  // Track user corrections: key = "type:inputValue", value = correction choice
+  const [corrections, setCorrections] = useState<Record<string, CorrectionChoice>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to get correction key
+  const getCorrectionKey = (type: string, inputValue: string) => `${type}:${inputValue}`;
+
+  // Handle correction choice
+  const handleCorrectionChoice = (
+    type: "course" | "commercial",
+    inputValue: string,
+    action: "keep" | "replace",
+    replacementValue?: string
+  ) => {
+    const key = getCorrectionKey(type, inputValue);
+    setCorrections(prev => ({
+      ...prev,
+      [key]: { action, replacementValue }
+    }));
+  };
+
+  // Apply corrections to validated data before import
+  const applyCorrections = () => {
+    if (!validatedData) return validatedData;
+
+    const correctedLeads = validatedData.validLeads.map(lead => {
+      let correctedLead = { ...lead };
+
+      // Check for course correction
+      if (lead.courseName) {
+        const courseKey = getCorrectionKey("course", lead.courseName);
+        const courseCorrection = corrections[courseKey];
+        if (courseCorrection?.action === "replace" && courseCorrection.replacementValue) {
+          correctedLead.courseName = courseCorrection.replacementValue;
+        }
+      }
+
+      // Check for commercial correction
+      if (lead.assignedToName) {
+        const commercialKey = getCorrectionKey("commercial", lead.assignedToName);
+        const commercialCorrection = corrections[commercialKey];
+        if (commercialCorrection?.action === "replace" && commercialCorrection.replacementValue) {
+          correctedLead.assignedToName = commercialCorrection.replacementValue;
+        }
+      }
+
+      return correctedLead;
+    });
+
+    return { ...validatedData, validLeads: correctedLeads };
+  };
 
   // Handle file selection
   const handleFileSelect = useCallback(async (selectedFile: File) => {
@@ -212,12 +314,15 @@ export default function ImportModal({
     setStep("importing");
     setImportProgress(0);
 
+    // Apply any corrections the user made
+    const dataToImport = applyCorrections();
+
     try {
       const response = await fetch("/api/leads/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          leads: validatedData.validLeads,
+          leads: dataToImport?.validLeads || validatedData.validLeads,
         }),
       });
 
@@ -548,40 +653,75 @@ export default function ImportModal({
                     <div className="space-y-3">
                       {fuzzyWarnings
                         .filter(w => w.type === "course")
-                        .map((warning, idx) => (
-                          <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  &quot;{warning.inputValue}&quot;
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  Usato in {warning.count} lead - Verra creato come nuovo corso
-                                </p>
-                              </div>
-                            </div>
-                            {warning.suggestions.length > 0 && (
-                              <div className="mt-3 pt-3 border-t">
-                                <p className="text-sm text-gray-600 mb-2">
-                                  Forse intendevi uno di questi corsi esistenti?
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {warning.suggestions.map((suggestion, sIdx) => (
-                                    <span
-                                      key={sIdx}
-                                      className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm"
-                                    >
-                                      {suggestion.name}
-                                      <span className="ml-2 text-xs text-blue-500">
-                                        ({suggestion.score}% simile)
-                                      </span>
+                        .map((warning, idx) => {
+                          const correctionKey = getCorrectionKey("course", warning.inputValue);
+                          const currentCorrection = corrections[correctionKey];
+                          
+                          return (
+                            <div key={idx} className={`bg-white border rounded-lg p-4 ${
+                              currentCorrection ? "border-green-300 bg-green-50/30" : "border-gray-200"
+                            }`}>
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-medium text-gray-900">
+                                    &quot;{warning.inputValue}&quot;
+                                    <span className="ml-2 text-sm font-normal text-gray-500">
+                                      ({warning.count} lead)
                                     </span>
-                                  ))}
+                                  </p>
+                                  {currentCorrection ? (
+                                    <p className="text-sm text-green-600 mt-1">
+                                      {currentCorrection.action === "keep" 
+                                        ? "✓ Verrà creato come nuovo corso"
+                                        : `✓ Verrà sostituito con "${currentCorrection.replacementValue}"`
+                                      }
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-yellow-600 mt-1">
+                                      Scegli cosa fare con questo valore
+                                    </p>
+                                  )}
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        ))}
+                              
+                              <div className="mt-3 pt-3 border-t space-y-2">
+                                {/* Keep as new option */}
+                                <button
+                                  onClick={() => handleCorrectionChoice("course", warning.inputValue, "keep")}
+                                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
+                                    currentCorrection?.action === "keep"
+                                      ? "bg-blue-100 border-2 border-blue-500 text-blue-800"
+                                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                  }`}
+                                >
+                                  <span className="font-medium">Crea nuovo corso</span>
+                                  <span className="text-gray-500 ml-2">
+                                    &quot;{warning.inputValue}&quot;
+                                  </span>
+                                </button>
+
+                                {/* Suggestions */}
+                                {warning.suggestions.map((suggestion, sIdx) => (
+                                  <button
+                                    key={sIdx}
+                                    onClick={() => handleCorrectionChoice("course", warning.inputValue, "replace", suggestion.name)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
+                                      currentCorrection?.action === "replace" && currentCorrection.replacementValue === suggestion.name
+                                        ? "bg-green-100 border-2 border-green-500 text-green-800"
+                                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                    }`}
+                                  >
+                                    <span className="font-medium">Usa esistente:</span>
+                                    <span className="ml-2">&quot;{suggestion.name}&quot;</span>
+                                    <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full">
+                                      {suggestion.score}% simile
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
@@ -596,50 +736,84 @@ export default function ImportModal({
                     <div className="space-y-3">
                       {fuzzyWarnings
                         .filter(w => w.type === "commercial")
-                        .map((warning, idx) => (
-                          <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  &quot;{warning.inputValue}&quot;
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  Usato in {warning.count} lead - I lead NON saranno assegnati
-                                </p>
-                              </div>
-                            </div>
-                            {warning.suggestions.length > 0 && (
-                              <div className="mt-3 pt-3 border-t">
-                                <p className="text-sm text-gray-600 mb-2">
-                                  Forse intendevi uno di questi commerciali?
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {warning.suggestions.map((suggestion, sIdx) => (
-                                    <span
-                                      key={sIdx}
-                                      className="inline-flex items-center px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm"
-                                    >
-                                      {suggestion.name}
-                                      <span className="ml-2 text-xs text-purple-500">
-                                        ({suggestion.score}% simile)
-                                      </span>
+                        .map((warning, idx) => {
+                          const correctionKey = getCorrectionKey("commercial", warning.inputValue);
+                          const currentCorrection = corrections[correctionKey];
+                          
+                          return (
+                            <div key={idx} className={`bg-white border rounded-lg p-4 ${
+                              currentCorrection ? "border-green-300 bg-green-50/30" : "border-gray-200"
+                            }`}>
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-medium text-gray-900">
+                                    &quot;{warning.inputValue}&quot;
+                                    <span className="ml-2 text-sm font-normal text-gray-500">
+                                      ({warning.count} lead)
                                     </span>
-                                  ))}
+                                  </p>
+                                  {currentCorrection ? (
+                                    <p className="text-sm text-green-600 mt-1">
+                                      {currentCorrection.action === "keep" 
+                                        ? "✓ Lead rimarranno non assegnati"
+                                        : `✓ Verrà assegnato a "${currentCorrection.replacementValue}"`
+                                      }
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-yellow-600 mt-1">
+                                      Scegli cosa fare con questo valore
+                                    </p>
+                                  )}
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        ))}
+                              
+                              <div className="mt-3 pt-3 border-t space-y-2">
+                                {/* Keep unassigned option */}
+                                <button
+                                  onClick={() => handleCorrectionChoice("commercial", warning.inputValue, "keep")}
+                                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
+                                    currentCorrection?.action === "keep"
+                                      ? "bg-purple-100 border-2 border-purple-500 text-purple-800"
+                                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                  }`}
+                                >
+                                  <span className="font-medium">Lascia non assegnati</span>
+                                  <span className="text-gray-500 ml-2">
+                                    (potrai assegnarli dopo)
+                                  </span>
+                                </button>
+
+                                {/* Suggestions */}
+                                {warning.suggestions.map((suggestion, sIdx) => (
+                                  <button
+                                    key={sIdx}
+                                    onClick={() => handleCorrectionChoice("commercial", warning.inputValue, "replace", suggestion.name)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
+                                      currentCorrection?.action === "replace" && currentCorrection.replacementValue === suggestion.name
+                                        ? "bg-green-100 border-2 border-green-500 text-green-800"
+                                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                    }`}
+                                  >
+                                    <span className="font-medium">Assegna a:</span>
+                                    <span className="ml-2">&quot;{suggestion.name}&quot;</span>
+                                    <span className="ml-2 text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full">
+                                      {suggestion.score}% simile
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+              <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-800 border border-blue-200">
                 <p>
-                  <strong>Nota:</strong> Se i nomi sono corretti, procedi pure con l&apos;importazione.
-                  I nuovi corsi verranno creati automaticamente. I lead con commerciali non riconosciuti
-                  rimarranno non assegnati.
+                  <strong>Seleziona un&apos;opzione per ogni valore</strong> per procedere con l&apos;importazione.
+                  Puoi creare nuovi corsi o usare quelli esistenti, e assegnare i lead ai commerciali corretti.
                 </p>
               </div>
             </div>
@@ -722,6 +896,7 @@ export default function ImportModal({
                     } else if (step === "warnings") {
                       setStep("preview");
                       setFuzzyWarnings([]);
+                      setCorrections({});
                     }
                     setError(null);
                   }}
@@ -772,13 +947,12 @@ export default function ImportModal({
               )}
 
               {step === "warnings" && validatedData && validatedData.validLeads.length > 0 && (
-                <button
-                  onClick={handleImport}
-                  className="flex items-center gap-2 px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
-                >
-                  <AlertTriangle size={18} />
-                  Procedi comunque con l&apos;importazione
-                </button>
+                <WarningsImportButton 
+                  fuzzyWarnings={fuzzyWarnings}
+                  corrections={corrections}
+                  getCorrectionKey={getCorrectionKey}
+                  onImport={handleImport}
+                />
               )}
             </div>
           </div>

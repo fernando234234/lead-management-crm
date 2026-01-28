@@ -31,7 +31,7 @@ export interface ValidatedLead {
   campaignName: string | null;
   status: string;
   notes: string | null;
-  assignedToEmail: string | null;
+  assignedToName: string | null; // Name of commercial to assign to
 }
 
 export interface ValidationResult {
@@ -284,7 +284,7 @@ export function validateLeadData(
       campaignName: campagna?.trim() || null,
       status: normalizedStatus,
       notes: note?.trim() || null,
-      assignedToEmail: assignedTo?.trim() || null
+      assignedToName: assignedTo?.trim() || null
     });
   });
 
