@@ -18,7 +18,9 @@ import {
   PhoneCall,
   PhoneOff,
   PhoneMissed,
+  HelpCircle,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface Lead {
   id: string;
@@ -175,27 +177,51 @@ export default function CommercialPipelinePage() {
   };
 
   const openOutcomeModal = () => {
-    if (selectedLead) {
-      setOutcomeData({
-        callOutcome: selectedLead.callOutcome || "",
-        outcomeNotes: selectedLead.outcomeNotes || "",
-      });
-      setShowOutcomeModal(true);
+    if (!selectedLead) return;
+    
+    // Don't allow logging calls for PERSO or enrolled leads
+    if (selectedLead.status === 'PERSO') {
+      toast.error("Impossibile registrare chiamate per lead persi");
+      return;
     }
+    if (selectedLead.enrolled) {
+      toast.error("Lead già iscritto");
+      return;
+    }
+    
+    setOutcomeData({
+      callOutcome: "",  // Always start fresh, not pre-filled
+      outcomeNotes: "",
+    });
+    setShowOutcomeModal(true);
   };
 
   const handleOutcomeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedLead) return;
+    if (!selectedLead || !outcomeData.callOutcome) return;
+
+    const now = new Date().toISOString();
+    const newAttempts = (selectedLead.callAttempts || 0) + 1;
+    
+    // Determine if lead should become PERSO
+    let newStatus = selectedLead.status === "NUOVO" ? "CONTATTATO" : selectedLead.status;
+    if (outcomeData.callOutcome === 'NEGATIVO') {
+      newStatus = 'PERSO';
+    } else if ((outcomeData.callOutcome === 'NON_RISPONDE' || outcomeData.callOutcome === 'RICHIAMARE') && newAttempts >= 8) {
+      newStatus = 'PERSO';
+    }
 
     const updatedLead = {
       ...selectedLead,
       contacted: true,
-      contactedAt: new Date().toISOString(),
-      callOutcome: outcomeData.callOutcome || null,
+      contactedAt: now,
+      callOutcome: outcomeData.callOutcome,
       outcomeNotes: outcomeData.outcomeNotes || null,
-      status: selectedLead.status === "NUOVO" ? "CONTATTATO" : selectedLead.status,
+      callAttempts: newAttempts,
+      lastAttemptAt: now,
+      firstAttemptAt: selectedLead.firstAttemptAt || now,
+      status: newStatus,
     };
 
     try {
@@ -204,16 +230,29 @@ export default function CommercialPipelinePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contacted: true,
-          callOutcome: outcomeData.callOutcome || null,
+          contactedAt: now,
+          callOutcome: outcomeData.callOutcome,
           outcomeNotes: outcomeData.outcomeNotes || null,
-          status: selectedLead.status === "NUOVO" ? "CONTATTATO" : undefined,
         }),
       });
+      
+      // Show appropriate message
+      if (outcomeData.callOutcome === 'NEGATIVO') {
+        toast.success("Lead segnato come PERSO (non interessato)");
+      } else if ((outcomeData.callOutcome === 'NON_RISPONDE' || outcomeData.callOutcome === 'RICHIAMARE') && newAttempts >= 8) {
+        toast.success("Lead segnato come PERSO (8 tentativi raggiunti)");
+      } else if (outcomeData.callOutcome === 'NON_RISPONDE' || outcomeData.callOutcome === 'RICHIAMARE') {
+        toast.success(`Chiamata #${newAttempts} registrata - ${8 - newAttempts} tentativi rimanenti`);
+      } else {
+        toast.success("Esito chiamata registrato");
+      }
+      
       setSelectedLead(updatedLead);
       setShowOutcomeModal(false);
       fetchData();
     } catch (error) {
       console.error("Failed to log call outcome:", error);
+      toast.error("Errore nel salvataggio");
     }
   };
 
@@ -512,7 +551,7 @@ export default function CommercialPipelinePage() {
                   <p className="text-sm font-medium">{selectedLead.campaign?.name || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Esito Chiamata</p>
+                  <p className="text-xs text-gray-500 mb-1">Esito Ultima Chiamata</p>
                   {selectedLead.callOutcome ? (
                     <div className="flex items-center gap-1">
                       {outcomeIcons[selectedLead.callOutcome]}
@@ -525,11 +564,33 @@ export default function CommercialPipelinePage() {
                   )}
                 </div>
                 <div>
+                  <p className="text-xs text-gray-500 mb-1">Tentativi Chiamata</p>
+                  <p className="text-sm font-medium">
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${
+                      (selectedLead.callAttempts || 0) >= 6 
+                        ? 'bg-red-100 text-red-700' 
+                        : (selectedLead.callAttempts || 0) >= 4 
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {selectedLead.callAttempts || 0}/8
+                    </span>
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs text-gray-500 mb-1">Data Creazione</p>
                   <p className="text-sm font-medium">
                     {new Date(selectedLead.createdAt).toLocaleDateString("it-IT")}
                   </p>
                 </div>
+                {selectedLead.lastAttemptAt && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Ultima Chiamata</p>
+                    <p className="text-sm font-medium">
+                      {new Date(selectedLead.lastAttemptAt).toLocaleDateString("it-IT")}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Notes */}
@@ -571,13 +632,23 @@ export default function CommercialPipelinePage() {
               >
                 Chiudi
               </button>
-              <button
-                onClick={openOutcomeModal}
-                className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2"
-              >
-                <PhoneCall size={18} />
-                Registra Esito
-              </button>
+              {selectedLead.status !== 'PERSO' && !selectedLead.enrolled ? (
+                <button
+                  onClick={openOutcomeModal}
+                  className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2"
+                >
+                  <PhoneCall size={18} />
+                  Registra Chiamata ({selectedLead.callAttempts || 0}/8)
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <PhoneCall size={18} />
+                  {selectedLead.enrolled ? "Già Iscritto" : "Lead Perso"}
+                </button>
+              )}
             </div>
           </div>
         </div>

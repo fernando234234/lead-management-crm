@@ -385,6 +385,18 @@ export default function CommercialLeadsPage() {
     await performStateUpdate(leadId, field, value);
   };
 
+  // Open call modal for logging additional calls (for already contacted leads)
+  const handleLogCall = (lead: Lead) => {
+    // Don't allow logging calls for PERSO or ISCRITTO leads
+    if (lead.status === 'PERSO' || lead.enrolled) {
+      toast.error(lead.enrolled ? "Lead già iscritto" : "Lead già perso");
+      return;
+    }
+    setPendingContactedLead(lead);
+    setCallOutcomeData({ callOutcome: "", outcomeNotes: "" });
+    setShowCallOutcomeModal(true);
+  };
+
   // Perform the actual state update with optimistic UI
   const performStateUpdate = async (leadId: string, field: string, value: boolean) => {
     // Optimistic update - immediately update local state
@@ -784,7 +796,8 @@ export default function CommercialLeadsPage() {
                         onChange={(v) => handleQuickStateUpdate(lead.id, "contacted", v)}
                         compact
                       />
-                      {lead.callAttempts > 0 && !lead.contacted && (
+                      {/* Show attempt count for all leads with call attempts */}
+                      {lead.callAttempts > 0 && (
                         <span 
                           className={`text-xs px-1.5 py-0.5 rounded-full ${
                             lead.callAttempts >= 6 
@@ -793,7 +806,7 @@ export default function CommercialLeadsPage() {
                                 ? 'bg-yellow-100 text-yellow-700'
                                 : 'bg-gray-100 text-gray-600'
                           }`}
-                          title={`${lead.callAttempts} tentativi effettuati`}
+                          title={`${lead.callAttempts} tentativi effettuati - ultimo esito: ${lead.callOutcome || 'N/A'}`}
                         >
                           {lead.callAttempts}/8
                         </span>
@@ -819,6 +832,16 @@ export default function CommercialLeadsPage() {
                   </td>
                   <td className="p-4">
                     <div className="flex gap-2">
+                      {/* Log Call button - show for contacted leads that are not PERSO or enrolled */}
+                      {lead.contacted && lead.status !== 'PERSO' && !lead.enrolled && (
+                        <button
+                          onClick={() => handleLogCall(lead)}
+                          className="p-2 text-commercial hover:bg-commercial/10 rounded-lg transition"
+                          title={`Registra chiamata (${lead.callAttempts || 0}/8 tentativi)`}
+                        >
+                          <Phone size={18} />
+                        </button>
+                      )}
                       <button
                         onClick={() => setDetailLead(lead)}
                         className="p-2 text-gray-500 hover:text-commercial transition"
