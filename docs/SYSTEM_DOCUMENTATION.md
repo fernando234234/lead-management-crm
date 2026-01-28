@@ -388,11 +388,38 @@ When marking lead as contacted:
 
 ### 8.4 Import System
 
-- **Formats:** CSV, Excel (.xlsx, .xls)
-- **Auto-mapping:** Detects column names in Italian/English
-- **Auto-creates:** Campaigns if not found ("Import - {CourseName}")
-- **Requires:** campaignId for all leads
-- **Batch size:** 50 leads per batch
+> **Full documentation:** See `docs/GUIDA_IMPORTAZIONE_LEAD.md`
+
+**File Formats:** CSV, Excel (.xlsx, .xls)
+
+**5-Step Wizard:**
+1. **Upload** - Drag/drop or select file
+2. **Mapping** - Map columns to lead fields
+3. **Preview** - Review first 5 leads
+4. **Corrections** - Fix unmatched courses/commercials (if any)
+5. **Import** - Execute with corrections applied
+
+**Validation Layers:**
+
+| Layer | What It Checks | Action |
+|-------|----------------|--------|
+| Structure | Correct template format, required fields | Blocks import |
+| Fuzzy Matching | Unknown courses/commercials | Shows interactive corrections |
+| Data Quality | Missing contact info | Warns but allows |
+
+**Fuzzy Matching Corrections:**
+
+When courses or commercials don't match existing data, users can:
+- Create new (courses only)
+- Select an existing match (with similarity %)
+- Leave unassigned (commercials only)
+
+**Key Features:**
+- Auto-mapping column names (Italian/English)
+- Auto-creates campaigns if not found ("Import - {CourseName}")
+- Batch processing (50 leads per batch)
+- LLM instructions for data format conversion
+- Template CSV download
 
 ---
 
@@ -408,7 +435,9 @@ When marking lead as contacted:
 | `/api/leads/[id]` | PUT | Update lead (call tracking) |
 | `/api/leads/[id]` | DELETE | Delete lead (Admin only) |
 | `/api/leads/bulk` | POST | Bulk operations |
-| `/api/leads/import` | POST | CSV/Excel import |
+| `/api/leads/import` | POST | Import leads (with structure validation) |
+| `/api/leads/import/validate` | POST | Validate & fuzzy match before import |
+| `/api/leads/template` | GET | Download CSV template |
 
 ### 9.2 GET /api/leads Query Parameters
 
@@ -457,6 +486,11 @@ When `callOutcome` is provided:
 | Lead API | `src/app/api/leads/route.ts` |
 | Lead Update API | `src/app/api/leads/[id]/route.ts` |
 | Auto-Cleanup | `src/app/api/leads/route.ts` (autoCleanupStaleLeads) |
+| Import API | `src/app/api/leads/import/route.ts` |
+| Import Validation API | `src/app/api/leads/import/validate/route.ts` |
+| Import Template API | `src/app/api/leads/template/route.ts` |
+| Import UI (Modal) | `src/components/ui/ImportModal.tsx` |
+| Import Parser | `src/lib/import.ts` |
 | Campaign API | `src/app/api/campaigns/route.ts` |
 | Stats API | `src/app/api/stats/route.ts` |
 | Pro-rata Calc | `src/lib/spendProRata.ts` |
