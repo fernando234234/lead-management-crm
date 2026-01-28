@@ -20,6 +20,81 @@ interface ImportError {
   message: string;
 }
 
+// Expected fields in our template (order matters for validation message)
+const TEMPLATE_FIELDS = ['name', 'email', 'phone', 'courseName', 'campaignName', 'status', 'notes', 'assignedToName'];
+
+// Validation function to ensure import data matches our template
+function validateTemplateFormat(leads: unknown[]): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  if (!Array.isArray(leads)) {
+    return { valid: false, errors: ['I dati devono essere un array di lead'] };
+  }
+  
+  if (leads.length === 0) {
+    return { valid: false, errors: ['Nessun lead da importare'] };
+  }
+  
+  // Check the first lead to validate structure
+  const firstLead = leads[0] as Record<string, unknown>;
+  
+  if (typeof firstLead !== 'object' || firstLead === null) {
+    return { valid: false, errors: ['Formato lead non valido. Usa il template CSV scaricabile dal sistema.'] };
+  }
+  
+  const providedFields = Object.keys(firstLead);
+  
+  // Check for unexpected fields (might indicate wrong format/Excel import)
+  const unexpectedFields = providedFields.filter(f => !TEMPLATE_FIELDS.includes(f));
+  if (unexpectedFields.length > 0) {
+    errors.push(`Campi non riconosciuti: ${unexpectedFields.join(', ')}. Usa il template CSV del sistema.`);
+  }
+  
+  // Check if 'name' field exists (required)
+  if (!providedFields.includes('name')) {
+    errors.push("Campo 'name' mancante. Il template richiede il campo 'name' (nome del lead).");
+  }
+  
+  // Validate each lead has at least name and some contact info
+  let leadsWithoutContact = 0;
+  let leadsWithoutName = 0;
+  
+  for (let i = 0; i < Math.min(leads.length, 100); i++) { // Check first 100 for performance
+    const lead = leads[i] as Record<string, unknown>;
+    
+    // Check name
+    if (!lead.name || (typeof lead.name === 'string' && lead.name.trim() === '')) {
+      leadsWithoutName++;
+    }
+    
+    // Check contact info (need at least email OR phone)
+    const hasEmail = lead.email && typeof lead.email === 'string' && lead.email.trim() !== '';
+    const hasPhone = lead.phone && typeof lead.phone === 'string' && lead.phone.trim() !== '';
+    if (!hasEmail && !hasPhone) {
+      leadsWithoutContact++;
+    }
+  }
+  
+  if (leadsWithoutName > 0) {
+    errors.push(`${leadsWithoutName} lead senza nome. Il campo 'name' è obbligatorio per ogni lead.`);
+  }
+  
+  // Calculate contact info statistics
+  const sampleSize = Math.min(leads.length, 100);
+  const noContactPercentage = (leadsWithoutContact / sampleSize) * 100;
+  
+  // STRICT: Block import if ALL leads have no contact info (100% = definitely wrong mapping)
+  if (noContactPercentage === 100 && sampleSize > 1) {
+    errors.push(`NESSUN lead ha email o telefono. Il file sembra avere le colonne mappate in modo errato. Usa il template CSV del sistema.`);
+  }
+  // Warn if many leads have no contact info (likely wrong column mapping)
+  else if (noContactPercentage > 50) {
+    errors.push(`${leadsWithoutContact} lead (${noContactPercentage.toFixed(0)}%) senza email né telefono. Verifica la mappatura delle colonne nel file.`);
+  }
+  
+  return { valid: errors.length === 0, errors };
+}
+
 // POST /api/leads/import - Import multiple leads
 export async function POST(request: NextRequest) {
   try {
@@ -38,6 +113,19 @@ export async function POST(request: NextRequest) {
     if (!leads || !Array.isArray(leads) || leads.length === 0) {
       return NextResponse.json(
         { error: "Nessun lead da importare" },
+        { status: 400 }
+      );
+    }
+
+    // Validate template format BEFORE processing
+    const validation = validateTemplateFormat(leads);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { 
+          error: "Formato importazione non valido",
+          details: validation.errors,
+          hint: "Scarica il template CSV dal sistema e assicurati di usare lo stesso formato colonne."
+        },
         { status: 400 }
       );
     }
