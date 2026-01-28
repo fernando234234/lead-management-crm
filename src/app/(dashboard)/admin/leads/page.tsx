@@ -1207,13 +1207,33 @@ export default function AdminLeadsPage() {
                     <Clock size={20} className="text-gray-400 mx-auto" aria-hidden="true" />
                   )}
                 </td>
-                {/* Target */}
+                {/* Target - clickable toggle */}
                 <td className="p-4 text-center">
-                  {lead.isTarget ? (
-                    <Target size={20} className="text-yellow-500 mx-auto" aria-hidden="true" />
-                  ) : (
-                    <span className="text-gray-300 mx-auto">-</span>
-                  )}
+                  <Tooltip 
+                    content={lead.status === 'PERSO' 
+                      ? "Non modificabile - lead perso" 
+                      : lead.isTarget 
+                        ? "🎯 Lead prioritario - clicca per rimuovere" 
+                        : "Clicca per segnare come prioritario"
+                    }
+                    position="top"
+                  >
+                    <button
+                      onClick={() => lead.status !== 'PERSO' && handleSetTarget(lead, !lead.isTarget)}
+                      disabled={lead.status === 'PERSO'}
+                      className={`p-1 rounded-lg transition ${
+                        lead.status === 'PERSO' 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:bg-yellow-50 cursor-pointer'
+                      }`}
+                    >
+                      {lead.isTarget ? (
+                        <Target size={20} className="text-yellow-500 mx-auto" aria-hidden="true" />
+                      ) : (
+                        <Target size={20} className="text-gray-300 mx-auto" aria-hidden="true" />
+                      )}
+                    </button>
+                  </Tooltip>
                 </td>
                 {/* Iscritto */}
                 <td className="p-4 text-center">
