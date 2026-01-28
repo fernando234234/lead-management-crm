@@ -43,14 +43,14 @@ const statusLabels: Record<string, string> = {
 // Order: NUOVO (blue), CONTATTATO (yellow), IN_TRATTATIVA (purple), ISCRITTO (green), PERSO (red)
 
 const outcomeLabels: Record<string, string> = {
-  POSITIVO: "Positivo",
-  NEGATIVO: "Negativo",
+  POSITIVO: "Interessato",
   RICHIAMARE: "Da Richiamare",
-  NON_RISPONDE: "Non Risponde",
+  NEGATIVO: "Non Interessato",
+  NON_RISPONDE: "Da Richiamare", // Legacy support - counted as RICHIAMARE
 };
 
 // Outcome colors kept for reference (used in BarChart via colors array)
-// Order: POSITIVO (green), NEGATIVO (red), RICHIAMARE (yellow), NON_RISPONDE (gray)
+// Order: POSITIVO (green), RICHIAMARE (yellow), NEGATIVO (red)
 
 export default function CommercialStatsPage() {
   const [stats, setStats] = useState<Stats | null>(null);

@@ -254,10 +254,12 @@ enum ActivityType {
   CONTACT
 }
 
+// Call outcomes: Only POSITIVO, RICHIAMARE, NEGATIVO are used in UI
+// NON_RISPONDE kept for backward compatibility with existing data
 enum CallOutcome {
   POSITIVO
-  NEGATIVO
   RICHIAMARE
+  NEGATIVO
   NON_RISPONDE
 }
 

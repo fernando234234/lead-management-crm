@@ -14,7 +14,6 @@ import {
   Plus,
   CheckCircle,
   XCircle,
-  HelpCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "@/components/ui/Pagination";
@@ -490,9 +489,9 @@ export default function CommercialLeadsPage() {
       firstAttemptAt: pendingContactedLead.firstAttemptAt || now,
     };
     
-    // Mark as PERSO if negative or 8 attempts reached
+    // Mark as PERSO if NEGATIVO or 8 attempts with RICHIAMARE
     if (callOutcomeData.callOutcome === 'NEGATIVO' || 
-        ((callOutcomeData.callOutcome === 'NON_RISPONDE' || callOutcomeData.callOutcome === 'RICHIAMARE') && newAttempts >= 8)) {
+        (callOutcomeData.callOutcome === 'RICHIAMARE' && newAttempts >= 8)) {
       optimisticUpdate.status = 'PERSO';
     }
     
@@ -515,14 +514,15 @@ export default function CommercialLeadsPage() {
       // Show appropriate message based on outcome
       if (callOutcomeData.callOutcome === 'NEGATIVO') {
         toast.success("Lead segnato come PERSO (non interessato)");
-      } else if (callOutcomeData.callOutcome === 'NON_RISPONDE' || callOutcomeData.callOutcome === 'RICHIAMARE') {
+      } else if (callOutcomeData.callOutcome === 'RICHIAMARE') {
         if (newAttempts >= 8) {
           toast.success("Lead segnato come PERSO (8 tentativi raggiunti)");
         } else {
           toast.success(`Chiamata #${newAttempts} registrata - ${8 - newAttempts} tentativi rimanenti`);
         }
       } else {
-        toast.success("Esito chiamata registrato");
+        // POSITIVO
+        toast.success("Lead interessato!");
       }
     } catch (error) {
       console.error("Failed to log call outcome:", error);
@@ -1206,12 +1206,11 @@ export default function CommercialLeadsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Esito <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: "POSITIVO", label: "Interessato", color: "green", icon: CheckCircle },
-                    { value: "NEGATIVO", label: "Non Interessato", color: "red", icon: XCircle },
-                    { value: "RICHIAMARE", label: "Richiamare", color: "yellow", icon: Phone },
-                    { value: "NON_RISPONDE", label: "Non Risponde", color: "gray", icon: HelpCircle },
+                    { value: "POSITIVO", label: "Interessato", icon: CheckCircle },
+                    { value: "RICHIAMARE", label: "Da Richiamare", icon: Phone },
+                    { value: "NEGATIVO", label: "Non Interessato", icon: XCircle },
                   ].map((option) => (
                     <button
                       key={option.value}
@@ -1233,7 +1232,7 @@ export default function CommercialLeadsPage() {
                     Il lead sarà automaticamente segnato come PERSO.
                   </p>
                 )}
-                {(callOutcomeData.callOutcome === 'NON_RISPONDE' || callOutcomeData.callOutcome === 'RICHIAMARE') && 
+                {callOutcomeData.callOutcome === 'RICHIAMARE' && 
                  (pendingContactedLead.callAttempts || 0) >= 7 && (
                   <p className="mt-2 text-xs text-red-600">
                     Il lead sarà automaticamente segnato come PERSO (8° tentativo).

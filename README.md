@@ -33,10 +33,13 @@ A complete CRM solution for managing leads, courses, and marketing campaigns. Bu
 ### Call Tracking System
 Track commercial call attempts with precision:
 - Up to 8 call attempts per lead
-- Call outcomes: Positivo, Negativo, Richiamare, Non Risponde
+- **3 Call outcomes:**
+  - **Interessato (POSITIVO)** - Lead stays in funnel
+  - **Da Richiamare (RICHIAMARE)** - No answer / call back later
+  - **Non Interessato (NEGATIVO)** - Immediate PERSO
 - **Auto-PERSO triggers:**
   - NEGATIVO outcome = immediate PERSO
-  - 8 failed attempts = auto PERSO
+  - 8 RICHIAMARE attempts = auto PERSO
   - 15 days without contact = auto PERSO
 - Visual attempt counter (X/8) with color coding
 - PERSO filter on all lead views (hidden by default)

@@ -15,7 +15,6 @@ import {
   AlertTriangle,
   CheckCircle,
   PhoneOff,
-  PhoneMissed,
   TrendingUp,
   LayoutGrid,
   ListTodo,
@@ -276,8 +275,6 @@ export default function CommercialDashboard() {
           return <PhoneOff size={16} className="text-red-600" />;
         if (metadata?.callOutcome === "RICHIAMARE")
           return <PhoneCall size={16} className="text-yellow-600" />;
-        if (metadata?.callOutcome === "NON_RISPONDE")
-          return <PhoneMissed size={16} className="text-gray-600" />;
         return <Phone size={16} className="text-blue-600" />;
       case "STATUS_CHANGE":
         return <TrendingUp size={16} className="text-purple-600" />;

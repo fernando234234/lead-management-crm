@@ -17,8 +17,6 @@ import {
   Pencil,
   PhoneCall,
   PhoneOff,
-  PhoneMissed,
-  HelpCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -73,24 +71,24 @@ const statusColors: Record<string, string> = {
 };
 
 const outcomeLabels: Record<string, string> = {
-  POSITIVO: "Positivo",
-  NEGATIVO: "Negativo",
+  POSITIVO: "Interessato",
   RICHIAMARE: "Da Richiamare",
-  NON_RISPONDE: "Non Risponde",
+  NEGATIVO: "Non Interessato",
+  NON_RISPONDE: "Da Richiamare", // Legacy support - display as RICHIAMARE
 };
 
 const outcomeColors: Record<string, string> = {
   POSITIVO: "bg-green-100 text-green-700",
-  NEGATIVO: "bg-red-100 text-red-700",
   RICHIAMARE: "bg-yellow-100 text-yellow-700",
-  NON_RISPONDE: "bg-gray-100 text-gray-700",
+  NEGATIVO: "bg-red-100 text-red-700",
+  NON_RISPONDE: "bg-yellow-100 text-yellow-700", // Legacy support
 };
 
 const outcomeIcons: Record<string, React.ReactNode> = {
   POSITIVO: <CheckCircle size={14} className="text-green-600" />,
-  NEGATIVO: <PhoneOff size={14} className="text-red-600" />,
   RICHIAMARE: <PhoneCall size={14} className="text-yellow-600" />,
-  NON_RISPONDE: <PhoneMissed size={14} className="text-gray-600" />,
+  NEGATIVO: <PhoneOff size={14} className="text-red-600" />,
+  NON_RISPONDE: <PhoneCall size={14} className="text-yellow-600" />, // Legacy support
 };
 
 export default function CommercialPipelinePage() {
@@ -208,7 +206,7 @@ export default function CommercialPipelinePage() {
     let newStatus = selectedLead.status === "NUOVO" ? "CONTATTATO" : selectedLead.status;
     if (outcomeData.callOutcome === 'NEGATIVO') {
       newStatus = 'PERSO';
-    } else if ((outcomeData.callOutcome === 'NON_RISPONDE' || outcomeData.callOutcome === 'RICHIAMARE') && newAttempts >= 8) {
+    } else if (outcomeData.callOutcome === 'RICHIAMARE' && newAttempts >= 8) {
       newStatus = 'PERSO';
     }
 
@@ -239,12 +237,13 @@ export default function CommercialPipelinePage() {
       // Show appropriate message
       if (outcomeData.callOutcome === 'NEGATIVO') {
         toast.success("Lead segnato come PERSO (non interessato)");
-      } else if ((outcomeData.callOutcome === 'NON_RISPONDE' || outcomeData.callOutcome === 'RICHIAMARE') && newAttempts >= 8) {
+      } else if (outcomeData.callOutcome === 'RICHIAMARE' && newAttempts >= 8) {
         toast.success("Lead segnato come PERSO (8 tentativi raggiunti)");
-      } else if (outcomeData.callOutcome === 'NON_RISPONDE' || outcomeData.callOutcome === 'RICHIAMARE') {
+      } else if (outcomeData.callOutcome === 'RICHIAMARE') {
         toast.success(`Chiamata #${newAttempts} registrata - ${8 - newAttempts} tentativi rimanenti`);
       } else {
-        toast.success("Esito chiamata registrato");
+        // POSITIVO
+        toast.success("Lead interessato!");
       }
       
       setSelectedLead(updatedLead);
@@ -701,20 +700,21 @@ export default function CommercialPipelinePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Esito della chiamata
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(outcomeLabels).map(([value, label]) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Only show active outcomes (exclude legacy NON_RISPONDE) */}
+                  {(['POSITIVO', 'RICHIAMARE', 'NEGATIVO'] as const).map((value) => (
                     <button
                       key={value}
                       type="button"
                       onClick={() => setOutcomeData({ ...outcomeData, callOutcome: value })}
-                      className={`p-3 rounded-lg border-2 transition flex items-center gap-2 ${
+                      className={`p-3 rounded-lg border-2 transition flex items-center justify-center gap-2 ${
                         outcomeData.callOutcome === value
                           ? "border-commercial bg-commercial/10"
                           : "border-gray-200 hover:border-gray-300"
                       }`}
                     >
                       {outcomeIcons[value]}
-                      <span className="text-sm font-medium">{label}</span>
+                      <span className="text-sm font-medium">{outcomeLabels[value]}</span>
                     </button>
                   ))}
                 </div>
@@ -723,7 +723,7 @@ export default function CommercialPipelinePage() {
                     Il lead sarà automaticamente segnato come PERSO.
                   </p>
                 )}
-                {(outcomeData.callOutcome === 'NON_RISPONDE' || outcomeData.callOutcome === 'RICHIAMARE') && 
+                {outcomeData.callOutcome === 'RICHIAMARE' && 
                  (selectedLead.callAttempts || 0) >= 7 && (
                   <p className="mt-2 text-xs text-red-600">
                     Il lead sarà automaticamente segnato come PERSO (8° tentativo).

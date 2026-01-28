@@ -107,10 +107,10 @@ export async function GET(request: NextRequest) {
       // Check for contact with call outcome
       if (lead.contactedAt && new Date(lead.contactedAt) >= startDate) {
         const outcomeLabels: Record<string, string> = {
-          POSITIVO: "esito positivo",
-          NEGATIVO: "esito negativo",
+          POSITIVO: "interessato",
           RICHIAMARE: "da richiamare",
-          NON_RISPONDE: "non risponde",
+          NEGATIVO: "non interessato",
+          NON_RISPONDE: "da richiamare", // Legacy support
         };
         
         const outcomeText = lead.callOutcome 

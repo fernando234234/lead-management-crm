@@ -68,11 +68,11 @@ Lead {
   contacted       Boolean (default: false)
   contactedAt     DateTime?
   
-  // Call tracking (NEW)
+  // Call tracking
   callAttempts    Int (default: 0)
   firstAttemptAt  DateTime?
   lastAttemptAt   DateTime?
-  callOutcome     CallOutcome? (POSITIVO | NEGATIVO | RICHIAMARE | NON_RISPONDE)
+  callOutcome     CallOutcome? (POSITIVO | RICHIAMARE | NEGATIVO)
   outcomeNotes    String?
   
   // Enrollment
@@ -127,14 +127,13 @@ Commercials must log call outcomes when contacting leads. The system tracks:
 - First and last attempt timestamps
 - Call outcome and notes
 
-### 3.2 Call Outcomes
+### 3.2 Call Outcomes (3 Options)
 
-| Outcome | Description | Auto-Actions |
-|---------|-------------|--------------|
-| `POSITIVO` | Lead is interested | Sets `contacted=true`, continues in funnel |
-| `NEGATIVO` | Lead declined | **Immediate PERSO** |
-| `RICHIAMARE` | Call back later | Increments attempt counter |
-| `NON_RISPONDE` | No answer | Increments attempt counter |
+| Outcome | Italian Label | Description | Auto-Actions |
+|---------|---------------|-------------|--------------|
+| `POSITIVO` | Interessato | Lead is interested | Sets `contacted=true`, continues in funnel |
+| `RICHIAMARE` | Da Richiamare | No answer / call back later | Increments attempt counter (max 8) |
+| `NEGATIVO` | Non Interessato | Lead declined | **Immediate PERSO** |
 
 ### 3.3 Call Tracking Fields
 
@@ -177,7 +176,7 @@ if (callOutcome === 'NEGATIVO') {
 ### 4.2 Rule 2: 8 Call Attempts
 
 ```typescript
-if (callAttempts >= 8 && outcome in ['NON_RISPONDE', 'RICHIAMARE']) {
+if (callAttempts >= 8 && callOutcome === 'RICHIAMARE') {
   status = 'PERSO';
 }
 ```

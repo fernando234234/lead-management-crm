@@ -95,49 +95,33 @@ export async function PUT(
     }
     
     // Status and call outcome with attempt tracking
+    // Call Outcomes (3 only):
+    // - POSITIVO: Lead interested, stays in funnel
+    // - RICHIAMARE: No answer / call back later, counter +1
+    // - NEGATIVO: Not interested, immediate PERSO
     if (body.status !== undefined) updateData.status = body.status;
     if (body.callOutcome !== undefined) {
       updateData.callOutcome = body.callOutcome;
       
-      // Track call attempts
-      const isSuccessfulContact = body.callOutcome === 'POSITIVO' || body.callOutcome === 'NEGATIVO';
-      
-      if (!isSuccessfulContact) {
-        // NON_RISPONDE or RICHIAMARE - increment attempts
-        const newAttempts = (currentLead?.callAttempts || 0) + 1;
-        
-        updateData.callAttempts = newAttempts;
-        updateData.lastAttemptAt = new Date();
-        if (!currentLead?.firstAttemptAt) {
-          updateData.firstAttemptAt = new Date();
-        }
-        
-        // Auto-mark as PERSO if 8 attempts reached
-        // (15-day inactivity check happens on page load via autoCleanupStaleLeads)
-        if (newAttempts >= 8) {
-          updateData.status = 'PERSO';
-        }
+      const newAttempts = (currentLead?.callAttempts || 0) + 1;
+      updateData.callAttempts = newAttempts;
+      updateData.lastAttemptAt = new Date();
+      if (!currentLead?.firstAttemptAt) {
+        updateData.firstAttemptAt = new Date();
       }
       
-      // Auto-mark as PERSO if call outcome is NEGATIVO
+      // NEGATIVO = immediate PERSO
       if (body.callOutcome === 'NEGATIVO') {
         updateData.status = 'PERSO';
-        // Also track this attempt
-        updateData.callAttempts = (currentLead?.callAttempts || 0) + 1;
-        updateData.lastAttemptAt = new Date();
-        if (!currentLead?.firstAttemptAt) {
-          updateData.firstAttemptAt = new Date();
-        }
       }
       
-      // POSITIVO = successful contact, track attempt but don't auto-PERSO
+      // RICHIAMARE = call back later, auto-PERSO after 8 attempts
+      if (body.callOutcome === 'RICHIAMARE' && newAttempts >= 8) {
+        updateData.status = 'PERSO';
+      }
+      
+      // POSITIVO = interested, mark as contacted
       if (body.callOutcome === 'POSITIVO') {
-        updateData.callAttempts = (currentLead?.callAttempts || 0) + 1;
-        updateData.lastAttemptAt = new Date();
-        if (!currentLead?.firstAttemptAt) {
-          updateData.firstAttemptAt = new Date();
-        }
-        // Auto-mark as contacted when positive outcome
         if (!currentLead?.contacted) {
           updateData.contacted = true;
           updateData.contactedAt = new Date();
