@@ -11,13 +11,15 @@ A complete CRM solution for managing leads, courses, and marketing campaigns. Bu
 
 ### User Roles
 - **Admin**: Full access to all features including user management, reports, and settings
-- **Commercial**: Lead management, pipeline tracking, tasks, and personal statistics
+- **Commercial**: Lead management, pipeline tracking, tasks (no access to performance stats)
 - **Marketing**: Campaign management, cost tracking, ROI analysis
 
 ### Key Features
 - Dashboard with real-time statistics and charts
 - Lead management with status tracking (Nuovo, Contattato, In Trattativa, Iscritto, Perso)
 - Kanban pipeline view for visual lead management
+- **Call tracking system with attempt counter (max 8 attempts)**
+- **Auto-PERSO rules (automatic lead status updates)**
 - **Campaign management with multi-period spend tracking**
 - **Date range filtering for financial metrics**
 - Course management
@@ -27,6 +29,17 @@ A complete CRM solution for managing leads, courses, and marketing campaigns. Bu
 - In-app notifications
 - Task/reminder system
 - Global search
+
+### Call Tracking System
+Track commercial call attempts with precision:
+- Up to 8 call attempts per lead
+- Call outcomes: Positivo, Negativo, Richiamare, Non Risponde
+- **Auto-PERSO triggers:**
+  - NEGATIVO outcome = immediate PERSO
+  - 8 failed attempts = auto PERSO
+  - 15 days without contact = auto PERSO
+- Visual attempt counter (X/8) with color coding
+- PERSO filter on all lead views (hidden by default)
 
 ### Campaign Spend Tracking
 Track marketing costs with precision:
@@ -169,7 +182,8 @@ src/
 └── types/                  # TypeScript types
 
 docs/
-├── CAMPAIGN_SPEND_TECHNICAL.md  # Technical documentation
+├── SYSTEM_DOCUMENTATION.md      # Complete system documentation
+├── CAMPAIGN_SPEND_TECHNICAL.md  # Campaign spend technical details
 ├── GUIDA_GESTIONE_SPESE.md      # User guide (Italian)
 └── DATA_IMPORT_DECISIONS.md     # Import documentation
 ```

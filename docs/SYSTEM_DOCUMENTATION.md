@@ -1,7 +1,7 @@
 # Lead Management CRM - Complete System Documentation
 
 **Generated:** January 2026  
-**Version:** 1.0
+**Version:** 2.0 (Updated January 28, 2026)
 
 ---
 
@@ -9,12 +9,13 @@
 
 1. [System Overview](#1-system-overview)
 2. [Lead Tracking System](#2-lead-tracking-system)
-3. [Campaign & Spend Tracking](#3-campaign--spend-tracking)
-4. [Revenue & ROI Tracking](#4-revenue--roi-tracking)
-5. [Forms & Data Entry](#5-forms--data-entry)
-6. [User Roles & Permissions](#6-user-roles--permissions)
-7. [Consistency Analysis & Issues](#7-consistency-analysis--issues)
-8. [Recommendations](#8-recommendations)
+3. [Call Tracking System](#3-call-tracking-system)
+4. [Auto-PERSO Rules](#4-auto-perso-rules)
+5. [Campaign & Spend Tracking](#5-campaign--spend-tracking)
+6. [Revenue & ROI Tracking](#6-revenue--roi-tracking)
+7. [User Roles & Permissions](#7-user-roles--permissions)
+8. [Forms & Data Entry](#8-forms--data-entry)
+9. [API Reference](#9-api-reference)
 
 ---
 
@@ -36,6 +37,7 @@ The Lead Management CRM is built for **Job Formazione**, an Italian education co
 | CampaignSpend | Spend records with date ranges |
 | Course | Educational product being sold |
 | User | System user (Admin/Commercial/Marketing) |
+| LeadActivity | Activity log for lead interactions |
 
 ---
 
@@ -43,19 +45,52 @@ The Lead Management CRM is built for **Job Formazione**, an Italian education co
 
 ### 2.1 Lead Data Model
 
-```
+```prisma
 Lead {
-  id, name, email, phone
-  courseId, campaignId
-  assignedToId, createdById, contactedById
-  status: NUOVO | CONTATTATO | IN_TRATTATIVA | ISCRITTO | PERSO
-  source: MANUAL | CAMPAIGN | LEGACY_IMPORT
-  contacted, contactedAt
-  enrolled, enrolledAt
-  isTarget, targetNote
-  callOutcome, outcomeNotes
-  acquisitionCost, revenue
-  notes, createdAt, updatedAt
+  // Identity
+  id              String
+  name            String (required)
+  email           String?
+  phone           String?
+  
+  // Relationships
+  courseId        String (required)
+  campaignId      String?
+  assignedToId    String?
+  createdById     String?
+  contactedById   String?
+  
+  // Status
+  status          LeadStatus (NUOVO | CONTATTATO | IN_TRATTATIVA | ISCRITTO | PERSO)
+  source          LeadSource (LEGACY_IMPORT | MANUAL | CAMPAIGN)
+  
+  // Contact tracking
+  contacted       Boolean (default: false)
+  contactedAt     DateTime?
+  
+  // Call tracking (NEW)
+  callAttempts    Int (default: 0)
+  firstAttemptAt  DateTime?
+  lastAttemptAt   DateTime?
+  callOutcome     CallOutcome? (POSITIVO | NEGATIVO | RICHIAMARE | NON_RISPONDE)
+  outcomeNotes    String?
+  
+  // Enrollment
+  enrolled        Boolean (default: false)
+  enrolledAt      DateTime?
+  
+  // Target qualification
+  isTarget        Boolean (default: false)
+  targetNote      String?
+  
+  // Financial
+  acquisitionCost Decimal?
+  revenue         Decimal?
+  
+  // Other
+  notes           String?
+  createdAt       DateTime
+  updatedAt       DateTime
 }
 ```
 
@@ -63,7 +98,14 @@ Lead {
 
 ```
 NUOVO → CONTATTATO → IN_TRATTATIVA → ISCRITTO
-                                   ↘ PERSO
+   ↓         ↓              ↓
+   └─────────┴──────────────┴───────────→ PERSO
+
+Auto-PERSO triggers:
+- NEGATIVO call outcome (immediate)
+- 8 failed call attempts
+- 15 days since last call attempt
+- 20 days since contact (legacy leads)
 ```
 
 ### 2.3 Lead Visibility Rules
@@ -74,65 +116,161 @@ NUOVO → CONTATTATO → IN_TRATTATIVA → ISCRITTO
 | COMMERCIAL | Leads assigned to them OR created by them |
 | MARKETING | Leads from campaigns they created |
 
-### 2.4 Key APIs
+---
 
-| Endpoint | Methods | Purpose |
-|----------|---------|---------|
-| `/api/leads` | GET, POST | List/create leads |
-| `/api/leads/[id]` | GET, PUT, DELETE | Single lead CRUD |
-| `/api/leads/bulk` | POST | Bulk operations (Admin only) |
-| `/api/leads/import` | POST | CSV/Excel import (Admin only) |
+## 3. Call Tracking System
+
+### 3.1 Overview
+
+Commercials must log call outcomes when contacting leads. The system tracks:
+- Number of call attempts (max 8)
+- First and last attempt timestamps
+- Call outcome and notes
+
+### 3.2 Call Outcomes
+
+| Outcome | Description | Auto-Actions |
+|---------|-------------|--------------|
+| `POSITIVO` | Lead is interested | Sets `contacted=true`, continues in funnel |
+| `NEGATIVO` | Lead declined | **Immediate PERSO** |
+| `RICHIAMARE` | Call back later | Increments attempt counter |
+| `NON_RISPONDE` | No answer | Increments attempt counter |
+
+### 3.3 Call Tracking Fields
+
+Every call outcome updates:
+1. `callAttempts` ← increment by 1
+2. `lastAttemptAt` ← current timestamp
+3. `firstAttemptAt` ← current timestamp (only if null)
+
+### 3.4 Call Modal UI
+
+When a commercial marks a lead as contacted:
+1. Modal appears with attempt counter ("Tentativo #X di 8")
+2. Must select outcome (required)
+3. Can add notes (optional)
+4. Shows warning at 8th attempt
+5. Shows days remaining before auto-PERSO
+
+### 3.5 Attempt Counter Display
+
+In lead tables, uncontacted leads show badge:
+- `X/8` format
+- Color coding: gray (<4), yellow (4-5), red (6+)
 
 ---
 
-## 3. Campaign & Spend Tracking
+## 4. Auto-PERSO Rules
 
-### 3.1 Data Models
+The system automatically marks leads as PERSO under these conditions:
 
+### 4.1 Rule 1: NEGATIVO Outcome (Immediate)
+
+```typescript
+if (callOutcome === 'NEGATIVO') {
+  status = 'PERSO';  // Immediate
+}
 ```
+
+**File:** `src/app/api/leads/[id]/route.ts`
+
+### 4.2 Rule 2: 8 Call Attempts
+
+```typescript
+if (callAttempts >= 8 && outcome in ['NON_RISPONDE', 'RICHIAMARE']) {
+  status = 'PERSO';
+}
+```
+
+**File:** `src/app/api/leads/[id]/route.ts`
+
+### 4.3 Rule 3: 15 Days Inactive (Page Load)
+
+```typescript
+// Runs on every leads page load
+if (lastAttemptAt < 15_days_ago && status in ['NUOVO', 'CONTATTATO', 'IN_TRATTATIVA']) {
+  status = 'PERSO';
+}
+```
+
+**File:** `src/app/api/leads/route.ts` (`autoCleanupStaleLeads()`)
+
+### 4.4 Rule 4: 20 Days Legacy Cleanup
+
+```typescript
+// For leads without call tracking (legacy imports)
+if (contactedAt < 20_days_ago && lastAttemptAt === null && status === 'CONTATTATO') {
+  status = 'PERSO';
+}
+```
+
+**File:** `src/app/api/leads/route.ts` (`autoCleanupStaleLeads()`)
+
+### 4.5 PERSO Filter
+
+All lead pages default to hiding PERSO leads:
+- Filter options: "Attivi (no PERSO)" | "Tutti" | "Solo PERSO"
+- Default: "Attivi (no PERSO)"
+
+---
+
+## 5. Campaign & Spend Tracking
+
+### 5.1 Data Models
+
+```prisma
 Campaign {
-  id, name, platform, status
-  courseId, createdById
-  startDate, endDate
-  budget (DEPRECATED - always 0)
-  spendRecords[]
+  id               String
+  masterCampaignId String?
+  name             String
+  platform         Platform (META | GOOGLE_ADS | LINKEDIN | TIKTOK)
+  budget           Decimal (DEPRECATED - always 0)
+  status           CampaignStatus (DRAFT | ACTIVE | PAUSED | COMPLETED)
+  startDate        DateTime
+  endDate          DateTime?
+  courseId         String?
+  createdById      String
+  spendRecords     CampaignSpend[]
 }
 
 CampaignSpend {
-  id, campaignId
-  startDate, endDate
-  amount, notes
+  id         String
+  campaignId String
+  startDate  DateTime (required)
+  endDate    DateTime? (null = ongoing)
+  amount     Decimal
+  notes      String?
 }
 ```
 
-### 3.2 Pro-Rata Spend Calculation
+### 5.2 Pro-Rata Spend Calculation
 
 When filtering by date range, spend is attributed proportionally:
 
 ```
-Pro-rata = amount × (overlapDays / totalDays)
+Pro-rata = amount * (overlapDays / totalDays)
 
 Example:
-- Spend: Jan 1 - Mar 31 (90 days), €1000
+- Spend: Jan 1 - Mar 31 (90 days), EUR 1000
 - Filter: February (28 days overlap)
-- Pro-rata: €1000 × (28/90) = €311.11
+- Pro-rata: EUR 1000 * (28/90) = EUR 311.11
 ```
 
 **Implementation:** `src/lib/spendProRata.ts`
 
-### 3.3 CPL Calculation (FIXED)
+### 5.3 CPL Calculation
 
 ```
 CPL = Pro-rata Spend / Leads Created in Same Period
 ```
 
-Both numerator and denominator are now aligned to the same date range.
+Both numerator and denominator are aligned to the same date range.
 
 ---
 
-## 4. Revenue & ROI Tracking
+## 6. Revenue & ROI Tracking
 
-### 4.1 Revenue Sources (Priority Order)
+### 6.1 Revenue Sources (Priority Order)
 
 ```typescript
 const revenue = lead.revenue > 0 ? lead.revenue : course.price;
@@ -141,18 +279,18 @@ const revenue = lead.revenue > 0 ? lead.revenue : course.price;
 1. **Lead-specific revenue** (`lead.revenue`) - for custom pricing/discounts
 2. **Course price fallback** (`course.price`) - standard pricing
 
-### 4.2 When Revenue is Recognized
+### 6.2 When Revenue is Recognized
 
 - Revenue is attributed by **enrolledAt** date (not createdAt)
 - Only `enrolled: true` leads contribute to revenue
 
-### 4.3 ROI Formula
+### 6.3 ROI Formula
 
 ```
-ROI % = ((Total Revenue - Total Spend) / Total Spend) × 100
+ROI % = ((Total Revenue - Total Spend) / Total Spend) * 100
 ```
 
-### 4.4 Cost Metrics
+### 6.4 Cost Metrics
 
 | Metric | Formula |
 |--------|---------|
@@ -162,49 +300,56 @@ ROI % = ((Total Revenue - Total Spend) / Total Spend) × 100
 
 ---
 
-## 5. Forms & Data Entry
+## 7. User Roles & Permissions
 
-### 5.1 Lead Forms
-
-| Form | Location | Required Fields |
-|------|----------|-----------------|
-| Create Lead | Admin/Commercial | name, courseId |
-| Edit Lead | Admin/Commercial | (all optional) |
-| Quick Note | Lead Detail Modal | note text |
-| Log Call | Lead Detail Modal | call description |
-
-### 5.2 Campaign Forms
-
-| Form | Location | Required Fields |
-|------|----------|-----------------|
-| Create Campaign | Marketing | name, platform, courseId |
-| Edit Campaign | Marketing | (all optional) |
-| Add Spend Record | Campaign Modal | startDate, amount |
-
-### 5.3 Import System
-
-- **Formats:** CSV, Excel (.xlsx, .xls)
-- **Auto-mapping:** Detects column names in Italian/English
-- **Auto-creates:** Courses if not found
-- **Batch size:** 50 leads per batch
-
----
-
-## 6. User Roles & Permissions
-
-### 6.1 Role Access Matrix
+### 7.1 Role Access Matrix
 
 | Feature | ADMIN | COMMERCIAL | MARKETING |
-|---------|-------|------------|-----------|
-| View all leads | ✓ | Own only | Campaign only |
-| Create leads | ✓ | ✓ | ✓ |
-| Delete leads | ✓ | ✗ | ✗ |
-| Manage users | ✓ | ✗ | ✗ |
-| Create campaigns | ✓ | ✗ | ✓ |
-| Manage spend | ✓ | ✗ | Own campaigns |
-| View reports | ✓ | Own stats | Own campaigns |
+|---------|:-----:|:----------:|:---------:|
+| View all leads | Yes | Own only | Campaign only |
+| Create leads | Yes | Yes | Yes |
+| Delete leads | Yes | No | No |
+| Manage users | Yes | No | No |
+| Create campaigns | Yes | No | Yes |
+| Manage spend | Yes | No | Own campaigns |
+| View performance stats | Yes | **No** | Yes |
+| View conversion rates | Yes | **No** | Yes |
+| View charts/analytics | Yes | **No** | Yes |
+| View goals/revenue | Yes | **No** | Yes |
 
-### 6.2 Route Protection
+### 7.2 Commercial Role Restrictions (IMPORTANT)
+
+**Commercials NO LONGER have access to:**
+- Stats page (removed from navigation)
+- Conversion rates
+- Enrollment counts/percentages
+- Performance charts (Funnel, Line, Pie)
+- Goals and revenue targets
+- Month-over-month comparisons
+
+**Commercials CAN see:**
+- Lead counts (assigned, contacted today)
+- Callback pendenti (tasks)
+- Lead target da contattare
+- Leads needing attention
+- Activity timeline
+- Call attempt tracking (X/8)
+
+### 7.3 Navigation by Role
+
+**ADMIN:**
+- Dashboard, Dashboard Excel, Users, Courses, Campaigns
+- All Leads, Pipeline, Reports, Sanity Check, Settings
+
+**COMMERCIAL:**
+- Dashboard, I Miei Lead, Pipeline
+- Promemoria, Corsi, Guida e FAQ
+
+**MARKETING:**
+- Dashboard, Campaigns, Leads by Campaign
+- Costs, ROI & Performance
+
+### 7.4 Route Protection
 
 | Route | Allowed Roles |
 |-------|---------------|
@@ -214,139 +359,95 @@ ROI % = ((Total Revenue - Total Spend) / Total Spend) × 100
 
 ---
 
-## 7. Consistency Analysis & Issues
+## 8. Forms & Data Entry
 
-### ✅ NOW CONSISTENT (After Fixes)
+### 8.1 Lead Forms
 
-| Component | Date Filter for Revenue | Date Filter for Leads | CPL Formula | Status |
-|-----------|------------------------|----------------------|-------------|--------|
-| Stats API | `enrolledAt` | `createdAt` | spend/leads | ✅ |
-| Campaigns API | `enrolledAt` | `createdAt` | spend/leads | ✅ Fixed |
-| Reports Page | Uses API `metrics.totalRevenue` | Uses API | Uses API | ✅ |
-| Marketing ROI | Uses API `metrics.totalRevenue` | Uses API | spend/leads | ✅ Fixed |
-| Marketing Dashboard | No date filter | No date filter | spend/leads | ⚠️ No filtering |
+| Form | Location | Required Fields |
+|------|----------|-----------------|
+| Create Lead | Admin/Commercial | name, courseId, campaignId |
+| Edit Lead | Admin/Commercial | (all optional) |
+| Call Outcome Modal | Lead toggle/button | callOutcome (required) |
 
-### Revenue Calculation - All Levels
+### 8.2 Call Outcome Modal
 
-```
-Revenue = lead.revenue > 0 ? lead.revenue : course.price
-```
+When marking lead as contacted:
+1. Shows attempt number ("Tentativo #X di 8")
+2. Shows remaining attempts
+3. Shows last call date and days until auto-PERSO
+4. Requires outcome selection
+5. Optional notes field
+6. Warning at 8th attempt
 
-| Level | Implementation | Consistent |
-|-------|---------------|------------|
-| Stats API | Server-side, filtered by `enrolledAt` | ✅ |
-| Campaigns API | Server-side, filtered by `enrolledAt` | ✅ |
-| Reports Page | Uses `campaign.metrics.totalRevenue` from API | ✅ |
-| Marketing ROI | Uses `campaign.metrics.totalRevenue` from API | ✅ |
-| Course Performance | Client-side from leads | ⚠️ Different |
+### 8.3 Campaign Forms
 
-### CPL Calculation - All Levels
+| Form | Location | Required Fields |
+|------|----------|-----------------|
+| Create Campaign | Marketing | name, platform, courseId |
+| Edit Campaign | Marketing | (all optional) |
+| Add Spend Record | Campaign Modal | startDate, amount |
 
-```
-CPL = Pro-rata Spend / Leads Created in Period
-```
+### 8.4 Import System
 
-| Level | Spend Source | Lead Count Source | Consistent |
-|-------|--------------|-------------------|------------|
-| Stats API | Pro-rata from CampaignSpend | Filtered by `createdAt` | ✅ |
-| Campaigns API | Pro-rata from CampaignSpend | Filtered by `createdAt` | ✅ |
-| Reports Page | `campaign.totalSpent` | `campaign.leadCount` | ✅ |
-| Marketing ROI | `campaign.totalSpent` | `campaign.leadCount` | ✅ |
-
-### ROI Calculation - All Levels
-
-```
-ROI = ((Revenue - Spend) / Spend) × 100
-```
-
-All implementations use the same formula. ✅
+- **Formats:** CSV, Excel (.xlsx, .xls)
+- **Auto-mapping:** Detects column names in Italian/English
+- **Auto-creates:** Campaigns if not found ("Import - {CourseName}")
+- **Requires:** campaignId for all leads
+- **Batch size:** 50 leads per batch
 
 ---
 
-### ⚠️ REMAINING MINOR ISSUES
+## 9. API Reference
 
-#### Issue 1: Marketing Dashboard Has No Date Filtering
+### 9.1 Lead APIs
 
-The Marketing Dashboard (`/marketing`) shows all-time metrics without date range selection.
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/leads` | GET | List leads (with auto-cleanup) |
+| `/api/leads` | POST | Create lead |
+| `/api/leads/[id]` | GET | Get single lead |
+| `/api/leads/[id]` | PUT | Update lead (call tracking) |
+| `/api/leads/[id]` | DELETE | Delete lead (Admin only) |
+| `/api/leads/bulk` | POST | Bulk operations |
+| `/api/leads/import` | POST | CSV/Excel import |
 
-**Impact:** Marketing users cannot see period-specific performance.
+### 9.2 GET /api/leads Query Parameters
 
-**Recommendation:** Add date picker like Admin Dashboard has.
+| Param | Description |
+|-------|-------------|
+| `courseId` | Filter by course |
+| `campaignId` | Filter by campaign |
+| `assignedToId` | Filter by assigned user |
+| `status` | Filter by lead status |
+| `contacted` | Filter by contacted (true/false) |
+| `enrolled` | Filter by enrolled (true/false) |
+| `search` | Search name/email/phone |
+| `source` | Filter by source (comma-separated) |
+| `startDate` | Filter createdAt >= date |
+| `endDate` | Filter createdAt <= date |
 
----
+**Side Effect:** Triggers `autoCleanupStaleLeads()` on every GET
 
-#### Issue 2: `acquisitionCost` Field Unused
+### 9.3 PUT /api/leads/[id] - Call Tracking
 
-- Field exists on Lead model
-- 0 of 6,876 leads have it set
-- CPL is calculated dynamically from campaign spend
+When `callOutcome` is provided:
+1. Increments `callAttempts`
+2. Sets `lastAttemptAt` to now
+3. Sets `firstAttemptAt` if null
+4. Creates `LeadActivity` with type `CALL`
+5. Checks auto-PERSO rules
 
-**Decision:** Keep dynamic CPL. Field can be deprecated.
+### 9.4 Activity Types
 
----
-
-#### Issue 3: Goals Revenue Calculation May Be Inaccurate
-
-Goals may use `lead.revenue` without `course.price` fallback.
-
-**Impact:** Goal progress shows 0 revenue for leads without explicit revenue.
-
-**Recommendation:** Verify goals calculation uses same pattern.
-
----
-
-### 📊 Data Consistency Check
-
-| Check | Status | Notes |
-|-------|--------|-------|
-| All leads have courseId | ✓ | Required field |
-| All leads have valid status | ✓ | Enum enforced |
-| Spend records have valid dates | ✓ | Constraint enforced |
-| Campaign budget = 0 | ✓ | All use spendRecords |
-| Lead.acquisitionCost populated | ✗ | 0/6,876 have values |
-| Lead.revenue populated | ? | Need to check |
-
----
-
-## 8. Recommendations
-
-### High Priority
-
-1. **Fix Campaign Revenue Filter**
-   ```typescript
-   // Should filter by enrolledAt, not createdAt
-   const enrolledLeads = await prisma.lead.findMany({
-     where: { 
-       campaignId: campaign.id,
-       enrolled: true,
-       enrolledAt: dateFilter  // Use enrolledAt!
-     },
-   });
-   ```
-
-2. **Add revenue to Lead API**
-   ```typescript
-   // In leads/[id]/route.ts
-   if (body.revenue !== undefined) {
-     updateData.revenue = body.revenue;
-   }
-   ```
-
-### Medium Priority
-
-3. **Fix Goals Revenue Calculation** - Use course.price fallback
-
-4. **Document the Two Cost Systems**
-   - `lead.acquisitionCost` = per-lead (unused)
-   - `CampaignSpend` = campaign level (active)
-   
-   Decision: Keep dynamic CPL, deprecate `acquisitionCost`
-
-### Low Priority
-
-5. **Consider auto-setting `lead.revenue = course.price` on enrollment**
-
-6. **Add data validation script** to check revenue/enrollment consistency
+| Type | When Logged |
+|------|-------------|
+| `CALL` | Each call attempt with outcome |
+| `CONTACT` | First successful contact |
+| `STATUS_CHANGE` | Status transitions |
+| `ASSIGNMENT` | Lead reassigned |
+| `ENROLLMENT` | Lead enrolled |
+| `LEAD_CREATED` | Lead created |
+| `NOTE` | Manual notes |
 
 ---
 
@@ -355,10 +456,15 @@ Goals may use `lead.revenue` without `course.price` fallback.
 | Purpose | File |
 |---------|------|
 | Lead API | `src/app/api/leads/route.ts` |
+| Lead Update API | `src/app/api/leads/[id]/route.ts` |
+| Auto-Cleanup | `src/app/api/leads/route.ts` (autoCleanupStaleLeads) |
 | Campaign API | `src/app/api/campaigns/route.ts` |
 | Stats API | `src/app/api/stats/route.ts` |
 | Pro-rata Calc | `src/lib/spendProRata.ts` |
 | Auth Config | `src/lib/auth.ts` |
 | Middleware | `src/middleware.ts` |
 | Prisma Schema | `prisma/schema.prisma` |
-| Reports Page | `src/app/(dashboard)/admin/reports/page.tsx` |
+| Commercial Dashboard | `src/app/(dashboard)/commercial/page.tsx` |
+| Commercial Leads | `src/app/(dashboard)/commercial/leads/page.tsx` |
+| Commercial Pipeline | `src/app/(dashboard)/commercial/pipeline/page.tsx` |
+| Sidebar Config | `src/components/ui/Sidebar.tsx` |
