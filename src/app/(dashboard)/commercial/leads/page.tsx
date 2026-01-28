@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import {
   Pencil,
   Phone,
+  PhoneCall,
   Mail,
   User,
   Search,
@@ -1209,7 +1210,7 @@ export default function CommercialLeadsPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { value: "POSITIVO", label: "Interessato", icon: CheckCircle },
-                    { value: "RICHIAMARE", label: "Da Richiamare", icon: Phone },
+                    { value: "RICHIAMARE", label: "Da Richiamare", icon: PhoneCall },
                     { value: "NEGATIVO", label: "Non Interessato", icon: XCircle },
                   ].map((option) => (
                     <button

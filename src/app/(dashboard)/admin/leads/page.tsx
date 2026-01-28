@@ -1237,10 +1237,9 @@ export default function AdminLeadsPage() {
                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
                       >
                         <option value="">Seleziona esito</option>
-                        <option value="POSITIVO">Interessato - Esito Positivo</option>
-                        <option value="NEGATIVO">Non Interessato - Esito Negativo</option>
-                        <option value="RICHIAMARE">Richiamata Richiesta</option>
-                        <option value="NON_RISPONDE">Nessuna Risposta</option>
+                        <option value="POSITIVO">Interessato</option>
+                        <option value="RICHIAMARE">Da Richiamare</option>
+                        <option value="NEGATIVO">Non Interessato</option>
                       </select>
                     </div>
                     <div>
