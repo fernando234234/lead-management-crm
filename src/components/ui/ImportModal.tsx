@@ -13,6 +13,9 @@ import {
   Loader2,
   Copy,
   Bot,
+  AlertTriangle,
+  BookOpen,
+  User,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -32,7 +35,15 @@ interface ImportModalProps {
   campaigns: { id: string; name: string }[];
 }
 
-type Step = "upload" | "mapping" | "preview" | "importing" | "complete";
+type Step = "upload" | "mapping" | "preview" | "warnings" | "importing" | "complete";
+
+// Fuzzy match warning type
+interface FuzzyWarning {
+  type: "course" | "commercial";
+  inputValue: string;
+  suggestions: { name: string; score: number }[];
+  count: number;
+}
 
 // Lead fields that can be mapped
 const LEAD_FIELDS = [
@@ -67,6 +78,8 @@ export default function ImportModal({
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [fuzzyWarnings, setFuzzyWarnings] = useState<FuzzyWarning[]>([]);
+  const [isValidating, setIsValidating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle file selection
@@ -154,7 +167,45 @@ export default function ImportModal({
     setStep("preview");
   };
 
-  // Import handler
+  // Validate handler - checks for fuzzy matches before import
+  const handleValidateBeforeImport = async () => {
+    if (!validatedData || validatedData.validLeads.length === 0) return;
+
+    setIsValidating(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/leads/import/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leads: validatedData.validLeads,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Errore durante la validazione");
+      }
+
+      const result = await response.json();
+      
+      if (result.warnings && result.warnings.length > 0) {
+        // Show warnings step
+        setFuzzyWarnings(result.warnings);
+        setStep("warnings");
+      } else {
+        // No warnings, proceed directly to import
+        handleImport();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore durante la validazione");
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  // Import handler - actual import
   const handleImport = async () => {
     if (!validatedData || validatedData.validLeads.length === 0) return;
 
@@ -234,6 +285,7 @@ export default function ImportModal({
               {step === "upload" && "Carica un file CSV o Excel"}
               {step === "mapping" && "Associa le colonne ai campi lead"}
               {step === "preview" && "Verifica i dati prima dell'importazione"}
+              {step === "warnings" && "Verifica corsi e commerciali non riconosciuti"}
               {step === "importing" && "Importazione in corso..."}
               {step === "complete" && "Importazione completata"}
             </p>
@@ -467,6 +519,132 @@ export default function ImportModal({
             </div>
           )}
 
+          {/* Warnings Step - Fuzzy match warnings */}
+          {step === "warnings" && fuzzyWarnings.length > 0 && (
+            <div className="space-y-6">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="text-yellow-600 mt-0.5 flex-shrink-0" size={24} />
+                  <div>
+                    <h3 className="font-semibold text-yellow-800">
+                      Attenzione: valori non riconosciuti
+                    </h3>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      Alcuni corsi o commerciali nel file non corrispondono ai dati esistenti.
+                      Verifica che siano corretti prima di procedere.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Course warnings */}
+                {fuzzyWarnings.filter(w => w.type === "course").length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-3">
+                      <BookOpen size={18} className="text-blue-600" />
+                      Corsi non riconosciuti
+                    </h4>
+                    <div className="space-y-3">
+                      {fuzzyWarnings
+                        .filter(w => w.type === "course")
+                        .map((warning, idx) => (
+                          <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  &quot;{warning.inputValue}&quot;
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  Usato in {warning.count} lead - Verra creato come nuovo corso
+                                </p>
+                              </div>
+                            </div>
+                            {warning.suggestions.length > 0 && (
+                              <div className="mt-3 pt-3 border-t">
+                                <p className="text-sm text-gray-600 mb-2">
+                                  Forse intendevi uno di questi corsi esistenti?
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {warning.suggestions.map((suggestion, sIdx) => (
+                                    <span
+                                      key={sIdx}
+                                      className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm"
+                                    >
+                                      {suggestion.name}
+                                      <span className="ml-2 text-xs text-blue-500">
+                                        ({suggestion.score}% simile)
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Commercial warnings */}
+                {fuzzyWarnings.filter(w => w.type === "commercial").length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-3">
+                      <User size={18} className="text-purple-600" />
+                      Commerciali non riconosciuti
+                    </h4>
+                    <div className="space-y-3">
+                      {fuzzyWarnings
+                        .filter(w => w.type === "commercial")
+                        .map((warning, idx) => (
+                          <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  &quot;{warning.inputValue}&quot;
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  Usato in {warning.count} lead - I lead NON saranno assegnati
+                                </p>
+                              </div>
+                            </div>
+                            {warning.suggestions.length > 0 && (
+                              <div className="mt-3 pt-3 border-t">
+                                <p className="text-sm text-gray-600 mb-2">
+                                  Forse intendevi uno di questi commerciali?
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {warning.suggestions.map((suggestion, sIdx) => (
+                                    <span
+                                      key={sIdx}
+                                      className="inline-flex items-center px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm"
+                                    >
+                                      {suggestion.name}
+                                      <span className="ml-2 text-xs text-purple-500">
+                                        ({suggestion.score}% simile)
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+                <p>
+                  <strong>Nota:</strong> Se i nomi sono corretti, procedi pure con l&apos;importazione.
+                  I nuovi corsi verranno creati automaticamente. I lead con commerciali non riconosciuti
+                  rimarranno non assegnati.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Importing Step */}
           {step === "importing" && (
             <div className="py-12 text-center">
@@ -531,7 +709,7 @@ export default function ImportModal({
         <div className="p-6 border-t bg-gray-50">
           <div className="flex justify-between">
             <div>
-              {(step === "mapping" || step === "preview") && (
+              {(step === "mapping" || step === "preview" || step === "warnings") && (
                 <button
                   onClick={() => {
                     if (step === "mapping") {
@@ -539,8 +717,11 @@ export default function ImportModal({
                       setFile(null);
                       setParseResult(null);
                       setColumnMapping({});
-                    } else {
+                    } else if (step === "preview") {
                       setStep("mapping");
+                    } else if (step === "warnings") {
+                      setStep("preview");
+                      setFuzzyWarnings([]);
                     }
                     setError(null);
                   }}
@@ -572,11 +753,31 @@ export default function ImportModal({
 
               {step === "preview" && validatedData && validatedData.validLeads.length > 0 && (
                 <button
-                  onClick={handleImport}
-                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  onClick={handleValidateBeforeImport}
+                  disabled={isValidating}
+                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
                 >
-                  <Upload size={18} />
-                  Importa {validatedData.validLeads.length} Lead
+                  {isValidating ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Validazione...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={18} />
+                      Importa {validatedData.validLeads.length} Lead
+                    </>
+                  )}
+                </button>
+              )}
+
+              {step === "warnings" && validatedData && validatedData.validLeads.length > 0 && (
+                <button
+                  onClick={handleImport}
+                  className="flex items-center gap-2 px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
+                >
+                  <AlertTriangle size={18} />
+                  Procedi comunque con l&apos;importazione
                 </button>
               )}
             </div>
