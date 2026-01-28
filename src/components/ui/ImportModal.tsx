@@ -172,7 +172,15 @@ export default function ImportModal({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Errore durante l'importazione");
+        // Build detailed error message including hints and details from API
+        let errorMessage = errorData.error || "Errore durante l'importazione";
+        if (errorData.details && Array.isArray(errorData.details)) {
+          errorMessage += "\n\n" + errorData.details.join("\n");
+        }
+        if (errorData.hint) {
+          errorMessage += "\n\n💡 " + errorData.hint;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -244,7 +252,7 @@ export default function ImportModal({
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
               <AlertCircle className="text-red-500 mt-0.5 flex-shrink-0" size={20} />
-              <p className="text-red-700 text-sm">{error}</p>
+              <div className="text-red-700 text-sm whitespace-pre-line">{error}</div>
             </div>
           )}
 
