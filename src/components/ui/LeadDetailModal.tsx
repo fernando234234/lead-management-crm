@@ -8,12 +8,10 @@ import {
   User,
   Building,
   Calendar,
-  Target,
   MessageSquare,
   PhoneCall,
   CheckCircle,
   XCircle,
-  HelpCircle,
   Loader2,
   FileText,
   Edit2,
@@ -22,8 +20,7 @@ import {
 } from "lucide-react";
 import ActivityTimeline from "./ActivityTimeline";
 import TaskModal from "./TaskModal";
-
-// Tri-state type (removed)
+import CallOutcomeModal from "./CallOutcomeModal";
 
 interface Lead {
   id: string;
@@ -39,6 +36,13 @@ interface Lead {
   enrolled: boolean;
   enrolledAt: string | null;
   
+  // Call tracking
+  callAttempts?: number;
+  firstAttemptAt?: string | null;
+  lastAttemptAt?: string | null;
+  callOutcome?: string | null;
+  outcomeNotes?: string | null;
+  
   // Relations
   createdAt: string;
   updatedAt?: string;
@@ -46,10 +50,8 @@ interface Lead {
   campaign: { id: string; name: string; platform?: string } | null;
   assignedTo: { id: string; name: string; email: string } | null;
   
-  // Legacy fields (optional)
+  // Status
   status?: string;
-  callOutcome?: string | null;
-  outcomeNotes?: string | null;
 }
 
 interface Activity {
@@ -72,13 +74,6 @@ interface LeadDetailModalProps {
   accentColor?: string;
 }
 
-// Tri-state display config
-const triStateConfig = {
-  SI: { label: "Sì", color: "bg-green-100 text-green-700", icon: CheckCircle, iconColor: "text-green-500" },
-  NO: { label: "No", color: "bg-red-100 text-red-700", icon: XCircle, iconColor: "text-red-500" },
-  ND: { label: "N/D", color: "bg-gray-100 text-gray-500", icon: HelpCircle, iconColor: "text-gray-400" },
-};
-
 export default function LeadDetailModal({
   lead,
   onClose,
@@ -89,10 +84,15 @@ export default function LeadDetailModal({
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [quickNote, setQuickNote] = useState("");
-  const [showCallNote, setShowCallNote] = useState(false);
-  const [callNote, setCallNote] = useState("");
+  const [showCallOutcomeModal, setShowCallOutcomeModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [localLead, setLocalLead] = useState(lead);
+
+  // Update local lead when prop changes
+  useEffect(() => {
+    setLocalLead(lead);
+  }, [lead]);
 
   // Accessibility refs
   const modalRef = useRef<HTMLDivElement>(null);
@@ -224,37 +224,72 @@ export default function LeadDetailModal({
     }
   };
 
-  const handleLogCall = async () => {
-    if (!callNote.trim()) return;
+  // Handle call outcome submission (using proper call tracking system)
+  const handleCallOutcomeSubmit = async (data: { callOutcome: string; outcomeNotes: string }) => {
+    if (!onUpdate) return;
     setIsSubmitting(true);
+    
+    const now = new Date().toISOString();
+    const newAttempts = (localLead.callAttempts || 0) + 1;
+    
     try {
-      // Prepare promises array
-      const promises: Promise<unknown>[] = [
-        handleAddActivity({
-          type: "CALL",
-          description: callNote.trim(),
-        })
-      ];
-
-      // Auto-set contacted to true if not already
-      if (!lead.contacted && onUpdate) {
-        promises.push(
-          onUpdate(lead.id, {
-            contacted: true,
-            contactedAt: new Date().toISOString(),
-          } as Partial<Lead>)
-        );
+      // Determine if lead should become PERSO
+      const shouldBePerso = 
+        data.callOutcome === 'NEGATIVO' || 
+        (data.callOutcome === 'RICHIAMARE' && newAttempts >= 8);
+      
+      // Build update data
+      const updateData: Partial<Lead> = {
+        contacted: true,
+        contactedAt: localLead.contactedAt || now,
+        callOutcome: data.callOutcome,
+        outcomeNotes: data.outcomeNotes || null,
+        callAttempts: newAttempts,
+        lastAttemptAt: now,
+        firstAttemptAt: localLead.firstAttemptAt || now,
+      };
+      
+      if (shouldBePerso) {
+        updateData.status = 'PERSO';
       }
       
-      // Execute all calls in parallel
-      await Promise.all(promises);
+      // Update local state optimistically
+      setLocalLead(prev => ({ ...prev, ...updateData }));
       
-      setCallNote("");
-      setShowCallNote(false);
+      // Log activity
+      const outcomeLabels: Record<string, string> = {
+        POSITIVO: "Interessato",
+        RICHIAMARE: "Da Richiamare", 
+        NEGATIVO: "Non Interessato",
+      };
+      
+      await Promise.all([
+        onUpdate(lead.id, updateData),
+        handleAddActivity({
+          type: "CALL",
+          description: `Chiamata #${newAttempts}: ${outcomeLabels[data.callOutcome] || data.callOutcome}${data.outcomeNotes ? ` - ${data.outcomeNotes}` : ''}`,
+          metadata: { callOutcome: data.callOutcome, attemptNumber: newAttempts },
+        }),
+      ]);
+      
+      setShowCallOutcomeModal(false);
     } finally {
       setIsSubmitting(false);
     }
   };
+  
+  // Check if lead can receive calls (not PERSO or enrolled)
+  const canLogCall = localLead.status !== 'PERSO' && !localLead.enrolled;
+  
+  // Build call history from activities
+  const callHistory = activities
+    .filter(a => a.type === 'CALL' && a.metadata?.callOutcome)
+    .map(a => ({
+      date: a.createdAt,
+      outcome: (a.metadata?.callOutcome as string) || '',
+      notes: a.description.split(' - ')[1] || undefined,
+    }))
+    .reverse();
 
   const handleCreateTask = async (taskData: {
     title: string;
@@ -403,19 +438,28 @@ export default function LeadDetailModal({
           <div className="w-1/2 p-6 overflow-y-auto border-r">
             {/* Quick Actions */}
             <div className="flex flex-wrap gap-2 mb-6">
+              {/* Call button - prominent for leads that can be called */}
+              {canLogCall && (
+                <button
+                  onClick={() => setShowCallOutcomeModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-commercial text-white hover:opacity-90 transition font-medium"
+                >
+                  <PhoneCall size={18} />
+                  {localLead.callAttempts ? `Chiamata #${(localLead.callAttempts || 0) + 1}` : "Prima Chiamata"}
+                </button>
+              )}
+              {!canLogCall && (
+                <span className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed">
+                  <PhoneCall size={18} />
+                  {localLead.enrolled ? "Lead iscritto" : "Lead perso"}
+                </span>
+              )}
               <button
                 onClick={() => setShowQuickNote(true)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition`}
               >
                 <MessageSquare size={18} />
-                Aggiungi Nota
-              </button>
-              <button
-                onClick={() => setShowCallNote(true)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-gray-700 hover:border-${accentColor} hover:text-${accentColor} transition`}
-              >
-                <PhoneCall size={18} />
-                Registra Chiamata
+                Nota
               </button>
               <button
                 onClick={() => setShowTaskModal(true)}
@@ -425,6 +469,50 @@ export default function LeadDetailModal({
                 Promemoria
               </button>
             </div>
+            
+            {/* Call Tracking Summary */}
+            {(localLead.callAttempts || 0) > 0 && (
+              <div className="mb-6 p-3 bg-gray-50 rounded-lg border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Chiamate effettuate
+                  </span>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    (localLead.callAttempts || 0) >= 6 
+                      ? 'bg-red-100 text-red-700' 
+                      : (localLead.callAttempts || 0) >= 4 
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-green-100 text-green-700'
+                  }`}>
+                    {localLead.callAttempts}/8 tentativi
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                  <div
+                    className={`h-1.5 rounded-full ${
+                      (localLead.callAttempts || 0) >= 6 ? 'bg-red-500' : 
+                      (localLead.callAttempts || 0) >= 4 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
+                    style={{ width: `${((localLead.callAttempts || 0) / 8) * 100}%` }}
+                  />
+                </div>
+                {localLead.lastAttemptAt && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Ultima chiamata: {new Date(localLead.lastAttemptAt).toLocaleDateString('it-IT')}
+                    {localLead.callOutcome && (
+                      <span className={`ml-2 px-1.5 py-0.5 rounded ${
+                        localLead.callOutcome === 'POSITIVO' ? 'bg-green-100 text-green-700' :
+                        localLead.callOutcome === 'RICHIAMARE' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {localLead.callOutcome === 'POSITIVO' ? 'Interessato' :
+                         localLead.callOutcome === 'RICHIAMARE' ? 'Da Richiamare' : 'Non Interessato'}
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Quick Note Input */}
             {showQuickNote && (
@@ -463,43 +551,7 @@ export default function LeadDetailModal({
               </div>
             )}
 
-            {/* Call Note Input */}
-            {showCallNote && (
-              <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-start gap-2">
-                  <PhoneCall size={20} className="text-green-600 mt-1" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-green-800 mb-2">Registra Chiamata</p>
-                    <textarea
-                      value={callNote}
-                      onChange={(e) => setCallNote(e.target.value)}
-                      placeholder="Note sulla chiamata..."
-                      rows={3}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
-                      autoFocus
-                    />
-                    <div className="flex justify-end gap-2 mt-2">
-                      <button
-                        onClick={() => {
-                          setShowCallNote(false);
-                          setCallNote("");
-                        }}
-                        className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900"
-                      >
-                        Annulla
-                      </button>
-                      <button
-                        onClick={handleLogCall}
-                        disabled={isSubmitting || !callNote.trim()}
-                        className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Registra"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+
 
             {/* Lead Info Cards */}
             <div className="space-y-4">
@@ -511,23 +563,23 @@ export default function LeadDetailModal({
                 <div className="space-y-3">
                   <BooleanStateDisplay
                     label="Contattato"
-                    value={lead.contacted}
+                    value={localLead.contacted}
                     field="contacted"
-                    date={lead.contactedAt}
+                    date={localLead.contactedAt}
                     note={null}
                   />
                   <BooleanStateDisplay
                     label="Target (In obiettivo)"
-                    value={lead.isTarget}
+                    value={localLead.isTarget}
                     field="isTarget"
                     date={null}
-                    note={lead.targetNote}
+                    note={localLead.targetNote}
                   />
                   <BooleanStateDisplay
                     label="Iscritto"
-                    value={lead.enrolled}
+                    value={localLead.enrolled}
                     field="enrolled"
-                    date={lead.enrolledAt}
+                    date={localLead.enrolledAt}
                     note={null}
                   />
                 </div>
@@ -650,7 +702,20 @@ export default function LeadDetailModal({
         onClose={() => setShowTaskModal(false)}
         onSave={handleCreateTask}
         preselectedLeadId={lead.id}
-        leads={[{ id: lead.id, name: lead.name, status: lead.contacted ? "Contattato" : "Nuovo" }]}
+        leads={[{ id: lead.id, name: lead.name, status: localLead.contacted ? "Contattato" : "Nuovo" }]}
+      />
+      
+      {/* Call Outcome Modal */}
+      <CallOutcomeModal
+        isOpen={showCallOutcomeModal}
+        onClose={() => setShowCallOutcomeModal(false)}
+        onSubmit={handleCallOutcomeSubmit}
+        leadName={localLead.name}
+        callAttempts={localLead.callAttempts || 0}
+        lastAttemptAt={localLead.lastAttemptAt || null}
+        firstAttemptAt={localLead.firstAttemptAt || null}
+        callHistory={callHistory}
+        isSubmitting={isSubmitting}
       />
     </div>
   );

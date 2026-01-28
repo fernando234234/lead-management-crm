@@ -15,6 +15,8 @@ import {
   Plus,
   CheckCircle,
   XCircle,
+  HelpCircle,
+  AlertTriangle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "@/components/ui/Pagination";
@@ -22,6 +24,9 @@ import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import EmptyState from "@/components/ui/EmptyState";
 import ExportButton from "@/components/ui/ExportButton";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import CallOutcomeModal from "@/components/ui/CallOutcomeModal";
+import EnrolledConfirmModal from "@/components/ui/EnrolledConfirmModal";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 // Boolean display helpers
 const booleanConfig = {
@@ -97,13 +102,14 @@ export default function CommercialLeadsPage() {
   const [pendingEnrolledLead, setPendingEnrolledLead] = useState<string | null>(null);
   const [showEditEnrolledConfirm, setShowEditEnrolledConfirm] = useState(false);
 
-  // Call outcome modal (required when marking as contacted)
+  // Call outcome modal
   const [showCallOutcomeModal, setShowCallOutcomeModal] = useState(false);
   const [pendingContactedLead, setPendingContactedLead] = useState<Lead | null>(null);
-  const [callOutcomeData, setCallOutcomeData] = useState({
-    callOutcome: "",
-    outcomeNotes: "",
-  });
+  // Track what triggered the call modal: 'button' | 'contattato' | 'target'
+  const [callModalTrigger, setCallModalTrigger] = useState<'button' | 'contattato' | 'target'>('button');
+
+  // Help modal
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -362,38 +368,74 @@ export default function CommercialLeadsPage() {
     }
   };
 
-  // Quick state update
+  // Quick state update - with guided flow for prerequisites
   const handleQuickStateUpdate = async (leadId: string, field: string, value: boolean) => {
-    // If setting enrolled to true, show confirmation modal first
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead) return;
+    
+    // RULE 1: Contattato ON requires at least 1 call logged
+    // Instead of error, open the call modal to guide them
+    if (field === "contacted" && value === true) {
+      if (lead.callAttempts === 0) {
+        // Guide them: "You say you contacted them? Let's log that call!"
+        setPendingContactedLead(lead);
+        setCallModalTrigger('contattato');
+        setShowCallOutcomeModal(true);
+        return;
+      }
+    }
+    
+    // RULE 2: Target ON requires at least 1 call logged
+    // Instead of error, open the call modal to guide them
+    if (field === "isTarget" && value === true) {
+      if (lead.callAttempts === 0) {
+        // Guide them: "You want to mark as target? Let's confirm the contact first!"
+        setPendingContactedLead(lead);
+        setCallModalTrigger('target');
+        setShowCallOutcomeModal(true);
+        return;
+      }
+    }
+    
+    // RULE 3: Iscritto requires Contattato=true AND callOutcome=POSITIVO
     if (field === "enrolled" && value === true) {
+      if (!lead.contacted || lead.callOutcome !== 'POSITIVO') {
+        // Show helpful message about what's missing
+        if (!lead.contacted) {
+          toast.error("Per iscrivere questo lead, devi prima contattarlo e registrare un esito 'Interessato'", {
+            duration: 4000,
+            icon: '📞'
+          });
+        } else {
+          toast.error("Solo i lead con esito 'Interessato' possono essere iscritti", {
+            duration: 4000,
+            icon: '⚠️'
+          });
+        }
+        return;
+      }
+      // Show confirmation modal
       setPendingEnrolledLead(leadId);
       setShowEnrolledConfirm(true);
-      return;
-    }
-
-    // If setting contacted to true, show call outcome modal first
-    if (field === "contacted" && value === true) {
-      const lead = leads.find(l => l.id === leadId);
-      if (lead) {
-        setPendingContactedLead(lead);
-        setCallOutcomeData({ callOutcome: "", outcomeNotes: "" });
-        setShowCallOutcomeModal(true);
-      }
       return;
     }
 
     await performStateUpdate(leadId, field, value);
   };
 
-  // Open call modal for logging additional calls (for already contacted leads)
+  // Open call modal for logging calls
   const handleLogCall = (lead: Lead) => {
-    // Don't allow logging calls for PERSO or ISCRITTO leads
-    if (lead.status === 'PERSO' || lead.enrolled) {
-      toast.error(lead.enrolled ? "Lead già iscritto" : "Lead già perso");
+    // Don't allow logging calls for PERSO or enrolled leads
+    if (lead.status === 'PERSO') {
+      toast.error("Questo lead è già PERSO");
+      return;
+    }
+    if (lead.enrolled) {
+      toast.error("Questo lead è già iscritto");
       return;
     }
     setPendingContactedLead(lead);
-    setCallOutcomeData({ callOutcome: "", outcomeNotes: "" });
+    setCallModalTrigger('button');
     setShowCallOutcomeModal(true);
   };
 
@@ -471,28 +513,35 @@ export default function CommercialLeadsPage() {
   };
 
   // Handle call outcome submission with optimistic update
-  const handleCallOutcomeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pendingContactedLead || !callOutcomeData.callOutcome) return;
+  const handleCallOutcomeSubmit = async (data: { callOutcome: string; outcomeNotes: string }) => {
+    if (!pendingContactedLead) return;
 
     const leadId = pendingContactedLead.id;
     const previousLeads = [...leads];
     const now = new Date().toISOString();
     const newAttempts = (pendingContactedLead.callAttempts || 0) + 1;
+    const trigger = callModalTrigger; // Save before resetting
     
     // Optimistic update
     const optimisticUpdate: Partial<Lead> = {
       contacted: true,
-      contactedAt: now,
-      callOutcome: callOutcomeData.callOutcome,
+      contactedAt: pendingContactedLead.contactedAt || now,
+      callOutcome: data.callOutcome,
       callAttempts: newAttempts,
       lastAttemptAt: now,
       firstAttemptAt: pendingContactedLead.firstAttemptAt || now,
     };
     
+    // If triggered from Target toggle, also set isTarget (unless going PERSO)
+    const shouldSetTarget = trigger === 'target' && data.callOutcome !== 'NEGATIVO' && 
+      !(data.callOutcome === 'RICHIAMARE' && newAttempts >= 8);
+    if (shouldSetTarget) {
+      optimisticUpdate.isTarget = true;
+    }
+    
     // Mark as PERSO if NEGATIVO or 8 attempts with RICHIAMARE
-    if (callOutcomeData.callOutcome === 'NEGATIVO' || 
-        (callOutcomeData.callOutcome === 'RICHIAMARE' && newAttempts >= 8)) {
+    if (data.callOutcome === 'NEGATIVO' || 
+        (data.callOutcome === 'RICHIAMARE' && newAttempts >= 8)) {
       optimisticUpdate.status = 'PERSO';
     }
     
@@ -501,21 +550,33 @@ export default function CommercialLeadsPage() {
     ));
 
     try {
+      const apiPayload: Record<string, unknown> = {
+        contacted: true,
+        contactedAt: pendingContactedLead.contactedAt || now,
+        callOutcome: data.callOutcome,
+        outcomeNotes: data.outcomeNotes || null,
+        callAttempts: newAttempts,
+        lastAttemptAt: now,
+        firstAttemptAt: pendingContactedLead.firstAttemptAt || now,
+      };
+      
+      if (shouldSetTarget) {
+        apiPayload.isTarget = true;
+      }
+      if (optimisticUpdate.status) {
+        apiPayload.status = optimisticUpdate.status;
+      }
+      
       await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contacted: true,
-          contactedAt: now,
-          callOutcome: callOutcomeData.callOutcome,
-          outcomeNotes: callOutcomeData.outcomeNotes || null,
-        }),
+        body: JSON.stringify(apiPayload),
       });
       
-      // Show appropriate message based on outcome
-      if (callOutcomeData.callOutcome === 'NEGATIVO') {
+      // Show appropriate message based on outcome and trigger
+      if (data.callOutcome === 'NEGATIVO') {
         toast.success("Lead segnato come PERSO (non interessato)");
-      } else if (callOutcomeData.callOutcome === 'RICHIAMARE') {
+      } else if (data.callOutcome === 'RICHIAMARE') {
         if (newAttempts >= 8) {
           toast.success("Lead segnato come PERSO (8 tentativi raggiunti)");
         } else {
@@ -523,7 +584,13 @@ export default function CommercialLeadsPage() {
         }
       } else {
         // POSITIVO
-        toast.success("Lead interessato!");
+        if (trigger === 'target') {
+          toast.success("Chiamata registrata - Lead segnato come Target e Interessato! 🎯");
+        } else if (trigger === 'contattato') {
+          toast.success("Chiamata registrata - Lead interessato! ✅");
+        } else {
+          toast.success("Lead interessato!");
+        }
       }
     } catch (error) {
       console.error("Failed to log call outcome:", error);
@@ -534,13 +601,13 @@ export default function CommercialLeadsPage() {
     
     setShowCallOutcomeModal(false);
     setPendingContactedLead(null);
-    setCallOutcomeData({ callOutcome: "", outcomeNotes: "" });
+    setCallModalTrigger('button');
   };
 
   const handleCallOutcomeCancel = () => {
     setShowCallOutcomeModal(false);
     setPendingContactedLead(null);
-    setCallOutcomeData({ callOutcome: "", outcomeNotes: "" });
+    setCallModalTrigger('button');
   };
 
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
@@ -579,20 +646,23 @@ export default function CommercialLeadsPage() {
     onChange,
     label,
     compact = false,
+    disabled = false,
   }: {
     value: boolean;
     onChange: (value: boolean) => void;
     label?: string;
     compact?: boolean;
+    disabled?: boolean;
   }) => {
     if (compact) {
       return (
         <button
           type="button"
-          onClick={() => onChange(!value)}
-          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+          onClick={() => !disabled && onChange(!value)}
+          disabled={disabled}
+          className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
             value ? "bg-green-600" : "bg-gray-200"
-          }`}
+          } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
         >
           <span
             className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -608,10 +678,11 @@ export default function CommercialLeadsPage() {
         {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
         <button
           type="button"
-          onClick={() => onChange(!value)}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+          onClick={() => !disabled && onChange(!value)}
+          disabled={disabled}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
             value ? "bg-green-600" : "bg-gray-200"
-          }`}
+          } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
         >
           <span
             className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -744,10 +815,38 @@ export default function CommercialLeadsPage() {
               <tr>
                 <th>Lead</th>
                 <th>Corso</th>
-                <th>Campagna</th>
-                <th className="text-center">Contattato</th>
-                <th className="text-center">Target</th>
-                <th className="text-center">Iscritto</th>
+                <th className="text-center">
+                  <Tooltip content="Tracciamento chiamate: registra esiti e monitora tentativi (max 8)" position="bottom">
+                    <span className="cursor-help flex items-center justify-center gap-1">
+                      Chiamate
+                      <HelpCircle size={14} className="text-gray-400" />
+                    </span>
+                  </Tooltip>
+                </th>
+                <th className="text-center">
+                  <Tooltip content="Hai parlato con questa persona? Semplice sì/no" position="bottom">
+                    <span className="cursor-help flex items-center justify-center gap-1">
+                      Contattato
+                      <HelpCircle size={14} className="text-gray-400" />
+                    </span>
+                  </Tooltip>
+                </th>
+                <th className="text-center">
+                  <Tooltip content="Lead prioritario da seguire con attenzione" position="bottom">
+                    <span className="cursor-help flex items-center justify-center gap-1">
+                      Target
+                      <HelpCircle size={14} className="text-gray-400" />
+                    </span>
+                  </Tooltip>
+                </th>
+                <th className="text-center">
+                  <Tooltip content="Il lead ha firmato un contratto e si è iscritto" position="bottom">
+                    <span className="cursor-help flex items-center justify-center gap-1">
+                      Iscritto
+                      <HelpCircle size={14} className="text-gray-400" />
+                    </span>
+                  </Tooltip>
+                </th>
                 <th>Data</th>
                 <th>Azioni</th>
               </tr>
@@ -782,81 +881,220 @@ export default function CommercialLeadsPage() {
                   <td className="p-4">
                     <span className="text-sm">{lead.course?.name || "-"}</span>
                   </td>
+                  {/* Chiamate column - call tracking with visible button */}
                   <td className="p-4">
-                    <span className="text-sm">{lead.campaign?.name || "-"}</span>
-                    {lead.campaign?.platform && (
-                      <span className="ml-1 text-xs text-gray-400">
-                        ({lead.campaign.platform})
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <BooleanToggle
-                        value={lead.contacted}
-                        onChange={(v) => handleQuickStateUpdate(lead.id, "contacted", v)}
-                        compact
-                      />
-                      {/* Show attempt count for all leads with call attempts */}
-                      {lead.callAttempts > 0 && (
-                        <span 
-                          className={`text-xs px-1.5 py-0.5 rounded-full ${
-                            lead.callAttempts >= 6 
-                              ? 'bg-red-100 text-red-700' 
-                              : lead.callAttempts >= 4 
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-gray-100 text-gray-600'
-                          }`}
-                          title={`${lead.callAttempts} tentativi effettuati - ultimo esito: ${lead.callOutcome || 'N/A'}`}
-                        >
-                          {lead.callAttempts}/8
-                        </span>
+                    <div className="flex flex-col items-center gap-1">
+                      {lead.status === 'PERSO' ? (
+                        <Tooltip content="Lead perso - non più attivo" position="top">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 cursor-help">
+                            PERSO
+                          </span>
+                        </Tooltip>
+                      ) : lead.enrolled ? (
+                        <Tooltip content="Lead iscritto al corso!" position="top">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 cursor-help">
+                            ISCRITTO
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        <>
+                          {/* Warning for leads approaching auto-PERSO */}
+                          {(() => {
+                            const daysSinceLastAttempt = lead.lastAttemptAt 
+                              ? Math.floor((Date.now() - new Date(lead.lastAttemptAt).getTime()) / (1000 * 60 * 60 * 24))
+                              : null;
+                            const daysUntilAutoPerso = daysSinceLastAttempt !== null ? 15 - daysSinceLastAttempt : null;
+                            const isUrgent = daysUntilAutoPerso !== null && daysUntilAutoPerso <= 5 && daysUntilAutoPerso > 0;
+                            const isOverdue = daysUntilAutoPerso !== null && daysUntilAutoPerso <= 0;
+                            
+                            if (isOverdue) {
+                              return (
+                                <Tooltip 
+                                  content={`URGENTE: Sono passati ${daysSinceLastAttempt} giorni dall'ultimo contatto! Il lead può diventare PERSO automaticamente.`}
+                                  position="top"
+                                  variant="accent"
+                                >
+                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-medium cursor-help animate-pulse">
+                                    <AlertTriangle size={12} />
+                                    Scaduto!
+                                  </div>
+                                </Tooltip>
+                              );
+                            }
+                            if (isUrgent) {
+                              return (
+                                <Tooltip 
+                                  content={`Attenzione: ${daysUntilAutoPerso} giorni rimanenti prima che il lead diventi PERSO automaticamente.`}
+                                  position="top"
+                                  variant="accent"
+                                >
+                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-medium cursor-help">
+                                    <AlertTriangle size={12} />
+                                    {daysUntilAutoPerso}gg
+                                  </div>
+                                </Tooltip>
+                              );
+                            }
+                            return null;
+                          })()}
+                          {/* Call button */}
+                          <Tooltip 
+                            content={lead.callAttempts === 0 
+                              ? "Clicca per registrare la prima chiamata" 
+                              : `Registra chiamata #${lead.callAttempts + 1} di 8`
+                            }
+                            position="top"
+                          >
+                            <button
+                              onClick={() => handleLogCall(lead)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                lead.callAttempts === 0
+                                  ? 'bg-commercial text-white hover:opacity-90'
+                                  : 'bg-commercial/10 text-commercial hover:bg-commercial/20 border border-commercial/30'
+                              }`}
+                            >
+                              <PhoneCall size={14} />
+                              {lead.callAttempts === 0 ? 'Chiama' : `#${lead.callAttempts + 1}`}
+                            </button>
+                          </Tooltip>
+                          {/* Progress bar */}
+                          <Tooltip 
+                            content={`${lead.callAttempts} tentativi effettuati su 8 massimi. ${8 - lead.callAttempts} rimanenti.`}
+                            position="bottom"
+                          >
+                            <div className="flex items-center gap-1 w-full max-w-[80px] cursor-help">
+                              <div className="flex-1 bg-gray-200 rounded-full h-1">
+                                <div
+                                  className={`h-1 rounded-full ${
+                                    lead.callAttempts >= 6 ? 'bg-red-500' : 
+                                    lead.callAttempts >= 4 ? 'bg-yellow-500' : 'bg-green-500'
+                                  }`}
+                                  style={{ width: `${(lead.callAttempts / 8) * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-gray-500">{lead.callAttempts}/8</span>
+                            </div>
+                          </Tooltip>
+                          {/* Last outcome */}
+                          {lead.callOutcome && (
+                            <Tooltip 
+                              content={
+                                lead.callOutcome === 'POSITIVO' ? 'Ultimo esito: Il lead è interessato' :
+                                lead.callOutcome === 'RICHIAMARE' ? 'Ultimo esito: Da richiamare più tardi' :
+                                'Ultimo esito: Non interessato'
+                              }
+                              position="bottom"
+                            >
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded cursor-help ${
+                                lead.callOutcome === 'POSITIVO' ? 'bg-green-100 text-green-700' :
+                                lead.callOutcome === 'RICHIAMARE' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-red-100 text-red-700'
+                              }`}>
+                                {lead.callOutcome === 'POSITIVO' ? 'Interessato' :
+                                 lead.callOutcome === 'RICHIAMARE' ? 'Da richiamare' : 'Non interess.'}
+                              </span>
+                            </Tooltip>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
+                  {/* Contattato - simple toggle, disabled for PERSO */}
                   <td className="p-4">
-                    <BooleanToggle
-                      value={lead.isTarget}
-                      onChange={(v) => handleQuickStateUpdate(lead.id, "isTarget", v)}
-                      compact
-                    />
+                    <div className={`flex items-center justify-center ${lead.status === 'PERSO' ? 'opacity-50' : ''}`}>
+                      <Tooltip 
+                        content={lead.status === 'PERSO' 
+                          ? "Non modificabile - lead perso" 
+                          : lead.contacted 
+                            ? "✅ Hai parlato con questo lead" 
+                            : lead.callAttempts > 0
+                              ? "Clicca per segnare come contattato"
+                              : "Clicca per registrare la chiamata"
+                        }
+                        position="top"
+                      >
+                        <div>
+                          <BooleanToggle
+                            value={lead.contacted}
+                            onChange={(v) => handleQuickStateUpdate(lead.id, "contacted", v)}
+                            compact
+                            disabled={lead.status === 'PERSO'}
+                          />
+                        </div>
+                      </Tooltip>
+                    </div>
                   </td>
+                  {/* Target - disabled for PERSO */}
                   <td className="p-4">
-                    <BooleanToggle
-                      value={lead.enrolled}
-                      onChange={(v) => handleQuickStateUpdate(lead.id, "enrolled", v)}
-                      compact
-                    />
+                    <div className={`flex items-center justify-center ${lead.status === 'PERSO' ? 'opacity-50' : ''}`}>
+                      <Tooltip 
+                        content={lead.status === 'PERSO' 
+                          ? "Non modificabile - lead perso" 
+                          : lead.isTarget 
+                            ? "🎯 Lead in obiettivo - priorità alta" 
+                            : lead.callAttempts > 0
+                              ? "Clicca per segnare come target"
+                              : "Clicca per confermare contatto e segnare come target"
+                        }
+                        position="top"
+                      >
+                        <div>
+                          <BooleanToggle
+                            value={lead.isTarget}
+                            onChange={(v) => handleQuickStateUpdate(lead.id, "isTarget", v)}
+                            compact
+                            disabled={lead.status === 'PERSO'}
+                          />
+                        </div>
+                      </Tooltip>
+                    </div>
+                  </td>
+                  {/* Iscritto - disabled for PERSO */}
+                  <td className="p-4">
+                    <div className={`flex items-center justify-center ${lead.status === 'PERSO' ? 'opacity-50' : ''}`}>
+                      <Tooltip 
+                        content={lead.status === 'PERSO' 
+                          ? "Non modificabile - lead perso" 
+                          : lead.enrolled 
+                            ? "🎉 Lead iscritto al corso!" 
+                            : lead.callOutcome === 'POSITIVO'
+                              ? "Clicca per iscrivere (richiede conferma)"
+                              : "Richiede esito 'Interessato' per iscrivere"
+                        }
+                        position="top"
+                      >
+                        <div>
+                          <BooleanToggle
+                            value={lead.enrolled}
+                            onChange={(v) => handleQuickStateUpdate(lead.id, "enrolled", v)}
+                            compact
+                            disabled={lead.status === 'PERSO'}
+                          />
+                        </div>
+                      </Tooltip>
+                    </div>
                   </td>
                   <td className="p-4 text-sm text-gray-500">
                     {new Date(lead.createdAt).toLocaleDateString("it-IT")}
                   </td>
                   <td className="p-4">
-                    <div className="flex gap-2">
-                      {/* Log Call button - show for contacted leads that are not PERSO or enrolled */}
-                      {lead.contacted && lead.status !== 'PERSO' && !lead.enrolled && (
+                    <div className="flex gap-1">
+                      <Tooltip content="Vedi dettagli completi e storico attività" position="top">
                         <button
-                          onClick={() => handleLogCall(lead)}
-                          className="p-2 text-commercial hover:bg-commercial/10 rounded-lg transition"
-                          title={`Registra chiamata (${lead.callAttempts || 0}/8 tentativi)`}
+                          onClick={() => setDetailLead(lead)}
+                          className="p-2 text-gray-500 hover:text-commercial hover:bg-commercial/10 rounded-lg transition"
                         >
-                          <Phone size={18} />
+                          <Eye size={18} />
                         </button>
-                      )}
-                      <button
-                        onClick={() => setDetailLead(lead)}
-                        className="p-2 text-gray-500 hover:text-commercial transition"
-                        title="Dettagli"
-                      >
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        onClick={() => openEditModal(lead)}
-                        className="p-2 text-gray-500 hover:text-commercial transition"
-                        title="Modifica lead"
-                      >
-                        <Pencil size={18} />
-                      </button>
+                      </Tooltip>
+                      <Tooltip content="Modifica informazioni lead" position="top">
+                        <button
+                          onClick={() => openEditModal(lead)}
+                          className="p-2 text-gray-500 hover:text-commercial hover:bg-commercial/10 rounded-lg transition"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>
@@ -1134,141 +1372,169 @@ export default function CommercialLeadsPage() {
         </div>
       )}
 
-      {/* Enrolled Confirmation Modal */}
-      <ConfirmModal
-        isOpen={showEnrolledConfirm}
-        onClose={handleEnrolledCancel}
-        onConfirm={handleEnrolledConfirm}
-        title="Conferma Iscrizione"
-        message="Sei sicuro che questo lead ha firmato un contratto? Questa azione segnerà il lead come iscritto e registrerà la data di iscrizione."
-        confirmText="Sì, ha firmato"
-        cancelText="No, annulla"
-        variant="warning"
-      />
+      {/* Enrolled Confirmation Modal - Two-step with delay */}
+      {(() => {
+        const enrollingLead = pendingEnrolledLead ? leads.find(l => l.id === pendingEnrolledLead) : null;
+        return (
+          <EnrolledConfirmModal
+            isOpen={showEnrolledConfirm}
+            onClose={handleEnrolledCancel}
+            onConfirm={handleEnrolledConfirm}
+            leadName={enrollingLead?.name || ''}
+            courseName={enrollingLead?.course?.name || 'N/A'}
+          />
+        );
+      })()}
 
-      {/* Edit Form Enrolled Confirmation Modal */}
-      <ConfirmModal
+      {/* Edit Form Enrolled Confirmation Modal - Two-step with delay */}
+      <EnrolledConfirmModal
         isOpen={showEditEnrolledConfirm}
         onClose={handleEditEnrolledCancel}
         onConfirm={handleEditEnrolledConfirm}
-        title="Conferma Iscrizione"
-        message="Sei sicuro che questo lead ha firmato un contratto? Questa azione segnerà il lead come iscritto e registrerà la data di iscrizione."
-        confirmText="Sì, ha firmato"
-        cancelText="No, annulla"
-        variant="warning"
+        leadName={editingLead?.name || ''}
+        courseName={editingLead?.course?.name || 'N/A'}
       />
 
-      {/* Call Outcome Modal */}
-      {showCallOutcomeModal && pendingContactedLead && (
+      {/* Call Outcome Modal - Using Reusable Component */}
+      <CallOutcomeModal
+        isOpen={showCallOutcomeModal && !!pendingContactedLead}
+        onClose={handleCallOutcomeCancel}
+        onSubmit={handleCallOutcomeSubmit}
+        leadName={pendingContactedLead?.name || ''}
+        callAttempts={pendingContactedLead?.callAttempts || 0}
+        lastAttemptAt={pendingContactedLead?.lastAttemptAt || null}
+        firstAttemptAt={pendingContactedLead?.firstAttemptAt || null}
+        callHistory={[]}
+        isSubmitting={false}
+        trigger={callModalTrigger}
+      />
+
+      {/* Floating Help Button */}
+      <button
+        onClick={() => setShowHelpModal(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-commercial text-white rounded-full shadow-lg hover:opacity-90 transition flex items-center justify-center z-40"
+        title="Guida e spiegazioni"
+      >
+        <HelpCircle size={24} />
+      </button>
+
+      {/* Help Modal */}
+      {showHelpModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-2">Registra Chiamata</h2>
-            
-            {/* Call Attempt Tracking Info */}
-            <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">
-                  Tentativo #{(pendingContactedLead.callAttempts || 0) + 1} di 8
-                </span>
-                <span className={`text-xs px-2 py-1 rounded-full ${
-                  (pendingContactedLead.callAttempts || 0) >= 6 
-                    ? 'bg-red-100 text-red-700' 
-                    : (pendingContactedLead.callAttempts || 0) >= 4 
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-green-100 text-green-700'
-                }`}>
-                  {8 - (pendingContactedLead.callAttempts || 0) - 1} tentativi rimanenti
-                </span>
-              </div>
-              {pendingContactedLead.lastAttemptAt && (
-                <div className="mt-2 text-xs text-gray-500">
-                  Ultima chiamata: {new Date(pendingContactedLead.lastAttemptAt).toLocaleDateString('it-IT')}
-                  {(() => {
-                    const daysSinceLast = Math.floor((Date.now() - new Date(pendingContactedLead.lastAttemptAt!).getTime()) / (1000 * 60 * 60 * 24));
-                    const daysRemaining = 15 - daysSinceLast;
-                    return daysRemaining > 0 
-                      ? ` (${daysRemaining} giorni prima di auto-PERSO)` 
-                      : ' (limite 15 giorni superato!)';
-                  })()}
-                </div>
-              )}
-              {(pendingContactedLead.callAttempts || 0) >= 7 && (
-                <div className="mt-2 text-xs text-red-600 font-medium">
-                  Attenzione: questo è l&apos;ultimo tentativo! Se non risponde, il lead diventerà PERSO.
-                </div>
-              )}
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <HelpCircle className="text-commercial" size={24} />
+                Guida - Gestione Lead
+              </h2>
+              <button
+                onClick={() => setShowHelpModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
             </div>
             
-            <p className="text-sm text-gray-600 mb-4">
-              Seleziona l&apos;esito della chiamata per <strong>{pendingContactedLead.name}</strong>
-            </p>
-            <form onSubmit={handleCallOutcomeSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Esito <span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { value: "POSITIVO", label: "Interessato", icon: CheckCircle },
-                    { value: "RICHIAMARE", label: "Da Richiamare", icon: PhoneCall },
-                    { value: "NEGATIVO", label: "Non Interessato", icon: XCircle },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setCallOutcomeData({ ...callOutcomeData, callOutcome: option.value })}
-                      className={`p-3 rounded-lg border-2 transition text-sm font-medium flex items-center justify-center gap-2 ${
-                        callOutcomeData.callOutcome === option.value
-                          ? "border-commercial bg-commercial/10"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <option.icon size={16} />
-                      {option.label}
-                    </button>
-                  ))}
+            <div className="p-6 space-y-6">
+              {/* Chiamate Section */}
+              <div className="border-l-4 border-commercial pl-4">
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <PhoneCall size={18} className="text-commercial" />
+                  Colonna Chiamate
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  Serve per tracciare i tentativi di chiamata e determinare se un lead diventa <strong>PERSO</strong>.
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                  <li><strong>Chiama:</strong> Clicca per registrare l&apos;esito di una chiamata</li>
+                  <li><strong>X/8:</strong> Numero di tentativi effettuati (max 8)</li>
+                  <li><strong>Interessato:</strong> Il lead è interessato, continua nel funnel</li>
+                  <li><strong>Da richiamare:</strong> Non risponde, riprova più tardi</li>
+                  <li><strong>Non interessato:</strong> Il lead diventa PERSO</li>
+                </ul>
+                <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-700">
+                  <strong>Auto-PERSO:</strong> Dopo 8 tentativi &quot;Da richiamare&quot; O dopo 15 giorni senza contatto
                 </div>
-                {callOutcomeData.callOutcome === 'NEGATIVO' && (
-                  <p className="mt-2 text-xs text-red-600">
-                    Il lead sarà automaticamente segnato come PERSO.
-                  </p>
-                )}
-                {callOutcomeData.callOutcome === 'RICHIAMARE' && 
-                 (pendingContactedLead.callAttempts || 0) >= 7 && (
-                  <p className="mt-2 text-xs text-red-600">
-                    Il lead sarà automaticamente segnato come PERSO (8° tentativo).
-                  </p>
-                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note (opzionale)
-                </label>
-                <textarea
-                  value={callOutcomeData.outcomeNotes}
-                  onChange={(e) => setCallOutcomeData({ ...callOutcomeData, outcomeNotes: e.target.value })}
-                  rows={2}
-                  placeholder="Aggiungi note sulla chiamata..."
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
-                />
+
+              {/* Contattato Section */}
+              <div className="border-l-4 border-green-500 pl-4">
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <CheckCircle size={18} className="text-green-600" />
+                  Contattato
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Semplice indicatore: <strong>hai parlato con questa persona?</strong>
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside mt-2">
+                  <li><strong>ON (verde):</strong> Hai parlato con il lead</li>
+                  <li><strong>OFF (grigio):</strong> Non ancora contattato</li>
+                </ul>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleCallOutcomeCancel}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  disabled={!callOutcomeData.callOutcome}
-                  className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Salva Esito
-                </button>
+
+              {/* Target Section */}
+              <div className="border-l-4 border-yellow-500 pl-4">
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <CheckCircle size={18} className="text-yellow-600" />
+                  Target
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Il lead è &quot;in obiettivo&quot; - cioè è un potenziale cliente interessante da seguire con priorità.
+                </p>
               </div>
-            </form>
+
+              {/* Iscritto Section */}
+              <div className="border-l-4 border-blue-500 pl-4">
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <CheckCircle size={18} className="text-blue-600" />
+                  Iscritto
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Il lead ha <strong>firmato un contratto</strong> e si è iscritto al corso.
+                </p>
+                <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                  <strong>Nota:</strong> Richiede conferma perché è un&apos;azione importante
+                </div>
+              </div>
+
+              {/* PERSO Section */}
+              <div className="border-l-4 border-red-500 pl-4">
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <XCircle size={18} className="text-red-600" />
+                  PERSO
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  Un lead diventa PERSO quando:
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                  <li>Segni &quot;Non interessato&quot; dopo una chiamata</li>
+                  <li>Raggiungi 8 tentativi senza risposta</li>
+                  <li>Passano 15 giorni dall&apos;ultimo contatto</li>
+                </ul>
+                <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700">
+                  I lead PERSO hanno i toggle disabilitati e sono nascosti di default (usa il filtro per vederli)
+                </div>
+              </div>
+
+              {/* Tips */}
+              <div className="bg-commercial/5 rounded-lg p-4">
+                <h3 className="font-bold text-gray-900 mb-2">💡 Consigli</h3>
+                <ul className="text-sm text-gray-600 space-y-2">
+                  <li>• Usa il filtro &quot;Attivi (no PERSO)&quot; per concentrarti sui lead da lavorare</li>
+                  <li>• Clicca su 👁️ (occhio) per vedere i dettagli completi del lead</li>
+                  <li>• Registra sempre l&apos;esito delle chiamate per non perdere lead automaticamente</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-4 border-t bg-gray-50">
+              <button
+                onClick={() => setShowHelpModal(false)}
+                className="w-full px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
+              >
+                Ho capito!
+              </button>
+            </div>
           </div>
         </div>
       )}
