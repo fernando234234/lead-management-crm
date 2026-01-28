@@ -26,6 +26,7 @@ import ExportButton from "@/components/ui/ExportButton";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import CallOutcomeModal from "@/components/ui/CallOutcomeModal";
 import EnrolledConfirmModal from "@/components/ui/EnrolledConfirmModal";
+import LeadActionWizard from "@/components/ui/LeadActionWizard";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 // Boolean display helpers
@@ -1079,6 +1080,13 @@ export default function CommercialLeadsPage() {
                   </td>
                   <td className="p-4">
                     <div className="flex gap-1">
+                      {/* Action Wizard - Contextual helper */}
+                      <LeadActionWizard
+                        lead={lead}
+                        onLogCall={() => handleLogCall(lead)}
+                        onSetTarget={(value) => handleQuickStateUpdate(lead.id, "isTarget", value)}
+                        onSetEnrolled={() => handleQuickStateUpdate(lead.id, "enrolled", true)}
+                      />
                       <Tooltip content="Vedi dettagli completi e storico attività" position="top">
                         <button
                           onClick={() => setDetailLead(lead)}
