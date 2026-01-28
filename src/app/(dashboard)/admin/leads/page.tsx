@@ -7,6 +7,7 @@ import {
   Pencil,
   Trash2,
   Phone,
+  PhoneCall,
   Mail,
   User,
   Users,
@@ -25,6 +26,8 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  AlertTriangle,
+  Target,
 } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import ExportButton from "@/components/ui/ExportButton";
@@ -34,6 +37,9 @@ import AssignmentModal from "@/components/ui/AssignmentModal";
 import ImportModal from "@/components/ui/ImportModal";
 import EmptyState from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
+import CallOutcomeModal from "@/components/ui/CallOutcomeModal";
+import LeadActionWizard from "@/components/ui/LeadActionWizard";
+import EnrolledConfirmModal from "@/components/ui/EnrolledConfirmModal";
 
 type TriState = "SI" | "NO" | "ND";
 
@@ -140,6 +146,14 @@ export default function AdminLeadsPage() {
   
   // Import Modal State
   const [showImportModal, setShowImportModal] = useState(false);
+  
+  // Call Outcome Modal State
+  const [showCallOutcomeModal, setShowCallOutcomeModal] = useState(false);
+  const [pendingCallLead, setPendingCallLead] = useState<Lead | null>(null);
+  
+  // Enrolled Confirmation Modal State
+  const [showEnrolledConfirm, setShowEnrolledConfirm] = useState(false);
+  const [pendingEnrolledLead, setPendingEnrolledLead] = useState<Lead | null>(null);
   
   // Filters
   const [search, setSearch] = useState("");
@@ -675,6 +689,170 @@ export default function AdminLeadsPage() {
     }
   };
 
+  // Open call outcome modal
+  const handleLogCall = (lead: Lead) => {
+    if (lead.status === 'PERSO') {
+      toast.error("Questo lead è già PERSO");
+      return;
+    }
+    if (lead.enrolled) {
+      toast.error("Questo lead è già iscritto");
+      return;
+    }
+    setPendingCallLead(lead);
+    setShowCallOutcomeModal(true);
+  };
+
+  // Handle call outcome submission
+  const handleCallOutcomeSubmit = async (data: { callOutcome: string; outcomeNotes: string }) => {
+    if (!pendingCallLead) return;
+
+    const leadId = pendingCallLead.id;
+    const previousLeads = [...leads];
+    const now = new Date().toISOString();
+    const newAttempts = (pendingCallLead.callAttempts || 0) + 1;
+    
+    const optimisticUpdate: Partial<Lead> = {
+      contacted: true,
+      contactedAt: pendingCallLead.contactedAt || now,
+      callOutcome: data.callOutcome,
+      callAttempts: newAttempts,
+      lastAttemptAt: now,
+      firstAttemptAt: pendingCallLead.firstAttemptAt || now,
+    };
+    
+    // Mark as PERSO if NEGATIVO or 8 attempts with RICHIAMARE
+    if (data.callOutcome === 'NEGATIVO' || 
+        (data.callOutcome === 'RICHIAMARE' && newAttempts >= 8)) {
+      optimisticUpdate.status = 'PERSO';
+    }
+    
+    setLeads(prev => prev.map(lead => 
+      lead.id === leadId ? { ...lead, ...optimisticUpdate } : lead
+    ));
+
+    try {
+      await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contacted: true,
+          contactedAt: pendingCallLead.contactedAt || now,
+          callOutcome: data.callOutcome,
+          outcomeNotes: data.outcomeNotes || null,
+          callAttempts: newAttempts,
+          lastAttemptAt: now,
+          firstAttemptAt: pendingCallLead.firstAttemptAt || now,
+          ...(optimisticUpdate.status && { status: optimisticUpdate.status }),
+        }),
+      });
+      
+      if (data.callOutcome === 'NEGATIVO') {
+        toast.success("Lead segnato come PERSO (non interessato)");
+      } else if (data.callOutcome === 'RICHIAMARE') {
+        if (newAttempts >= 8) {
+          toast.success("Lead segnato come PERSO (8 tentativi raggiunti)");
+        } else {
+          toast.success(`Chiamata #${newAttempts} registrata - ${8 - newAttempts} tentativi rimanenti`);
+        }
+      } else {
+        toast.success("Lead interessato!");
+      }
+    } catch (error) {
+      console.error("Failed to log call outcome:", error);
+      setLeads(previousLeads);
+      toast.error("Errore nel salvataggio");
+    }
+    
+    setShowCallOutcomeModal(false);
+    setPendingCallLead(null);
+  };
+
+  const handleCallOutcomeCancel = () => {
+    setShowCallOutcomeModal(false);
+    setPendingCallLead(null);
+  };
+
+  // Handle set target
+  const handleSetTarget = async (lead: Lead, value: boolean) => {
+    if (lead.status === 'PERSO') {
+      toast.error("Non puoi modificare un lead PERSO");
+      return;
+    }
+    
+    const previousLeads = [...leads];
+    setLeads(prev => prev.map(l => 
+      l.id === lead.id ? { ...l, isTarget: value } : l
+    ));
+    
+    try {
+      await fetch(`/api/leads/${lead.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTarget: value }),
+      });
+      toast.success(value ? "Lead segnato come target" : "Target rimosso");
+    } catch (error) {
+      console.error("Failed to update target:", error);
+      setLeads(previousLeads);
+      toast.error("Errore nell'aggiornamento");
+    }
+  };
+
+  // Handle enrollment
+  const handleSetEnrolled = (lead: Lead) => {
+    if (lead.status === 'PERSO') {
+      toast.error("Non puoi iscrivere un lead PERSO");
+      return;
+    }
+    if (!lead.contacted || lead.callOutcome !== 'POSITIVO') {
+      toast.error("Il lead deve essere contattato con esito POSITIVO per poterlo iscrivere", {
+        duration: 4000,
+        icon: '⚠️'
+      });
+      return;
+    }
+    setPendingEnrolledLead(lead);
+    setShowEnrolledConfirm(true);
+  };
+
+  const handleEnrolledConfirm = async () => {
+    if (!pendingEnrolledLead) return;
+    
+    const leadId = pendingEnrolledLead.id;
+    const previousLeads = [...leads];
+    const now = new Date().toISOString();
+    
+    setLeads(prev => prev.map(lead => 
+      lead.id === leadId ? { ...lead, enrolled: true, enrolledAt: now, status: 'ISCRITTO' } : lead
+    ));
+    
+    try {
+      await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          enrolled: true, 
+          enrolledAt: now,
+          status: 'ISCRITTO'
+        }),
+      });
+      toast.success("🎉 Lead iscritto con successo!");
+    } catch (error) {
+      console.error("Failed to enroll:", error);
+      setLeads(previousLeads);
+      toast.error("Errore nell'iscrizione");
+    }
+    
+    setShowEnrolledConfirm(false);
+    setPendingEnrolledLead(null);
+  };
+
+  const handleEnrolledCancel = () => {
+    setShowEnrolledConfirm(false);
+    setPendingEnrolledLead(null);
+  };
+
   if (loading) {
     return <div className="p-8">Caricamento...</div>;
   }
@@ -846,7 +1024,16 @@ export default function AdminLeadsPage() {
                     Stato <SortIcon field="status" />
                   </button>
                 </th>
+                <th scope="col" className="text-center">
+                  <Tooltip content="Numero di chiamate effettuate e ultimo esito" position="top">
+                    <span className="flex items-center justify-center gap-1 cursor-help">
+                      Chiamate
+                      <span className="text-gray-400 text-xs">(?)</span>
+                    </span>
+                  </Tooltip>
+                </th>
                 <th scope="col" className="text-center">Contattato</th>
+                <th scope="col" className="text-center">Target</th>
                 <th scope="col" className="text-center">Iscritto</th>
                 <th scope="col">
                   <button onClick={() => handleSort("createdAt")} className="flex items-center gap-1 hover:text-admin transition-colors">
@@ -930,46 +1117,110 @@ export default function AdminLeadsPage() {
                     ))}
                   </select>
                 </td>
+                {/* Chiamate Column - with call button, progress, outcome */}
                 <td className="p-4">
-                  <div className="flex items-center gap-2">
-                    {lead.contacted ? (
-                      <>
-                        <CheckCircle size={20} className="text-green-500" aria-hidden="true" />
-                        <span className="sr-only">Contattato</span>
-                      </>
+                  <div className="flex flex-col items-center gap-1">
+                    {/* Call button or status */}
+                    {lead.status === 'PERSO' ? (
+                      <Tooltip content="Lead perso - non modificabile" position="top">
+                        <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">
+                          PERSO
+                        </span>
+                      </Tooltip>
+                    ) : lead.enrolled ? (
+                      <Tooltip content="Lead iscritto!" position="top">
+                        <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">
+                          ISCRITTO
+                        </span>
+                      </Tooltip>
                     ) : (
                       <>
-                        <Clock size={20} className="text-gray-400" aria-hidden="true" />
-                        <span className="sr-only">Non ancora contattato</span>
+                        <button
+                          onClick={() => handleLogCall(lead)}
+                          className="px-3 py-1.5 text-xs font-medium bg-admin text-white rounded-lg hover:opacity-90 transition flex items-center gap-1"
+                        >
+                          <Phone size={12} />
+                          {lead.callAttempts === 0 ? 'Chiama' : `#${lead.callAttempts + 1}`}
+                        </button>
+                        
+                        {/* Progress bar */}
+                        {lead.callAttempts > 0 && (
+                          <div className="w-full mt-1">
+                            <div className="flex justify-between text-[10px] text-gray-500 mb-0.5">
+                              <span>{lead.callAttempts}/8</span>
+                            </div>
+                            <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all ${
+                                  lead.callAttempts >= 7 ? 'bg-red-500' : 
+                                  lead.callAttempts >= 5 ? 'bg-yellow-500' : 'bg-admin'
+                                }`}
+                                style={{ width: `${(lead.callAttempts / 8) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Last outcome badge */}
+                        {lead.callOutcome && (
+                          <span className={`mt-1 px-2 py-0.5 text-[10px] rounded-full ${
+                            lead.callOutcome === 'POSITIVO' ? 'bg-green-100 text-green-700' :
+                            lead.callOutcome === 'RICHIAMARE' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {lead.callOutcome === 'POSITIVO' ? 'Interessato' :
+                             lead.callOutcome === 'RICHIAMARE' ? 'Da richiamare' : 'Non interess.'}
+                          </span>
+                        )}
+                        
+                        {/* Stale warning */}
+                        {lead.callOutcome === 'RICHIAMARE' && lead.lastAttemptAt && (() => {
+                          const daysSince = Math.floor((Date.now() - new Date(lead.lastAttemptAt).getTime()) / (1000 * 60 * 60 * 24));
+                          const daysLeft = 15 - daysSince;
+                          if (daysLeft <= 0) {
+                            return (
+                              <span className="mt-1 px-2 py-0.5 text-[10px] bg-red-500 text-white rounded-full animate-pulse">
+                                Scaduto!
+                              </span>
+                            );
+                          } else if (daysLeft <= 5) {
+                            return (
+                              <Tooltip content={`Solo ${daysLeft} giorni prima di PERSO automatico`} position="top">
+                                <span className="mt-1 px-2 py-0.5 text-[10px] bg-yellow-100 text-yellow-700 rounded-full flex items-center gap-1">
+                                  <AlertTriangle size={10} />
+                                  {daysLeft}g
+                                </span>
+                              </Tooltip>
+                            );
+                          }
+                          return null;
+                        })()}
                       </>
-                    )}
-                    {lead.callAttempts > 0 && (
-                      <span 
-                        className={`text-xs px-1.5 py-0.5 rounded-full ${
-                          lead.callAttempts >= 6 
-                            ? 'bg-red-100 text-red-700' 
-                            : lead.callAttempts >= 4 
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-gray-100 text-gray-600'
-                        }`}
-                        title={`${lead.callAttempts} tentativi effettuati`}
-                      >
-                        {lead.callAttempts}/8
-                      </span>
                     )}
                   </div>
                 </td>
-                <td className="p-4">
-                  {lead.enrolled ? (
-                    <>
-                      <CheckCircle size={20} className="text-green-500" aria-hidden="true" />
-                      <span className="sr-only">Iscritto</span>
-                    </>
+                {/* Contattato */}
+                <td className="p-4 text-center">
+                  {lead.contacted ? (
+                    <CheckCircle size={20} className="text-green-500 mx-auto" aria-hidden="true" />
                   ) : (
-                    <>
-                      <XCircle size={20} className="text-gray-400" aria-hidden="true" />
-                      <span className="sr-only">Non iscritto</span>
-                    </>
+                    <Clock size={20} className="text-gray-400 mx-auto" aria-hidden="true" />
+                  )}
+                </td>
+                {/* Target */}
+                <td className="p-4 text-center">
+                  {lead.isTarget ? (
+                    <Target size={20} className="text-yellow-500 mx-auto" aria-hidden="true" />
+                  ) : (
+                    <span className="text-gray-300 mx-auto">-</span>
+                  )}
+                </td>
+                {/* Iscritto */}
+                <td className="p-4 text-center">
+                  {lead.enrolled ? (
+                    <CheckCircle size={20} className="text-green-500 mx-auto" aria-hidden="true" />
+                  ) : (
+                    <XCircle size={20} className="text-gray-400 mx-auto" aria-hidden="true" />
                   )}
                 </td>
                 <td className="p-4 text-sm text-gray-600">
@@ -977,6 +1228,13 @@ export default function AdminLeadsPage() {
                 </td>
                 <td className="p-4">
                   <div className="flex gap-1" role="group" aria-label={`Azioni per ${lead.name}`}>
+                    {/* Action Wizard */}
+                    <LeadActionWizard
+                      lead={lead}
+                      onLogCall={() => handleLogCall(lead)}
+                      onSetTarget={(value) => handleSetTarget(lead, value)}
+                      onSetEnrolled={() => handleSetEnrolled(lead)}
+                    />
                     <button
                       onClick={() => setDetailLead(lead)}
                       className="flex flex-col items-center p-1.5 text-gray-500 hover:text-admin transition focus:outline-none focus:ring-2 focus:ring-admin rounded"
@@ -1365,6 +1623,29 @@ export default function AdminLeadsPage() {
           campaigns={campaigns}
         />
       )}
+
+      {/* Call Outcome Modal */}
+      <CallOutcomeModal
+        isOpen={showCallOutcomeModal && !!pendingCallLead}
+        onClose={handleCallOutcomeCancel}
+        onSubmit={handleCallOutcomeSubmit}
+        leadName={pendingCallLead?.name || ''}
+        callAttempts={pendingCallLead?.callAttempts || 0}
+        lastAttemptAt={pendingCallLead?.lastAttemptAt || null}
+        firstAttemptAt={pendingCallLead?.firstAttemptAt || null}
+        callHistory={[]}
+        isSubmitting={false}
+        trigger="button"
+      />
+
+      {/* Enrolled Confirmation Modal */}
+      <EnrolledConfirmModal
+        isOpen={showEnrolledConfirm}
+        onClose={handleEnrolledCancel}
+        onConfirm={handleEnrolledConfirm}
+        leadName={pendingEnrolledLead?.name || ''}
+        courseName={pendingEnrolledLead?.course?.name || 'N/A'}
+      />
     </div>
   );
 }
