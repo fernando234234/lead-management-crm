@@ -109,7 +109,7 @@ export default function LeadFormModal({
   
   // Call outcome modal state
   const [showCallModal, setShowCallModal] = useState(false);
-  const [callModalTrigger, setCallModalTrigger] = useState<'contacted' | 'target' | 'button'>('button');
+  const [callModalTrigger, setCallModalTrigger] = useState<'contattato' | 'target' | 'button' | 'enrolled'>('button');
   
   // Enrolled confirmation modal state
   const [showEnrolledConfirm, setShowEnrolledConfirm] = useState(false);
@@ -193,7 +193,7 @@ export default function LeadFormModal({
       setFormData({ ...formData, contacted: false });
     } else {
       // Guide user to log a call
-      setCallModalTrigger('contacted');
+      setCallModalTrigger('contattato');
       setShowCallModal(true);
     }
   };
@@ -216,31 +216,28 @@ export default function LeadFormModal({
   };
 
   // GUIDED WORKFLOW: Handle "Iscritto" toggle
+  // This triggers a confirmation flow that sets prerequisites along the way
   const handleEnrolledToggle = () => {
     if (formData.enrolled) {
-      // Can't unenroll - that's a big deal
       toast.error("Non puoi rimuovere l'iscrizione da questa schermata");
       return;
     }
     
-    // Check prerequisites
-    if (!formData.contacted) {
-      toast.error("Per iscrivere questo lead, devi prima contattarlo e registrare un esito 'Interessato'", {
-        duration: 4000,
-        icon: '📞'
-      });
+    // If no calls logged yet, trigger the call modal which will lead to enrollment
+    if (formData.callAttempts === 0) {
+      setCallModalTrigger('enrolled'); // Special trigger for enrollment flow
+      setShowCallModal(true);
       return;
     }
     
+    // If calls logged but not POSITIVO, also trigger call modal to update outcome
     if (formData.callOutcome !== "POSITIVO") {
-      toast.error("Solo i lead con esito 'Interessato' possono essere iscritti", {
-        duration: 4000,
-        icon: '⚠️'
-      });
+      setCallModalTrigger('enrolled'); // Will ask to confirm positive outcome
+      setShowCallModal(true);
       return;
     }
     
-    // Show confirmation modal
+    // All prerequisites met - show enrollment confirmation
     setShowEnrolledConfirm(true);
   };
 
@@ -263,13 +260,21 @@ export default function LeadFormModal({
     setFormData({ ...formData, ...updates });
     setShowCallModal(false);
     
-    // Show feedback
+    // Show feedback and handle enrollment flow
     if (data.callOutcome === 'NEGATIVO') {
       toast.success("Esito registrato - Lead verrà segnato come PERSO");
     } else if (data.callOutcome === 'RICHIAMARE') {
       toast.success(`Chiamata #${newAttempts} registrata - Da richiamare`);
+      if (trigger === 'enrolled') {
+        toast("Per iscrivere il lead, l'esito deve essere 'Interessato'", { icon: 'ℹ️' });
+      }
     } else {
-      if (trigger === 'target') {
+      // POSITIVO outcome
+      if (trigger === 'enrolled') {
+        // Continue to enrollment confirmation
+        toast.success("Contatto confermato! Ora conferma l'iscrizione...");
+        setTimeout(() => setShowEnrolledConfirm(true), 300);
+      } else if (trigger === 'target') {
         toast.success("Chiamata registrata - Lead segnato come Target e Interessato! 🎯");
       } else {
         toast.success("Chiamata registrata - Lead interessato! ✅");
@@ -623,19 +628,30 @@ export default function LeadFormModal({
                 <button
                   type="button"
                   onClick={handleEnrolledToggle}
-                  disabled={currentStatus === "PERSO" || formData.enrolled}
+                  disabled={currentStatus === "PERSO"}
                   className={`p-3 rounded-lg border-2 transition flex flex-col items-center gap-1 ${
                     formData.enrolled 
-                      ? 'border-green-500 bg-green-50' 
-                      : formData.callOutcome === 'POSITIVO'
-                        ? 'border-gray-200 hover:border-green-300 hover:bg-green-50'
-                        : 'border-gray-200 opacity-50'
-                  } ${(currentStatus === "PERSO" || formData.enrolled) ? 'cursor-not-allowed' : formData.callOutcome === 'POSITIVO' ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                      ? 'border-green-500 bg-green-50 cursor-default' 
+                      : currentStatus === "PERSO"
+                        ? 'border-gray-200 opacity-50 cursor-not-allowed'
+                        : formData.callOutcome === 'POSITIVO'
+                          ? 'border-gray-200 hover:border-green-300 hover:bg-green-50 cursor-pointer'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                  }`}
                 >
-                  <CheckCircle size={24} className={formData.enrolled ? 'text-green-500' : 'text-gray-400'} />
+                  <CheckCircle size={24} className={
+                    formData.enrolled 
+                      ? 'text-green-500' 
+                      : formData.callOutcome === 'POSITIVO'
+                        ? 'text-green-400'
+                        : 'text-gray-400'
+                  } />
                   <span className="text-xs font-medium">Iscritto</span>
                   {!formData.enrolled && formData.callOutcome !== 'POSITIVO' && (
                     <span className="text-[10px] text-gray-400">Richiede "Interessato"</span>
+                  )}
+                  {!formData.enrolled && formData.callOutcome === 'POSITIVO' && (
+                    <span className="text-[10px] text-green-600">Pronto!</span>
                   )}
                 </button>
               </div>
@@ -734,7 +750,7 @@ export default function LeadFormModal({
         firstAttemptAt={lead?.firstAttemptAt || null}
         callHistory={[]}
         isSubmitting={false}
-        trigger={callModalTrigger === 'button' ? 'button' : 'contattato'}
+        trigger={callModalTrigger}
       />
 
       {/* Enrolled Confirmation Modal */}

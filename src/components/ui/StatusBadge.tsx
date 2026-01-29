@@ -132,7 +132,12 @@ export function StatusBadge({
     <div className="relative inline-block">
       {/* Badge Button */}
       <button
-        onClick={() => setShowExplanation(true)}
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowExplanation(true);
+        }}
         className={`
           ${sizeClasses[size]}
           ${config.bgColor}

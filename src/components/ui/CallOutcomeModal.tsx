@@ -29,7 +29,7 @@ interface CallOutcomeModalProps {
   callHistory?: CallHistory[];
   isSubmitting?: boolean;
   // What triggered opening this modal - affects messaging
-  trigger?: 'button' | 'contattato' | 'target';
+  trigger?: 'button' | 'contattato' | 'target' | 'enrolled';
 }
 
 export default function CallOutcomeModal({
@@ -149,6 +149,13 @@ export default function CallOutcomeModal({
         title: "Conferma Target",
         subtitle: `Vuoi segnare ${leadName} come target? Prima conferma il contatto:`,
         hint: "Per segnare come target, devi prima registrare una chiamata"
+      };
+    }
+    if (trigger === 'enrolled') {
+      return {
+        title: "Conferma per Iscrizione",
+        subtitle: `Per iscrivere ${leadName}, conferma che è interessato:`,
+        hint: "Seleziona 'Interessato' per procedere con l'iscrizione"
       };
     }
     return {
