@@ -113,6 +113,9 @@ export default function LeadFormModal({
   
   // Enrolled confirmation modal state
   const [showEnrolledConfirm, setShowEnrolledConfirm] = useState(false);
+  
+  // Prerequisite confirmation for Iscritto (asks if contacted + positive)
+  const [showPrerequisiteConfirm, setShowPrerequisiteConfirm] = useState(false);
 
   // Initialize form when modal opens or lead changes
   useEffect(() => {
@@ -216,29 +219,35 @@ export default function LeadFormModal({
   };
 
   // GUIDED WORKFLOW: Handle "Iscritto" toggle
-  // This triggers a confirmation flow that sets prerequisites along the way
+  // If prerequisites not met, ask user to confirm they happened
   const handleEnrolledToggle = () => {
     if (formData.enrolled) {
       toast.error("Non puoi rimuovere l'iscrizione da questa schermata");
       return;
     }
     
-    // If no calls logged yet, trigger the call modal which will lead to enrollment
-    if (formData.callAttempts === 0) {
-      setCallModalTrigger('enrolled'); // Special trigger for enrollment flow
-      setShowCallModal(true);
+    // If prerequisites not met, show confirmation asking if they were done
+    if (!formData.contacted || formData.callOutcome !== "POSITIVO") {
+      setShowPrerequisiteConfirm(true);
       return;
     }
     
-    // If calls logged but not POSITIVO, also trigger call modal to update outcome
-    if (formData.callOutcome !== "POSITIVO") {
-      setCallModalTrigger('enrolled'); // Will ask to confirm positive outcome
-      setShowCallModal(true);
-      return;
-    }
-    
-    // All prerequisites met - show enrollment confirmation
+    // All prerequisites already met - show enrollment confirmation directly
     setShowEnrolledConfirm(true);
+  };
+  
+  // Handle prerequisite confirmation (user confirms contact + positive outcome happened)
+  const handlePrerequisiteConfirm = () => {
+    // Set the prerequisites as done
+    setFormData({
+      ...formData,
+      contacted: true,
+      callOutcome: "POSITIVO",
+      callAttempts: Math.max(formData.callAttempts, 1), // At least 1 call
+    });
+    setShowPrerequisiteConfirm(false);
+    // Now show the enrollment confirmation
+    setTimeout(() => setShowEnrolledConfirm(true), 100);
   };
 
   // Handle call outcome submission
@@ -761,6 +770,55 @@ export default function LeadFormModal({
         leadName={formData.name || "Nuovo Lead"}
         courseName={courses.find(c => c.id === formData.courseId)?.name || "N/A"}
       />
+
+      {/* Prerequisite Confirmation Modal - Asks if contact + positive outcome happened */}
+      {showPrerequisiteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl w-full max-w-md overflow-hidden">
+            <div className="bg-green-50 px-4 py-3 border-b border-green-100">
+              <h3 className="font-semibold text-green-800 flex items-center gap-2">
+                <CheckCircle size={20} />
+                Conferma per Iscrizione
+              </h3>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-gray-700">
+                Per iscrivere <strong>{formData.name || "questo lead"}</strong>, confermi che:
+              </p>
+              <ul className="space-y-2">
+                <li className="flex items-center gap-2 text-sm">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                    <Phone size={12} className="text-green-600" />
+                  </div>
+                  <span>Hai contattato il lead</span>
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle size={12} className="text-green-600" />
+                  </div>
+                  <span>Il lead è <strong>interessato</strong> (esito positivo)</span>
+                </li>
+              </ul>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPrerequisiteConfirm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrerequisiteConfirm}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+                >
+                  Sì, Confermo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

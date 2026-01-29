@@ -168,7 +168,12 @@ export function StatusBadge({
                 <span className="font-semibold text-lg">{config.label}</span>
               </div>
               <button 
-                onClick={() => setShowExplanation(false)}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowExplanation(false);
+                }}
                 className="p-1 hover:bg-white/20 rounded"
               >
                 <X className="w-5 h-5" />
