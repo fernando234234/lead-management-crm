@@ -307,6 +307,10 @@ export default function LeadFormModal({
       toast.error("Il nome è obbligatorio");
       return;
     }
+    if (!formData.courseId) {
+      toast.error("Seleziona un corso");
+      return;
+    }
     if (!formData.campaignId) {
       toast.error("Seleziona una campagna");
       return;
@@ -320,6 +324,7 @@ export default function LeadFormModal({
         name: formData.name,
         email: formData.email || null,
         phone: formData.phone || null,
+        courseId: formData.courseId,
         campaignId: formData.campaignId,
         notes: formData.notes || null,
         isTarget: formData.isTarget,
