@@ -1085,13 +1085,48 @@ export default function AdminLeadsPage() {
                     </button>
                   </Tooltip>
                 </td>
-                {/* Iscritto */}
+                {/* Iscritto - Clickable with confirmation */}
                 <td className="p-4 text-center">
-                  {lead.enrolled ? (
-                    <CheckCircle size={20} className="text-green-500 mx-auto" aria-hidden="true" />
-                  ) : (
-                    <XCircle size={20} className="text-gray-400 mx-auto" aria-hidden="true" />
-                  )}
+                  <Tooltip 
+                    content={
+                      lead.enrolled 
+                        ? "✅ Lead iscritto!"
+                        : lead.status === 'PERSO'
+                          ? "❌ Lead perso - non può essere iscritto"
+                          : lead.callOutcome === 'POSITIVO'
+                            ? "🎯 Clicca per iscrivere questo lead"
+                            : "⚠️ Richiede esito 'Interessato' prima dell'iscrizione"
+                    }
+                    position="top"
+                  >
+                    <button
+                      onClick={() => {
+                        if (lead.enrolled) {
+                          toast.error("Non puoi rimuovere l'iscrizione da qui");
+                          return;
+                        }
+                        handleSetEnrolled(lead);
+                      }}
+                      disabled={lead.enrolled || lead.status === 'PERSO'}
+                      className={`p-1 rounded-lg transition ${
+                        lead.enrolled
+                          ? 'cursor-default'
+                          : lead.status === 'PERSO'
+                            ? 'opacity-50 cursor-not-allowed'
+                            : lead.callOutcome === 'POSITIVO'
+                              ? 'hover:bg-green-50 cursor-pointer'
+                              : 'opacity-60 cursor-pointer hover:bg-gray-50'
+                      }`}
+                    >
+                      {lead.enrolled ? (
+                        <CheckCircle size={20} className="text-green-500 mx-auto" aria-hidden="true" />
+                      ) : (
+                        <XCircle size={20} className={`mx-auto ${
+                          lead.callOutcome === 'POSITIVO' ? 'text-green-300' : 'text-gray-400'
+                        }`} aria-hidden="true" />
+                      )}
+                    </button>
+                  </Tooltip>
                 </td>
                 <td className="p-4 text-sm text-gray-600">
                   {new Date(lead.createdAt).toLocaleDateString("it-IT")}
