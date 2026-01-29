@@ -23,14 +23,12 @@ import {
   Phone,
   FileCheck,
 } from "lucide-react";
-
-// Platform options
-const platformOptions = [
-  { value: "META", label: "Meta (FB/IG)", color: "bg-blue-100 text-blue-700" },
-  { value: "GOOGLE_ADS", label: "Google Ads", color: "bg-red-100 text-red-700" },
-  { value: "LINKEDIN", label: "LinkedIn", color: "bg-sky-100 text-sky-700" },
-  { value: "TIKTOK", label: "TikTok", color: "bg-gray-100 text-gray-700" },
-];
+import {
+  PLATFORM_OPTIONS,
+  PLATFORM_FILTER_OPTIONS,
+  getPlatformLabel,
+  getPlatformColor,
+} from "@/lib/platforms";
 
 interface Lead {
   id: string;
@@ -123,19 +121,30 @@ export default function MarketingROIPage() {
     setLoading(true);
     try {
       // Build URL with date parameters for spend filtering
-      const params = new URLSearchParams();
+      const campaignParams = new URLSearchParams();
       if (startDate) {
-        params.append("spendStartDate", startDate);
+        campaignParams.append("spendStartDate", startDate);
       }
       if (endDate) {
-        params.append("spendEndDate", endDate);
+        campaignParams.append("spendEndDate", endDate);
       }
       
-      const campaignsUrl = `/api/campaigns${params.toString() ? `?${params}` : ""}`;
+      // Build URL with date parameters for leads filtering
+      // This ensures CPL calculations use leads from the same period as spend
+      const leadsParams = new URLSearchParams();
+      if (startDate) {
+        leadsParams.append("startDate", startDate);
+      }
+      if (endDate) {
+        leadsParams.append("endDate", endDate);
+      }
+      
+      const campaignsUrl = `/api/campaigns${campaignParams.toString() ? `?${campaignParams}` : ""}`;
+      const leadsUrl = `/api/leads${leadsParams.toString() ? `?${leadsParams}` : ""}`;
       
       const [campaignsRes, leadsRes] = await Promise.all([
         fetch(campaignsUrl),
-        fetch("/api/leads"),
+        fetch(leadsUrl),
       ]);
 
       const [campaignsData, leadsData] = await Promise.all([
@@ -161,9 +170,6 @@ export default function MarketingROIPage() {
     return campaigns
       .filter((c) => !filterPlatform || c.platform === filterPlatform)
       .map((campaign) => {
-        const platformConfig = platformOptions.find(
-          (p) => p.value === campaign.platform
-        );
         // Use totalSpent from CampaignSpend records
         const spent = Number(campaign.totalSpent) || 0;
         const leadCount = campaign.leadCount || campaign.metrics?.totalLeads || 0;
@@ -212,8 +218,8 @@ export default function MarketingROIPage() {
           id: campaign.id,
           name: campaign.name,
           platform: campaign.platform,
-          platformLabel: platformConfig?.label || campaign.platform,
-          platformColor: platformConfig?.color || "bg-gray-100 text-gray-700",
+          platformLabel: getPlatformLabel(campaign.platform),
+          platformColor: getPlatformColor(campaign.platform),
           spent,
           leads: leadCount,
           contacted: contactedCount,
@@ -291,18 +297,40 @@ export default function MarketingROIPage() {
   }, [campaignPerformance]);
 
   // ROI trend over time (calculated from spend records by month)
+  // Respects the date filter if set, otherwise shows last 6 months
   const roiTrendData = useMemo(() => {
     const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
     
     // Aggregate spend records by month
     const monthlyData: Record<string, { spent: number; revenue: number }> = {};
     
-    // Get last 6 months
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
+    // Determine date range: use filter if set, otherwise last 6 months
+    let rangeStart: Date;
+    let rangeEnd: Date;
+    
+    if (startDate && endDate) {
+      rangeStart = new Date(startDate);
+      rangeEnd = new Date(endDate);
+    } else if (startDate) {
+      rangeStart = new Date(startDate);
+      rangeEnd = new Date();
+    } else if (endDate) {
+      rangeEnd = new Date(endDate);
+      rangeStart = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth() - 5, 1);
+    } else {
+      const now = new Date();
+      rangeEnd = now;
+      rangeStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    }
+    
+    // Generate months between rangeStart and rangeEnd
+    const currentMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const endMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+    
+    while (currentMonth <= endMonth) {
+      const key = `${currentMonth.getFullYear()}-${currentMonth.getMonth()}`;
       monthlyData[key] = { spent: 0, revenue: 0 };
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
     }
     
     // Aggregate spend from spend records
@@ -353,7 +381,7 @@ export default function MarketingROIPage() {
         revenue: Math.round(data.revenue),
       };
     });
-  }, [campaigns, leads]);
+  }, [campaigns, leads, startDate, endDate]);
 
   // Campaign ROI comparison for bar chart
   const campaignRoiData = useMemo(() => {
@@ -600,8 +628,7 @@ export default function MarketingROIPage() {
               onChange={(e) => setFilterPlatform(e.target.value)}
               className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
             >
-              <option value="">Tutte le piattaforme</option>
-              {platformOptions.map((p) => (
+              {PLATFORM_FILTER_OPTIONS.map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
                 </option>
@@ -735,7 +762,7 @@ export default function MarketingROIPage() {
         </div>
         <div className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {platformOptions.map((platform) => {
+            {PLATFORM_OPTIONS.map((platform) => {
               const platformCampaigns = campaignPerformance.filter(
                 (c) => c.platform === platform.value
               );
@@ -763,7 +790,7 @@ export default function MarketingROIPage() {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span
-                      className={`px-2 py-1 rounded text-sm font-medium ${platform.color}`}
+                      className={`px-2 py-1 rounded text-sm font-medium ${getPlatformColor(platform.value)}`}
                     >
                       {platform.label}
                     </span>

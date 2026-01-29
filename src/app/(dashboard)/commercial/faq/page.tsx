@@ -233,8 +233,8 @@ export default function CommercialFAQPage() {
                 <h3 className="font-medium">Contatta il Lead</h3>
               </div>
               <p className="text-sm text-gray-600">
-                Chiama il lead e segna il toggle &quot;Contattato&quot; per registrare il
-                primo contatto.
+                Chiama il lead e clicca &quot;Ho Chiamato&quot; per registrare l&apos;esito.
+                Lo stato si aggiornerà automaticamente.
               </p>
             </div>
             <div className="bg-white rounded-lg p-4 shadow-sm">

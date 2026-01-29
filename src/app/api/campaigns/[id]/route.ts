@@ -92,15 +92,8 @@ export async function PUT(
     }
     if (body.status !== undefined) updateData.status = body.status;
     
-    const newStartDate = body.startDate ? new Date(body.startDate) : undefined;
-    const newEndDate = body.endDate ? new Date(body.endDate) : null;
-    
-    if (body.startDate !== undefined) {
-      updateData.startDate = newStartDate;
-    }
-    if (body.endDate !== undefined) {
-      updateData.endDate = newEndDate;
-    }
+    // NOTE: startDate/endDate removed - campaigns are now "evergreen containers"
+    // Date-based spend tracking uses CampaignSpend records
 
     // Update campaign
     const campaign = await prisma.campaign.update({
@@ -116,32 +109,8 @@ export async function PUT(
       },
     });
 
-    // Handle budget/spend - ONLY create initial spend record if none exist
-    // Multi-record spend management should use /api/campaigns/[id]/spend endpoints
-    const budgetAmount = parseFloat(body.budget);
-    if (!isNaN(budgetAmount) && budgetAmount > 0) {
-      const existingSpendCount = await prisma.campaignSpend.count({
-        where: { campaignId: params.id },
-      });
-
-      // Only create a spend record if there are NONE
-      // If records exist, user should manage them via the spend management UI
-      if (existingSpendCount === 0) {
-        const spendStartDate = newStartDate || campaign.startDate;
-        const spendEndDate = newEndDate !== undefined ? newEndDate : campaign.endDate;
-        
-        await prisma.campaignSpend.create({
-          data: {
-            campaignId: params.id,
-            startDate: spendStartDate,
-            endDate: spendEndDate,
-            amount: budgetAmount,
-            notes: "Spesa iniziale campagna",
-          },
-        });
-      }
-      // If records exist, we don't modify them - user uses spend management UI
-    }
+    // NOTE: Budget auto-creation logic removed - spend records are now managed
+    // exclusively through the "Gestione Spese" tab. Campaigns no longer have dates.
 
     // Refetch with updated spend records
     const updatedCampaign = await prisma.campaign.findUnique({

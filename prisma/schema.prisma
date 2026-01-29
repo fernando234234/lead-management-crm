@@ -15,15 +15,15 @@ model Campaign {
   platform         Platform
   budget           Decimal         @default(0) @db.Decimal(10, 2)
   status           CampaignStatus  @default(ACTIVE)
-  startDate        DateTime        @default(now())
-  endDate          DateTime?
+  // NOTE: startDate and endDate removed - campaigns are now "evergreen containers"
+  // Date-based attribution uses Lead.createdAt matched against CampaignSpend.startDate/endDate
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   createdById      String
   courseId         String?
   course           Course?         @relation(fields: [courseId], references: [id])
   createdBy        User            @relation(fields: [createdById], references: [id])
-  masterCampaign   MasterCampaign? @relation(fields: [masterCampaignId], references: [id])
+  masterCampaign   MasterCampaign? @relation(fields: [masterCampaignId], references: [id], onDelete: SetNull)
   spendRecords     CampaignSpend[]
   leads            Lead[]
 
@@ -153,14 +153,17 @@ model LeadActivity {
 }
 
 model MasterCampaign {
-  id        String     @id @default(cuid())
+  id        String               @id @default(cuid())
   name      String
   courseId  String
-  status    String     @default("ACTIVE")
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  status    MasterCampaignStatus @default(ACTIVE)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
   campaigns Campaign[]
-  course    Course     @relation(fields: [courseId], references: [id])
+  course    Course               @relation(fields: [courseId], references: [id])
+
+  @@index([courseId])
+  @@index([status])
 }
 
 model Notification {
@@ -265,6 +268,12 @@ enum CallOutcome {
 
 enum CampaignStatus {
   DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum MasterCampaignStatus {
   ACTIVE
   PAUSED
   COMPLETED

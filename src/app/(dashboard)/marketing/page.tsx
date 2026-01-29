@@ -11,6 +11,11 @@ import { HelpIcon } from "@/components/ui/HelpIcon";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { marketingTourSteps } from "@/lib/tourSteps";
 import toast from "react-hot-toast";
+import {
+  getPlatformLabel,
+  getPlatformColor,
+  getPlatformChartColor,
+} from "@/lib/platforms";
 
 interface Campaign {
   id: string;
@@ -34,36 +39,6 @@ interface Campaign {
     conversionRate: string;
   };
 }
-
-const platformColors: Record<string, string> = {
-  META: "bg-blue-100 text-blue-700",
-  FACEBOOK: "bg-blue-100 text-blue-700",
-  GOOGLE_ADS: "bg-red-100 text-red-700",
-  LINKEDIN: "bg-sky-100 text-sky-700",
-  INSTAGRAM: "bg-pink-100 text-pink-700",
-  TIKTOK: "bg-gray-100 text-gray-700",
-  OTHER: "bg-gray-100 text-gray-700",
-};
-
-const platformLabels: Record<string, string> = {
-  META: "Meta (FB/IG)",
-  FACEBOOK: "Facebook",
-  GOOGLE_ADS: "Google",
-  LINKEDIN: "LinkedIn",
-  INSTAGRAM: "Instagram",
-  TIKTOK: "TikTok",
-  OTHER: "Altro",
-};
-
-const PLATFORM_CHART_COLORS: Record<string, string> = {
-  META: "#1877f2",
-  FACEBOOK: "#1877f2",
-  GOOGLE_ADS: "#ea4335",
-  LINKEDIN: "#0077b5",
-  INSTAGRAM: "#e4405f",
-  TIKTOK: "#000000",
-  OTHER: "#6b7280",
-};
 
 export default function MarketingDashboard() {
   const { data: session } = useSession();
@@ -141,7 +116,7 @@ export default function MarketingDashboard() {
         const platformCampaigns = campaigns.filter((c) => c.platform === platform);
         const spent = platformCampaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
         return {
-          name: platformLabels[platform],
+          name: getPlatformLabel(platform),
           value: spent,
           platform,
         };
@@ -231,7 +206,7 @@ export default function MarketingDashboard() {
               data={platformSpendData}
               nameKey="name"
               valueKey="value"
-              colors={platformSpendData.map((p) => PLATFORM_CHART_COLORS[p.platform] || "#6b7280")}
+              colors={platformSpendData.map((p) => getPlatformChartColor(p.platform))}
               height={280}
               formatValue={(value) => `€${value.toLocaleString("it-IT")}`}
             />
@@ -287,11 +262,9 @@ export default function MarketingDashboard() {
                     <td className="py-4 font-medium">{campaign.name}</td>
                     <td className="py-4">
                       <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          platformColors[campaign.platform] || "bg-gray-100 text-gray-700"
-                        }`}
+                        className={`px-2 py-1 rounded text-xs ${getPlatformColor(campaign.platform)}`}
                       >
-                        {platformLabels[campaign.platform] || campaign.platform}
+                        {getPlatformLabel(campaign.platform)}
                       </span>
                     </td>
                     <td className="py-4">{campaign.course?.name || "-"}</td>

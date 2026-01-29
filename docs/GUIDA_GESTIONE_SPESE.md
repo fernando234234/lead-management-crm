@@ -156,6 +156,30 @@ Per vedere il ROI di Febbraio:
 
 ---
 
+## Analisi per Piattaforma
+
+Per vedere le performance aggregate per piattaforma (Meta, Google Ads, LinkedIn, TikTok):
+
+1. Vai su **Marketing → Analisi Piattaforme** (o **Admin → Analisi Piattaforme**)
+2. Vedrai:
+   - **Spesa totale** per piattaforma
+   - **Lead e iscritti** per piattaforma
+   - **CPL** (Costo Per Lead) confrontato tra piattaforme
+   - **Grafici**: torta (distribuzione spesa), barre (lead/iscritti), barre orizzontali (CPL)
+   - **Dettaglio campagne** espandibile per ogni piattaforma
+
+### Filtri Disponibili
+
+| Filtro | Descrizione |
+|--------|-------------|
+| **Corso** | Filtra campagne per corso associato |
+| **Piattaforma** | Focus su una singola piattaforma |
+| **Data Inizio / Fine** | Intervallo date per calcolo pro-rata |
+
+> **Nota:** Questa pagina è **solo lettura** - usa i dati delle spese campagne già inserite. Non crea nuovi dati.
+
+---
+
 ## Supporto
 
 Per problemi o domande:

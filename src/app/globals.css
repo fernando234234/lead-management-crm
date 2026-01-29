@@ -17,6 +17,10 @@
   --accent-red: #dc2626;
   --accent-white: #ffffff;
   --accent-gray: #f3f4f6;
+  
+  /* Compact UI - sidebar width */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
 }
 
 body {
@@ -28,6 +32,9 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+/* COMPACT UI BASE - Reduce base font size for data-dense views */
+/* Note: This overrides the accessibility layer base font size for laptop users */
 
 @layer utilities {
   .text-balance {
@@ -148,9 +155,9 @@ body {
     @apply bg-gradient-to-br from-white to-gray-50/50;
   }
 
-  /* Enhanced Table Styles */
+  /* Enhanced Table Styles - COMPACT */
   .table-enhanced {
-    @apply w-full text-sm;
+    @apply w-full text-xs;
   }
 
   .table-enhanced thead {
@@ -162,7 +169,7 @@ body {
   }
 
   .table-enhanced thead th {
-    @apply p-4 text-left text-gray-600 font-semibold;
+    @apply px-3 py-2 text-left text-gray-600 font-semibold text-xs;
     @apply first:rounded-tl-lg last:rounded-tr-lg;
   }
 
@@ -193,17 +200,17 @@ body {
   }
 
   .table-enhanced tbody td {
-    @apply p-4;
+    @apply px-3 py-2 text-sm;
   }
 
-  /* Chart Container Styles */
+  /* Chart Container Styles - COMPACT */
   .chart-container {
-    @apply bg-white rounded-xl border border-gray-100 p-6;
+    @apply bg-white rounded-xl border border-gray-100 p-4;
     @apply shadow-sm;
   }
 
   .chart-container-title {
-    @apply text-lg font-semibold text-gray-900 mb-4;
+    @apply text-base font-semibold text-gray-900 mb-3;
     @apply flex items-center gap-2;
   }
 
@@ -297,34 +304,34 @@ body {
     @apply shadow-sm;
   }
 
-  /* Page Header */
+  /* Page Header - COMPACT */
   .page-header {
-    @apply flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4;
+    @apply flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3;
   }
 
   .page-title {
-    @apply text-2xl font-bold text-gray-900;
+    @apply text-xl font-bold text-gray-900;
   }
 
   .page-subtitle {
-    @apply text-gray-500 text-sm mt-0.5;
+    @apply text-gray-500 text-xs mt-0.5;
   }
 
-  /* Empty State */
+  /* Empty State - COMPACT */
   .empty-state {
-    @apply p-12 text-center;
+    @apply p-8 text-center;
   }
 
   .empty-state-icon {
-    @apply w-16 h-16 mx-auto mb-4 text-gray-300;
+    @apply w-12 h-12 mx-auto mb-3 text-gray-300;
   }
 
   .empty-state-title {
-    @apply text-lg font-medium text-gray-600 mb-2;
+    @apply text-base font-medium text-gray-600 mb-1.5;
   }
 
   .empty-state-description {
-    @apply text-sm text-gray-400;
+    @apply text-xs text-gray-400;
   }
 
   /* Tooltip */
@@ -370,10 +377,17 @@ body {
 
 /* Accessibility: Focus visible styles for keyboard navigation */
 @layer base {
-  /* Minimum body font size for readability */
+  /* COMPACT UI - Reduced font size for data-dense laptop views */
   html {
-    font-size: 16px;
-    line-height: 1.5;
+    font-size: 14px; /* Reduced from 16px for compact UI */
+    line-height: 1.45;
+  }
+  
+  /* Even more compact on larger desktop screens */
+  @media (min-width: 1280px) {
+    html {
+      font-size: 13px;
+    }
   }
 
   /* Ensure focus-visible works consistently across browsers */
@@ -611,6 +625,39 @@ body {
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+  }
+}
+
+/* Sidebar Collapse Utilities */
+@layer utilities {
+  .sidebar-expanded {
+    width: var(--sidebar-width);
+  }
+  
+  .sidebar-collapsed {
+    width: var(--sidebar-collapsed-width);
+  }
+  
+  /* Hide text when sidebar is collapsed */
+  .sidebar-collapsed .sidebar-label {
+    @apply opacity-0 w-0 overflow-hidden;
+  }
+  
+  .sidebar-expanded .sidebar-label {
+    @apply opacity-100 w-auto;
+  }
+  
+  /* Center icons when collapsed */
+  .sidebar-collapsed .sidebar-nav-item {
+    @apply justify-center px-0;
+  }
+  
+  .sidebar-collapsed .sidebar-header-content {
+    @apply hidden;
+  }
+  
+  .sidebar-collapsed .sidebar-user-info {
+    @apply hidden;
   }
 }
 

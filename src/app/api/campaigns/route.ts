@@ -60,12 +60,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 1. Fetch campaigns with related data
+    // 1. Fetch campaigns with related data (including masterCampaign for grouping)
     const campaigns = await prisma.campaign.findMany({
       where,
       include: {
         course: { select: { id: true, name: true, price: true } },
         createdBy: { select: { id: true, name: true, email: true } },
+        masterCampaign: { select: { id: true, name: true } },
         spendRecords: {
           where: spendRecordsWhere,
           orderBy: { startDate: "desc" },
@@ -156,13 +157,13 @@ export async function GET(request: NextRequest) {
         },
         _count: { _all: true },
       }),
-      // Query 3: Enrolled leads in period by campaign
+      // Query 3: Enrolled leads in period by campaign (using enrolledAt for date filter)
       prisma.lead.groupBy({
         by: ['campaignId'],
         where: {
           campaignId: { in: campaignIds },
           enrolled: true,
-          ...leadDateFilter,
+          ...enrolledDateFilter,
         },
         _count: { _all: true },
       }),
@@ -309,10 +310,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Create Campaign Variant (Child)
-    const startDate = body.startDate ? new Date(body.startDate) : new Date();
-    const endDate = body.endDate ? new Date(body.endDate) : null;
-    const budgetAmount = parseFloat(body.budget) || 0;
-
+    // NOTE: startDate/endDate removed - campaigns are now "evergreen containers"
+    // Date-based spend tracking uses CampaignSpend records
     const campaign = await prisma.campaign.create({
       data: {
         name: `${body.name} - ${body.platform}`, // Descriptive name for the variant
@@ -322,8 +321,6 @@ export async function POST(request: NextRequest) {
         createdById: creatorId,
         budget: 0, // No longer used directly - spend goes to CampaignSpend
         status: body.status || "ACTIVE",
-        startDate,
-        endDate,
         // Spend records are added manually via the "Gestione Spese" tab
       },
       include: {

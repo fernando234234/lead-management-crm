@@ -8,6 +8,7 @@ interface BulkAction {
   label: string;
   icon: React.ReactNode;
   variant?: "default" | "danger";
+  skipConfirm?: boolean; // Skip built-in confirmation (for custom confirmation modals)
   onClick: () => void;
 }
 
@@ -150,7 +151,10 @@ export default function BulkActions({
   if (selectedIds.length === 0) return null;
 
   const handleActionClick = (action: BulkAction) => {
-    if (action.variant === "danger") {
+    // If skipConfirm is true, directly call onClick (for custom confirmation modals)
+    if (action.skipConfirm) {
+      action.onClick();
+    } else if (action.variant === "danger") {
       setConfirmDialog({ isOpen: true, action });
     } else {
       action.onClick();

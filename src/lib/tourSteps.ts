@@ -33,7 +33,7 @@ export const adminTourSteps: TourStep[] = [
   {
     target: "[data-tour='sidebar-nav']",
     title: "Navigazione",
-    content: "Usa il menu laterale per accedere a Lead, Utenti, Campagne, Corsi, Report e Impostazioni.",
+    content: "Usa il menu per: Lead, Utenti, Campagne, Corsi, Analisi Piattaforme (confronto Meta/Google/LinkedIn/TikTok), Report e Impostazioni.",
     placement: "right",
   },
 ];
@@ -42,25 +42,19 @@ export const commercialTourSteps: TourStep[] = [
   {
     target: "[data-tour='stats-grid']",
     title: "Benvenuto nella Dashboard Commerciale!",
-    content: "Qui vedi i tuoi lead assegnati, le chiamate di oggi e il tuo tasso di conversione.",
-    placement: "bottom",
-  },
-  {
-    target: "[data-tour='pipeline']",
-    title: "Pipeline Lead",
-    content: "Visualizza i tuoi lead organizzati per stato. Trascina i lead tra le colonne per aggiornare il loro stato.",
+    content: "Qui vedi i tuoi lead assegnati, quanti ne hai contattati oggi, i callback pendenti e i lead target da chiamare.",
     placement: "bottom",
   },
   {
     target: "[data-tour='tasks']",
-    title: "Attivita di Oggi",
-    content: "Le tue attivita e chiamate programmate per oggi. Non dimenticare di seguire i lead!",
-    placement: "left",
+    title: "Lead da Contattare",
+    content: "Questa tabella mostra i lead che richiedono la tua attenzione: quelli non ancora contattati o da richiamare.",
+    placement: "top",
   },
   {
     target: "[data-tour='sidebar-nav']",
     title: "Navigazione",
-    content: "Accedi a Leads per la lista completa, Calendario per le attivita, e Performance per i tuoi risultati.",
+    content: "Usa il menu per accedere a: I Miei Lead (lista completa), Pipeline (vista per stato), Promemoria e Corsi disponibili.",
     placement: "right",
   },
 ];
@@ -110,6 +104,12 @@ export const marketingTourSteps: TourStep[] = [
     title: "Analisi ROI",
     content: "Monitora ricavi vs spesa, costi per tipo (lead, consulenza, contratto) e il ROI complessivo delle tue campagne.",
     placement: "top",
+  },
+  {
+    target: "[data-tour='sidebar-nav']",
+    title: "Navigazione",
+    content: "Usa il menu per: Campagne, Lead per Campagna, Costi, Analisi Piattaforme (confronto Meta/Google/LinkedIn/TikTok) e ROI.",
+    placement: "right",
   },
 ];
 

@@ -266,21 +266,39 @@ export async function POST(request: NextRequest) {
             if (existingImportCampaign) {
               campaignId = existingImportCampaign[1];
             } else {
-              // Create new import campaign for this course
+              // First, find or create a MasterCampaign for imports
+              let masterCampaign = await prisma.masterCampaign.findFirst({
+                where: {
+                  name: importCampaignName,
+                  courseId: courseId,
+                }
+              });
+              
+              if (!masterCampaign) {
+                masterCampaign = await prisma.masterCampaign.create({
+                  data: {
+                    name: importCampaignName,
+                    courseId: courseId,
+                    status: "ACTIVE",
+                  }
+                });
+              }
+              
+              // Create new import campaign linked to MasterCampaign
               const newCampaign = await prisma.campaign.create({
                 data: {
-                  name: importCampaignName,
+                  name: `${importCampaignName} - META`,
+                  masterCampaignId: masterCampaign.id,
                   platform: "META", // Default platform for imports
                   courseId: courseId,
                   createdById: campaignCreatorId,
                   status: "ACTIVE",
-                  startDate: new Date(),
                 }
               });
               campaignId = newCampaign.id;
               // Add to map for subsequent rows with same course
               campaignMap.set(importCampaignName.toLowerCase(), newCampaign.id);
-              campaigns.push({ id: newCampaign.id, name: importCampaignName, courseId: courseId });
+              campaigns.push({ id: newCampaign.id, name: `${importCampaignName} - META`, courseId: courseId });
             }
           }
 

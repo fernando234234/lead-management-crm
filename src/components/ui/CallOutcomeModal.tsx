@@ -152,7 +152,7 @@ export default function CallOutcomeModal({
       };
     }
     return {
-      title: isFirstCall ? "Prima Chiamata" : "Registra Chiamata",
+      title: isFirstCall ? "Ho Chiamato - Prima Volta" : "Ho Chiamato - Registra Esito",
       subtitle: leadName,
       hint: null
     };

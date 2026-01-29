@@ -9,6 +9,12 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Auth check - must be logged in to view spend records
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const filterStartDate = searchParams.get("startDate");
     const filterEndDate = searchParams.get("endDate");
@@ -73,7 +79,11 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Auth check - must be logged in
     const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // Check if the campaign exists
     const campaign = await prisma.campaign.findUnique({
@@ -85,15 +95,13 @@ export async function POST(
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
 
-    // Permission check if session exists
-    if (session?.user) {
-      const userRole = session.user.role;
-      if (userRole !== "ADMIN" && campaign.createdById !== session.user.id) {
-        return NextResponse.json(
-          { error: "You don't have permission to add spend to this campaign" },
-          { status: 403 }
-        );
-      }
+    // Permission check: ADMIN or campaign owner
+    const userRole = session.user.role;
+    if (userRole !== "ADMIN" && campaign.createdById !== session.user.id) {
+      return NextResponse.json(
+        { error: "You don't have permission to add spend to this campaign" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -148,7 +156,12 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Auth check - must be logged in
     const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const spendId = searchParams.get("spendId");
 
@@ -174,15 +187,13 @@ export async function PUT(
       return NextResponse.json({ error: "Spend record not found" }, { status: 404 });
     }
 
-    // Permission check if session exists
-    if (session?.user) {
-      const userRole = session.user.role;
-      if (userRole !== "ADMIN" && existingRecord.campaign.createdById !== session.user.id) {
-        return NextResponse.json(
-          { error: "You don't have permission to update this spend record" },
-          { status: 403 }
-        );
-      }
+    // Permission check: ADMIN or campaign owner
+    const userRole = session.user.role;
+    if (userRole !== "ADMIN" && existingRecord.campaign.createdById !== session.user.id) {
+      return NextResponse.json(
+        { error: "You don't have permission to update this spend record" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -244,7 +255,11 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Auth check - must be logged in
     const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // Get the spend record ID from query params
     const { searchParams } = new URL(request.url);
@@ -272,15 +287,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Spend record not found" }, { status: 404 });
     }
 
-    // Permission check if session exists
-    if (session?.user) {
-      const userRole = session.user.role;
-      if (userRole !== "ADMIN" && spendRecord.campaign.createdById !== session.user.id) {
-        return NextResponse.json(
-          { error: "You don't have permission to delete this spend record" },
-          { status: 403 }
-        );
-      }
+    // Permission check: ADMIN or campaign owner
+    const userRole = session.user.role;
+    if (userRole !== "ADMIN" && spendRecord.campaign.createdById !== session.user.id) {
+      return NextResponse.json(
+        { error: "You don't have permission to delete this spend record" },
+        { status: 403 }
+      );
     }
 
     await prisma.campaignSpend.delete({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Calendar, X, ChevronDown } from "lucide-react";
+import { Calendar, X, ChevronDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DateRangeFilterProps {
@@ -10,6 +10,11 @@ interface DateRangeFilterProps {
   onChange: (start: string | null, end: string | null) => void;
   presets?: boolean;
   className?: string;
+  /**
+   * Show tooltip explaining how date filters work with different metrics.
+   * Useful on pages where Leads, Revenue, and Spend are shown together.
+   */
+  showFilterExplanation?: boolean;
 }
 
 type PresetKey = "today" | "week" | "month" | "quarter" | "year" | "all";
@@ -112,8 +117,10 @@ export function DateRangeFilter({
   onChange,
   presets = true,
   className,
+  showFilterExplanation = false,
 }: DateRangeFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const presetsList = getPresets();
   const activePreset = getActivePreset(startDate, endDate);
@@ -296,6 +303,40 @@ export function DateRangeFilter({
               Applica
             </button>
           </div>
+
+          {/* Filter Explanation Tooltip */}
+          {showFilterExplanation && (
+            <div className="p-3 border-t border-gray-100 bg-blue-50">
+              <button
+                type="button"
+                onClick={() => setShowExplanation(!showExplanation)}
+                className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-800 focus:outline-none"
+              >
+                <Info size={14} />
+                <span>Come funziona il filtro data?</span>
+                <ChevronDown
+                  size={12}
+                  className={cn("transition-transform", showExplanation && "rotate-180")}
+                />
+              </button>
+              {showExplanation && (
+                <div className="mt-2 text-xs text-gray-600 space-y-2">
+                  <p>
+                    <strong>Lead:</strong> Filtrati per data di creazione (quando il lead è stato acquisito).
+                  </p>
+                  <p>
+                    <strong>Revenue:</strong> Filtrati per data di iscrizione (quando il cliente si è iscritto al corso).
+                  </p>
+                  <p>
+                    <strong>Costi:</strong> Calcolati con pro-rata in base alla sovrapposizione tra il periodo di spesa e il filtro selezionato.
+                  </p>
+                  <p className="text-amber-600 italic">
+                    Nota: Il CPL potrebbe non essere accurato per periodi parziali poiché i lead e i costi usano date di riferimento diverse.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

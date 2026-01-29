@@ -25,6 +25,10 @@ import {
   Globe,
 } from "lucide-react";
 import ExportButton from "@/components/ui/ExportButton";
+import {
+  getPlatformLabel,
+  getPlatformChartColor,
+} from "@/lib/platforms";
 
 // Export columns configuration
 const campaignPerformanceExportColumns = [
@@ -98,7 +102,6 @@ interface Campaign {
   budget: number; // Legacy
   totalSpent: number; // From CampaignSpend records
   spendRecords?: SpendRecord[]; // Individual spend records
-  startDate: string | null;
   leadCount: number;
   course: { id: string; name: string; price: number } | null;
   metrics: {
@@ -180,15 +183,6 @@ function distributeSpendAcrossMonths(
 type CourseSortField = "name" | "price" | "leads" | "enrolled" | "revenue" | "campaigns";
 type CommercialSortField = "name" | "assigned" | "contacted" | "enrolled" | "conversionRate";
 
-const platformLabels: Record<string, string> = {
-  META: "Meta (FB/IG)",
-  FACEBOOK: "Facebook",
-  INSTAGRAM: "Instagram",
-  LINKEDIN: "LinkedIn",
-  GOOGLE_ADS: "Google Ads",
-  TIKTOK: "TikTok",
-};
-
 const platformIcons: Record<string, React.ReactNode> = {
   META: <Facebook size={16} className="text-blue-600" />,
   FACEBOOK: <Facebook size={16} className="text-blue-600" />,
@@ -211,15 +205,6 @@ const FUNNEL_COLORS = {
   CONTATTATO: "#eab308",
   IN_TRATTATIVA: "#a855f7",
   ISCRITTO: "#22c55e",
-};
-
-const PLATFORM_COLORS: Record<string, string> = {
-  META: "#1877f2",
-  FACEBOOK: "#1877f2",
-  INSTAGRAM: "#e4405f",
-  LINKEDIN: "#0077b5",
-  GOOGLE_ADS: "#ea4335",
-  TIKTOK: "#000000",
 };
 
 export default function ReportsPage() {
@@ -347,7 +332,7 @@ export default function ReportsPage() {
         const platformCampaigns = campaigns.filter((c) => c.platform === platform);
         const spent = platformCampaigns.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
         return {
-          name: platformLabels[platform],
+          name: getPlatformLabel(platform),
           value: spent,
           platform,
         };
@@ -369,15 +354,41 @@ export default function ReportsPage() {
   }, [users, leads]);
 
   // Revenue/Cost trend line chart data - aggregate by month using spend record dates
+  // Respects the date filter if set, otherwise shows last 6 months
   const revenueCostTrend = useMemo(() => {
     const monthData = new Map<string, { ricavi: number; costi: number }>();
     
-    // Get last 6 months
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    // Determine date range: use filter if set, otherwise last 6 months
+    let rangeStart: Date;
+    let rangeEnd: Date;
+    
+    if (startDate && endDate) {
+      // Use the selected date range
+      rangeStart = new Date(startDate);
+      rangeEnd = new Date(endDate);
+    } else if (startDate) {
+      // Start date only: from start to now
+      rangeStart = new Date(startDate);
+      rangeEnd = new Date();
+    } else if (endDate) {
+      // End date only: 6 months before end date
+      rangeEnd = new Date(endDate);
+      rangeStart = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth() - 5, 1);
+    } else {
+      // No filter: last 6 months (default)
+      const now = new Date();
+      rangeEnd = now;
+      rangeStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    }
+    
+    // Generate months between rangeStart and rangeEnd
+    const currentMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const endMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+    
+    while (currentMonth <= endMonth) {
+      const key = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
       monthData.set(key, { ricavi: 0, costi: 0 });
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
     }
     
     // Aggregate revenue from leads by month
@@ -404,14 +415,14 @@ export default function ReportsPage() {
         campaign.spendRecords.forEach((record) => {
           distributeSpendAcrossMonths(record, monthData);
         });
-      } else if (campaign.totalSpent > 0 && campaign.startDate) {
-        // Fallback: use campaign startDate if no spend records (legacy behavior)
-        const campaignDate = new Date(campaign.startDate);
-        const key = `${campaignDate.getFullYear()}-${String(campaignDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (monthData.has(key)) {
-          const data = monthData.get(key)!;
-          data.costi += campaign.totalSpent || 0;
+      } else if (campaign.totalSpent > 0) {
+        // Fallback: distribute totalSpent evenly across visible months when no spend records exist
+        const monthCount = monthData.size;
+        if (monthCount > 0) {
+          const perMonth = campaign.totalSpent / monthCount;
+          monthData.forEach((data) => {
+            data.costi += perMonth;
+          });
         }
       }
     });
@@ -426,7 +437,7 @@ export default function ReportsPage() {
         costi: data.costi,
       };
     });
-  }, [leads, campaigns]);
+  }, [leads, campaigns, startDate, endDate]);
 
   // Calculate campaign performance with sorting
   const campaignPerformance = useMemo(() => {
@@ -831,7 +842,7 @@ export default function ReportsPage() {
               data={platformPieData}
               nameKey="name"
               valueKey="value"
-              colors={platformPieData.map((p) => PLATFORM_COLORS[p.platform] || "#6b7280")}
+              colors={platformPieData.map((p) => getPlatformChartColor(p.platform))}
               height={260}
               formatValue={(value) => `€${value.toLocaleString("it-IT")}`}
             />
@@ -870,7 +881,13 @@ export default function ReportsPage() {
         <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <Euro size={20} className="text-admin" />
-            <h2 className="text-base sm:text-lg font-semibold">Andamento Ricavi vs Costi (Ultimi 6 Mesi)</h2>
+            <h2 className="text-base sm:text-lg font-semibold">
+              Andamento Ricavi vs Costi {startDate || endDate ? (
+                <span className="text-admin">
+                  ({startDate ? new Date(startDate).toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" }) : "Inizio"} - {endDate ? new Date(endDate).toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" }) : "Oggi"})
+                </span>
+              ) : "(Ultimi 6 Mesi)"}
+            </h2>
           </div>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
             Confronto mensile tra ricavi generati dalle iscrizioni e costi pubblicitari sostenuti.
@@ -1032,7 +1049,7 @@ export default function ReportsPage() {
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         {platformIcons[campaign.platform]}
-                        {platformLabels[campaign.platform] || campaign.platform}
+                        {getPlatformLabel(campaign.platform)}
                       </div>
                     </td>
                     <td className="p-4 text-gray-500">{campaign.course?.name || "-"}</td>
@@ -1336,7 +1353,7 @@ export default function ReportsPage() {
                   <div className="p-2 rounded-lg bg-gray-50">
                     {platformIcons[platform.platform]}
                   </div>
-                  <span className="font-semibold text-gray-800">{platformLabels[platform.platform]}</span>
+                  <span className="font-semibold text-gray-800">{getPlatformLabel(platform.platform)}</span>
                 </div>
                 
                 {/* Metrics */}

@@ -21,14 +21,12 @@ import EmptyState from "@/components/ui/EmptyState";
 import SpendRecordList, { SpendRecord } from "@/components/ui/SpendRecordList";
 import SpendRecordModal from "@/components/ui/SpendRecordModal";
 import { SpendRecordFormData } from "@/components/ui/SpendRecordForm";
-
-// Platform options matching Prisma enum
-const platformOptions = [
-  { value: "META", label: "Meta (FB/IG)" },
-  { value: "LINKEDIN", label: "LinkedIn" },
-  { value: "GOOGLE_ADS", label: "Google Ads" },
-  { value: "TIKTOK", label: "TikTok" },
-];
+import {
+  PLATFORM_OPTIONS,
+  getPlatformLabel,
+  getPlatformColor,
+  DEFAULT_PLATFORM,
+} from "@/lib/platforms";
 
 // Status options matching Prisma enum
 const statusOptions = [
@@ -47,7 +45,7 @@ const campaignExportColumns = [
   { key: "leadCount", label: "Lead" },
   { key: "costPerLead", label: "CPL" },
   { key: "status", label: "Stato" },
-  { key: "startDate", label: "Data Inizio" },
+  { key: "createdAt", label: "Data Creazione" },
 ];
 
 interface Campaign {
@@ -57,8 +55,6 @@ interface Campaign {
   budget: number; // Legacy
   totalSpent: number; // From CampaignSpend records
   status: string;
-  startDate: string;
-  endDate: string | null;
   createdAt: string;
   course: { id: string; name: string; price?: number } | null;
   createdBy?: { id: string; name: string; email?: string } | null;
@@ -111,8 +107,6 @@ export default function MarketingCampaignsPage() {
     platform: "META",
     courseId: "",
     status: "ACTIVE",
-    startDate: "",
-    endDate: "",
   });
 
   useEffect(() => {
@@ -215,8 +209,6 @@ export default function MarketingCampaignsPage() {
         platform: campaign.platform,
         courseId: campaign.course?.id || "",
         status: campaign.status,
-        startDate: campaign.startDate?.split("T")[0] || "",
-        endDate: campaign.endDate?.split("T")[0] || "",
       });
       // Fetch spend records for the campaign
       fetchSpendRecords(campaign.id);
@@ -228,8 +220,6 @@ export default function MarketingCampaignsPage() {
         platform: "META",
         courseId: courses[0]?.id || "",
         status: "ACTIVE",
-        startDate: new Date().toISOString().split("T")[0],
-        endDate: "",
       });
       setSpendRecords([]);
       setModalTab("details");
@@ -252,8 +242,6 @@ export default function MarketingCampaignsPage() {
       platform: formData.platform,
       courseId: formData.courseId,
       status: formData.status,
-      startDate: formData.startDate || null,
-      endDate: formData.endDate || null,
     };
 
     try {
@@ -326,10 +314,6 @@ export default function MarketingCampaignsPage() {
     { spent: 0, leads: 0, enrolled: 0 }
   );
 
-  const getPlatformLabel = (platform: string) => {
-    return platformOptions.find((p) => p.value === platform)?.label || platform;
-  };
-
   const getStatusConfig = (status: string) => {
     return statusOptions.find((s) => s.value === status) || statusOptions[0];
   };
@@ -368,52 +352,58 @@ export default function MarketingCampaignsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-marketing/10 rounded-lg">
-              <Megaphone size={24} className="text-marketing" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Campagne Attive</p>
-              <p className="text-2xl font-bold">
-                {campaigns.filter((c) => c.status === "ACTIVE").length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <DollarSign size={24} className="text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Spesa Totale</p>
-              <p className="text-2xl font-bold">€{totals.spent.toLocaleString()}</p>
+      <div className="space-y-2">
+        <p className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-2">
+          <span className="inline-block w-2 h-2 bg-gray-300 rounded-full"></span>
+          Metriche complessive (tutto il periodo)
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-marketing/10 rounded-lg">
+                <Megaphone size={24} className="text-marketing" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Campagne Attive</p>
+                <p className="text-2xl font-bold">
+                  {campaigns.filter((c) => c.status === "ACTIVE").length}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Users size={24} className="text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Lead Totali</p>
-              <p className="text-2xl font-bold">{totals.leads}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <DollarSign size={24} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Spesa Totale</p>
+                <p className="text-2xl font-bold">€{totals.spent.toLocaleString()}</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <TrendingUp size={24} className="text-green-600" />
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Users size={24} className="text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Lead Totali</p>
+                <p className="text-2xl font-bold">{totals.leads}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Conv. Media</p>
-              <p className="text-2xl font-bold">
-                {totals.leads > 0 ? ((totals.enrolled / totals.leads) * 100).toFixed(1) : 0}%
-              </p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <TrendingUp size={24} className="text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Conv. Media</p>
+                <p className="text-2xl font-bold">
+                  {totals.leads > 0 ? ((totals.enrolled / totals.leads) * 100).toFixed(1) : 0}%
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -460,7 +450,7 @@ export default function MarketingCampaignsPage() {
                       <div>
                         <p className="font-medium">{campaign.name}</p>
                         <p className="text-sm text-gray-500">
-                          {new Date(campaign.startDate).toLocaleDateString("it-IT")}
+                          {new Date(campaign.createdAt).toLocaleDateString("it-IT")}
                           {campaign.createdBy && (
                             <span className="ml-2 text-xs text-gray-400">
                               di {campaign.createdBy.name}
@@ -541,11 +531,9 @@ export default function MarketingCampaignsPage() {
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 uppercase">Data Fine</p>
+                          <p className="text-xs text-gray-500 uppercase">Creata il</p>
                           <p className="font-semibold">
-                            {campaign.endDate
-                              ? new Date(campaign.endDate).toLocaleDateString("it-IT")
-                              : "In corso"}
+                            {new Date(campaign.createdAt).toLocaleDateString("it-IT")}
                           </p>
                         </div>
                       </div>
@@ -581,11 +569,18 @@ export default function MarketingCampaignsPage() {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
+            {/* Header - Show platform badge when editing */}
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-xl font-bold">
-                {editingCampaign ? "Modifica Campagna" : "Nuova Campagna"}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold">
+                  {editingCampaign ? "Modifica Campagna" : "Nuova Campagna"}
+                </h2>
+                {editingCampaign && (
+                  <span className={`px-2.5 py-1 text-sm font-medium rounded ${getPlatformColor(editingCampaign.platform)}`}>
+                    {getPlatformLabel(editingCampaign.platform)}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={closeModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
@@ -655,7 +650,7 @@ export default function MarketingCampaignsPage() {
                         onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
                       >
-                        {platformOptions.map((platform) => (
+                        {PLATFORM_OPTIONS.map((platform) => (
                           <option key={platform.value} value={platform.value}>
                             {platform.label}
                           </option>
@@ -715,31 +710,6 @@ export default function MarketingCampaignsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Data Inizio
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.startDate}
-                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Data Fine
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.endDate}
-                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing"
-                      />
-                    </div>
-                  </div>
-
                   <div className="flex gap-3 pt-4">
                     <button
                       type="button"
@@ -759,11 +729,23 @@ export default function MarketingCampaignsPage() {
               ) : (
                 /* Spend Management Tab */
                 <div className="space-y-4">
+                  {/* Platform-specific indicator */}
+                  {editingCampaign && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <strong>Nota:</strong> Le spese vengono tracciate separatamente per ogni piattaforma. 
+                        Stai gestendo le spese per <span className={`inline-flex px-2 py-0.5 mx-1 text-xs font-medium rounded ${getPlatformColor(editingCampaign.platform)}`}>{getPlatformLabel(editingCampaign.platform)}</span>.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center">
                     <div>
-                      <h3 className="font-semibold text-gray-900">Storico Spese</h3>
+                      <h3 className="font-semibold text-gray-900">
+                        Storico Spese {editingCampaign && `- ${getPlatformLabel(editingCampaign.platform)}`}
+                      </h3>
                       <p className="text-sm text-gray-500">
-                        Gestisci le spese per periodo della campagna
+                        Registra le spese pubblicitarie per questa piattaforma
                       </p>
                     </div>
                     <button

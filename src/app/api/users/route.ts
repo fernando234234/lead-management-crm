@@ -26,7 +26,10 @@ export async function GET() {
         createdAt: true,
         updatedAt: true,
         _count: {
-          select: { assignedLeads: true }
+          select: { 
+            assignedLeads: true,
+            createdCampaigns: true,
+          }
         }
       }
     });

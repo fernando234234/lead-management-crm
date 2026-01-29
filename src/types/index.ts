@@ -77,18 +77,21 @@ export interface Lead {
   campaign?: Campaign;
 }
 
-// Campaign - Marketing section (SORGENTE, CAMPAGNA, COSTO)
+// Campaign - Marketing section (evergreen container - no dates)
+// Date-based attribution uses Lead.createdAt matched against CampaignSpend.startDate/endDate
 export interface Campaign {
   id: string;
   name: string;
-  source: string;           // SORGENTE (Facebook, Google, etc.)
+  platform: string;         // Platform (META, GOOGLE_ADS, LINKEDIN, TIKTOK)
   courseId: string;         // Linked to course list
   course?: Course;
-  cost: number;             // COSTO
-  startDate: Date;
-  endDate?: Date;
-  active: boolean;
+  status: string;           // DRAFT, ACTIVE, PAUSED, COMPLETED
+  totalSpent?: number;      // Aggregated from CampaignSpend records
+  leadCount?: number;       // Count of leads
+  costPerLead?: number;     // Calculated: totalSpent / leadCount
+  masterCampaignId?: string;
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 // Profitability metrics (PROF section)

@@ -184,7 +184,15 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         course: { select: { id: true, name: true, price: true } },
-        campaign: { select: { id: true, name: true, platform: true, createdById: true } },
+        campaign: { 
+          select: { 
+            id: true, 
+            name: true, 
+            platform: true, 
+            createdById: true,
+            masterCampaign: { select: { id: true, name: true } }
+          } 
+        },
         assignedTo: { select: { id: true, name: true, email: true } },
         contactedBy: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true, email: true } },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import {
   Pencil,
@@ -17,17 +17,24 @@ import {
   XCircle,
   HelpCircle,
   AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Clock,
+  Target,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { getPlatformLabel } from "@/lib/platforms";
 import Pagination from "@/components/ui/Pagination";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import EmptyState from "@/components/ui/EmptyState";
 import ExportButton from "@/components/ui/ExportButton";
-import ConfirmModal from "@/components/ui/ConfirmModal";
 import CallOutcomeModal from "@/components/ui/CallOutcomeModal";
 import EnrolledConfirmModal from "@/components/ui/EnrolledConfirmModal";
 import LeadActionWizard from "@/components/ui/LeadActionWizard";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import LeadFormModal from "@/components/ui/LeadFormModal";
 
 // Boolean display helpers
 const booleanConfig = {
@@ -62,7 +69,7 @@ interface Lead {
   enrolledAt: string | null;
   createdAt: string;
   course: { id: string; name: string; price?: number } | null;
-  campaign: { id: string; name: string; platform?: string } | null;
+  campaign: { id: string; name: string; platform?: string; masterCampaign?: { id: string; name: string } | null } | null;
   assignedTo: { id: string; name: string; email: string } | null;
   // Call tracking fields
   callAttempts: number;
@@ -84,6 +91,7 @@ interface Campaign {
   name: string;
   platform: string;
   course: { id: string; name: string };
+  masterCampaign?: { id: string; name: string } | null;
 }
 
 export default function CommercialLeadsPage() {
@@ -92,18 +100,17 @@ export default function CommercialLeadsPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
-  const [creating, setCreating] = useState(false);
 
-  // Enrolled confirmation modal
+  // Unified Lead Form Modal
+  const [showLeadFormModal, setShowLeadFormModal] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+
+  // Enrolled confirmation modal (for table actions)
   const [showEnrolledConfirm, setShowEnrolledConfirm] = useState(false);
   const [pendingEnrolledLead, setPendingEnrolledLead] = useState<string | null>(null);
-  const [showEditEnrolledConfirm, setShowEditEnrolledConfirm] = useState(false);
 
-  // Call outcome modal
+  // Call outcome modal (for table actions)
   const [showCallOutcomeModal, setShowCallOutcomeModal] = useState(false);
   const [pendingContactedLead, setPendingContactedLead] = useState<Lead | null>(null);
   // Track what triggered the call modal: 'button' | 'contattato' | 'target'
@@ -120,30 +127,16 @@ export default function CommercialLeadsPage() {
   const [filterCourse, setFilterCourse] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("active"); // Default: hide PERSO
 
+  // Sorting
+  type SortField = "name" | "course" | "status" | "createdAt";
+  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
 
-  // Create lead form
-  const [createFormData, setCreateFormData] = useState({
-    name: "",
-    courseId: "",
-    campaignId: "",
-    notes: "",
-    contacted: false,
-    isTarget: false,
-    enrolled: false,
-  });
 
-  // Edit form data
-  const [editFormData, setEditFormData] = useState({
-    name: "",
-    notes: "",
-    contacted: false,
-    isTarget: false,
-    targetNote: "",
-    enrolled: false,
-  });
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -199,22 +192,72 @@ export default function CommercialLeadsPage() {
     }
   };
 
-  const filteredLeads = leads.filter((lead) => {
-    if (
-      search &&
-      !lead.name.toLowerCase().includes(search.toLowerCase())
-    ) {
-      return false;
+  // Sort function
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
     }
-    if (filterContattato !== "" && lead.contacted !== (filterContattato === "true")) return false;
-    if (filterTarget !== "" && lead.isTarget !== (filterTarget === "true")) return false;
-    if (filterIscritto !== "" && lead.enrolled !== (filterIscritto === "true")) return false;
-    if (filterCourse && lead.course?.id !== filterCourse) return false;
-    // Status filter: "active" hides PERSO, "perso" shows only PERSO, "" shows all
-    if (filterStatus === "active" && lead.status === "PERSO") return false;
-    if (filterStatus === "perso" && lead.status !== "PERSO") return false;
-    return true;
-  });
+  };
+
+  // Sort icon helper
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown size={14} className="text-gray-300" />;
+    return sortDirection === "asc" 
+      ? <ArrowUp size={14} className="text-commercial" />
+      : <ArrowDown size={14} className="text-commercial" />;
+  };
+
+  // Filter and sort leads
+  const filteredLeads = useMemo(() => {
+    let result = leads.filter((lead) => {
+      if (search && !lead.name.toLowerCase().includes(search.toLowerCase())) {
+        return false;
+      }
+      if (filterContattato !== "" && lead.contacted !== (filterContattato === "true")) return false;
+      if (filterTarget !== "" && lead.isTarget !== (filterTarget === "true")) return false;
+      if (filterIscritto !== "" && lead.enrolled !== (filterIscritto === "true")) return false;
+      if (filterCourse && lead.course?.id !== filterCourse) return false;
+      // Status filter: "active" hides PERSO, "perso" shows only PERSO, "" shows all
+      if (filterStatus === "active" && lead.status === "PERSO") return false;
+      if (filterStatus === "perso" && lead.status !== "PERSO") return false;
+      return true;
+    });
+
+    // Sort
+    result.sort((a, b) => {
+      let aVal: string | number | null = null;
+      let bVal: string | number | null = null;
+
+      switch (sortField) {
+        case "name":
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case "course":
+          aVal = a.course?.name?.toLowerCase() || "";
+          bVal = b.course?.name?.toLowerCase() || "";
+          break;
+        case "status":
+          aVal = a.status;
+          bVal = b.status;
+          break;
+        case "createdAt":
+          aVal = new Date(a.createdAt).getTime();
+          bVal = new Date(b.createdAt).getTime();
+          break;
+      }
+
+      if (aVal === null || bVal === null) return 0;
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [leads, search, filterContattato, filterTarget, filterIscritto, filterCourse, filterStatus, sortField, sortDirection]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredLeads.length / pageSize);
@@ -228,145 +271,21 @@ export default function CommercialLeadsPage() {
     setCurrentPage(1);
   }, [search, filterContattato, filterTarget, filterIscritto, filterCourse, filterStatus]);
 
+  // Open modal for creating new lead
+  const openCreateModal = () => {
+    setEditingLead(null);
+    setShowLeadFormModal(true);
+  };
+
+  // Open modal for editing existing lead
   const openEditModal = (lead: Lead) => {
     setEditingLead(lead);
-    setEditFormData({
-      name: lead.name,
-      notes: lead.notes || "",
-      contacted: lead.contacted,
-      isTarget: lead.isTarget,
-      targetNote: lead.targetNote || "",
-      enrolled: lead.enrolled,
-    });
-    setShowEditModal(true);
+    setShowLeadFormModal(true);
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingLead) return;
-
-    // If enrolled is being changed from false to true, show confirmation
-    if (!editingLead.enrolled && editFormData.enrolled) {
-      setShowEditEnrolledConfirm(true);
-      return;
-    }
-
-    await performEditSubmit();
-  };
-
-  const performEditSubmit = async () => {
-    if (!editingLead) return;
-
-    // Optimistic update
-    const previousLeads = [...leads];
-    const now = new Date().toISOString();
-    
-    const updateData: Partial<Lead> = {
-      name: editFormData.name,
-      notes: editFormData.notes || null,
-      contacted: editFormData.contacted,
-      isTarget: editFormData.isTarget,
-      targetNote: editFormData.targetNote || null,
-      enrolled: editFormData.enrolled,
-    };
-    
-    // Add enrolledAt timestamp if enrolling
-    if (editFormData.enrolled && !editingLead.enrolled) {
-      updateData.enrolledAt = now;
-    }
-    
-    setLeads(prev => prev.map(lead => 
-      lead.id === editingLead.id ? { ...lead, ...updateData } : lead
-    ));
-
-    try {
-      const apiData: Record<string, unknown> = { ...updateData };
-      if (editFormData.enrolled && !editingLead.enrolled) {
-        apiData.enrolledAt = now;
-      }
-
-      const response = await fetch(`/api/leads/${editingLead.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(apiData),
-      });
-
-      if (!response.ok) throw new Error("Failed to update lead");
-      
-      toast.success("Lead aggiornato con successo");
-      setShowEditModal(false);
-    } catch (error) {
-      console.error("Failed to update lead:", error);
-      // Rollback on error
-      setLeads(previousLeads);
-      toast.error("Errore nell'aggiornamento del lead");
-    }
-  };
-
-  const handleEditEnrolledConfirm = async () => {
-    setShowEditEnrolledConfirm(false);
-    await performEditSubmit();
-  };
-
-  const handleEditEnrolledCancel = () => {
-    setShowEditEnrolledConfirm(false);
-    setEditFormData({ ...editFormData, enrolled: false });
-  };
-
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!createFormData.name.trim()) {
-      toast.error("Il nome è obbligatorio");
-      return;
-    }
-    if (!createFormData.courseId) {
-      toast.error("Seleziona un corso");
-      return;
-    }
-    if (!createFormData.campaignId) {
-      toast.error("Seleziona una campagna");
-      return;
-    }
-
-    setCreating(true);
-    const now = new Date().toISOString();
-    try {
-      const response = await fetch("/api/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: createFormData.name,
-          courseId: createFormData.courseId,
-          campaignId: createFormData.campaignId,
-          assignedToId: session?.user?.id,
-          createdById: session?.user?.id,
-          notes: createFormData.notes || null,
-          source: "MANUAL",
-          contacted: createFormData.contacted,
-          contactedAt: createFormData.contacted ? now : null,
-          isTarget: createFormData.isTarget,
-          enrolled: createFormData.enrolled,
-          enrolledAt: createFormData.enrolled ? now : null,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create lead");
-      }
-
-      setShowCreateModal(false);
-      setCreateFormData({ name: "", courseId: "", campaignId: "", notes: "", contacted: false, isTarget: false, enrolled: false });
-      toast.success("Lead creato con successo!");
-      // Use lightweight fetch - only reload leads, not courses/campaigns
-      fetchLeadsOnly();
-    } catch (error) {
-      console.error("Failed to create lead:", error);
-      toast.error(error instanceof Error ? error.message : "Errore nella creazione del lead");
-    } finally {
-      setCreating(false);
-    }
+  // Handle modal success (create or edit)
+  const handleLeadFormSuccess = () => {
+    fetchLeadsOnly();
   };
 
   // Quick state update - with guided flow for prerequisites
@@ -714,7 +633,7 @@ export default function CommercialLeadsPage() {
             filename="i_miei_lead_export"
           />
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={openCreateModal}
             className="flex items-center gap-2 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
           >
             <Plus size={18} />
@@ -811,298 +730,239 @@ export default function CommercialLeadsPage() {
       {/* Leads Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin">
-          <table className="table-enhanced">
+          <table className="table-enhanced" aria-label="Tabella lead">
+            <caption className="sr-only">
+              Lista dei lead assegnati con opzioni per visualizzare e modificare
+            </caption>
             <thead>
               <tr>
-                <th>Lead</th>
-                <th>Corso</th>
-                <th className="text-center">
-                  <Tooltip content="Tracciamento chiamate: registra esiti e monitora tentativi (max 8)" position="bottom">
-                    <span className="cursor-help flex items-center justify-center gap-1">
+                <th scope="col">
+                  <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-commercial transition-colors">
+                    Lead <SortIcon field="name" />
+                  </button>
+                </th>
+                <th scope="col">
+                  <button onClick={() => handleSort("course")} className="flex items-center gap-1 hover:text-commercial transition-colors">
+                    Corso <SortIcon field="course" />
+                  </button>
+                </th>
+                <th scope="col">
+                  <button onClick={() => handleSort("status")} className="flex items-center gap-1 hover:text-commercial transition-colors">
+                    Stato <SortIcon field="status" />
+                  </button>
+                </th>
+                <th scope="col" className="text-center">
+                  <Tooltip content="Numero di chiamate effettuate e ultimo esito" position="top">
+                    <span className="flex items-center justify-center gap-1 cursor-help">
                       Chiamate
-                      <HelpCircle size={14} className="text-gray-400" />
+                      <span className="text-gray-400 text-xs">(?)</span>
                     </span>
                   </Tooltip>
                 </th>
-                <th className="text-center">
-                  <Tooltip content="Hai parlato con questa persona? Semplice sì/no" position="bottom">
-                    <span className="cursor-help flex items-center justify-center gap-1">
-                      Contattato
-                      <HelpCircle size={14} className="text-gray-400" />
-                    </span>
-                  </Tooltip>
+                <th scope="col" className="text-center">Contattato</th>
+                <th scope="col" className="text-center">Target</th>
+                <th scope="col" className="text-center">Iscritto</th>
+                <th scope="col">
+                  <button onClick={() => handleSort("createdAt")} className="flex items-center gap-1 hover:text-commercial transition-colors">
+                    Data <SortIcon field="createdAt" />
+                  </button>
                 </th>
-                <th className="text-center">
-                  <Tooltip content="Lead prioritario da seguire con attenzione" position="bottom">
-                    <span className="cursor-help flex items-center justify-center gap-1">
-                      Target
-                      <HelpCircle size={14} className="text-gray-400" />
-                    </span>
-                  </Tooltip>
-                </th>
-                <th className="text-center">
-                  <Tooltip content="Il lead ha firmato un contratto e si è iscritto" position="bottom">
-                    <span className="cursor-help flex items-center justify-center gap-1">
-                      Iscritto
-                      <HelpCircle size={14} className="text-gray-400" />
-                    </span>
-                  </Tooltip>
-                </th>
-                <th>Data</th>
-                <th>Azioni</th>
+                <th scope="col">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {paginatedLeads.map((lead, index) => (
                 <tr key={lead.id} className={index % 2 === 0 ? "" : "bg-gray-50/30"}>
+                  {/* Lead Name & Contact */}
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center" aria-hidden="true">
                         <User size={20} className="text-gray-500" />
                       </div>
                       <div>
                         <p className="font-medium">{lead.name}</p>
-                        <div className="flex items-center gap-3 text-sm text-gray-500">
+                        <div className="flex items-center gap-3 text-sm text-gray-600">
                           {lead.email && (
                             <span className="flex items-center gap-1">
-                              <Mail size={14} />
-                              {lead.email}
+                              <Mail size={14} aria-hidden="true" />
+                              <span>{lead.email}</span>
                             </span>
                           )}
                           {lead.phone && (
                             <span className="flex items-center gap-1">
-                              <Phone size={14} />
-                              {lead.phone}
+                              <Phone size={14} aria-hidden="true" />
+                              <span>{lead.phone}</span>
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
                   </td>
+                  {/* Corso */}
                   <td className="p-4">
                     <span className="text-sm">{lead.course?.name || "-"}</span>
                   </td>
-                  {/* Chiamate column - call tracking with visible button */}
+                  {/* Stato - StatusBadge component */}
+                  <td className="p-4">
+                    <StatusBadge status={lead.status as "NUOVO" | "CONTATTATO" | "IN_TRATTATIVA" | "ISCRITTO" | "PERSO"} />
+                  </td>
+                  {/* Chiamate Column - with call button, progress, outcome */}
                   <td className="p-4">
                     <div className="flex flex-col items-center gap-1">
+                      {/* Call button or status */}
                       {lead.status === 'PERSO' ? (
-                        <Tooltip content="Lead perso - non più attivo" position="top">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 cursor-help">
+                        <Tooltip content="Lead perso - non modificabile" position="top">
+                          <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">
                             PERSO
                           </span>
                         </Tooltip>
                       ) : lead.enrolled ? (
-                        <Tooltip content="Lead iscritto al corso!" position="top">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 cursor-help">
+                        <Tooltip content="Lead iscritto!" position="top">
+                          <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">
                             ISCRITTO
                           </span>
                         </Tooltip>
                       ) : (
                         <>
-                          {/* Warning for leads approaching auto-PERSO */}
-                          {(() => {
-                            const daysSinceLastAttempt = lead.lastAttemptAt 
-                              ? Math.floor((Date.now() - new Date(lead.lastAttemptAt).getTime()) / (1000 * 60 * 60 * 24))
-                              : null;
-                            const daysUntilAutoPerso = daysSinceLastAttempt !== null ? 15 - daysSinceLastAttempt : null;
-                            const isUrgent = daysUntilAutoPerso !== null && daysUntilAutoPerso <= 5 && daysUntilAutoPerso > 0;
-                            const isOverdue = daysUntilAutoPerso !== null && daysUntilAutoPerso <= 0;
-                            
-                            if (isOverdue) {
+                          <button
+                            onClick={() => handleLogCall(lead)}
+                            className="px-3 py-1.5 text-xs font-medium bg-commercial text-white rounded-lg hover:opacity-90 transition flex items-center gap-1"
+                            title="Registra l'esito di una chiamata effettuata"
+                          >
+                            <Phone size={12} />
+                            {lead.callAttempts === 0 ? 'Ho Chiamato' : `Esito #${lead.callAttempts + 1}`}
+                          </button>
+                          
+                          {/* Progress bar */}
+                          {lead.callAttempts > 0 && (
+                            <div className="w-full mt-1">
+                              <div className="flex justify-between text-[10px] text-gray-500 mb-0.5">
+                                <span>{lead.callAttempts}/8</span>
+                              </div>
+                              <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full transition-all ${
+                                    lead.callAttempts >= 7 ? 'bg-red-500' : 
+                                    lead.callAttempts >= 5 ? 'bg-yellow-500' : 'bg-commercial'
+                                  }`}
+                                  style={{ width: `${(lead.callAttempts / 8) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Last outcome badge */}
+                          {lead.callOutcome && (
+                            <span className={`mt-1 px-2 py-0.5 text-[10px] rounded-full ${
+                              lead.callOutcome === 'POSITIVO' ? 'bg-green-100 text-green-700' :
+                              lead.callOutcome === 'RICHIAMARE' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {lead.callOutcome === 'POSITIVO' ? 'Interessato' :
+                               lead.callOutcome === 'RICHIAMARE' ? 'Da richiamare' : 'Non interess.'}
+                            </span>
+                          )}
+                          
+                          {/* Stale warning */}
+                          {lead.callOutcome === 'RICHIAMARE' && lead.lastAttemptAt && (() => {
+                            const daysSince = Math.floor((Date.now() - new Date(lead.lastAttemptAt).getTime()) / (1000 * 60 * 60 * 24));
+                            const daysLeft = 15 - daysSince;
+                            if (daysLeft <= 0) {
                               return (
-                                <Tooltip 
-                                  content={`URGENTE: Sono passati ${daysSinceLastAttempt} giorni dall'ultimo contatto! Il lead può diventare PERSO automaticamente.`}
-                                  position="top"
-                                  variant="accent"
-                                >
-                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-medium cursor-help animate-pulse">
-                                    <AlertTriangle size={12} />
-                                    Scaduto!
-                                  </div>
-                                </Tooltip>
+                                <span className="mt-1 px-2 py-0.5 text-[10px] bg-red-500 text-white rounded-full animate-pulse">
+                                  Scaduto!
+                                </span>
                               );
-                            }
-                            if (isUrgent) {
+                            } else if (daysLeft <= 5) {
                               return (
-                                <Tooltip 
-                                  content={`Attenzione: ${daysUntilAutoPerso} giorni rimanenti prima che il lead diventi PERSO automaticamente.`}
-                                  position="top"
-                                  variant="accent"
-                                >
-                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-medium cursor-help">
-                                    <AlertTriangle size={12} />
-                                    {daysUntilAutoPerso}gg
-                                  </div>
+                                <Tooltip content={`Solo ${daysLeft} giorni prima di PERSO automatico`} position="top">
+                                  <span className="mt-1 px-2 py-0.5 text-[10px] bg-yellow-100 text-yellow-700 rounded-full flex items-center gap-1">
+                                    <AlertTriangle size={10} />
+                                    {daysLeft}g
+                                  </span>
                                 </Tooltip>
                               );
                             }
                             return null;
                           })()}
-                          {/* Call button */}
-                          <Tooltip 
-                            content={lead.callAttempts === 0 
-                              ? "Clicca per registrare la prima chiamata" 
-                              : `Registra chiamata #${lead.callAttempts + 1} di 8`
-                            }
-                            position="top"
-                          >
-                            <button
-                              onClick={() => handleLogCall(lead)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                lead.callAttempts === 0
-                                  ? 'bg-commercial text-white hover:opacity-90'
-                                  : 'bg-commercial/10 text-commercial hover:bg-commercial/20 border border-commercial/30'
-                              }`}
-                            >
-                              <PhoneCall size={14} />
-                              {lead.callAttempts === 0 ? 'Chiama' : `#${lead.callAttempts + 1}`}
-                            </button>
-                          </Tooltip>
-                          {/* Progress bar */}
-                          <Tooltip 
-                            content={`${lead.callAttempts} tentativi effettuati su 8 massimi. ${8 - lead.callAttempts} rimanenti.`}
-                            position="bottom"
-                          >
-                            <div className="flex items-center gap-1 w-full max-w-[80px] cursor-help">
-                              <div className="flex-1 bg-gray-200 rounded-full h-1">
-                                <div
-                                  className={`h-1 rounded-full ${
-                                    lead.callAttempts >= 6 ? 'bg-red-500' : 
-                                    lead.callAttempts >= 4 ? 'bg-yellow-500' : 'bg-green-500'
-                                  }`}
-                                  style={{ width: `${(lead.callAttempts / 8) * 100}%` }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-gray-500">{lead.callAttempts}/8</span>
-                            </div>
-                          </Tooltip>
-                          {/* Last outcome */}
-                          {lead.callOutcome && (
-                            <Tooltip 
-                              content={
-                                lead.callOutcome === 'POSITIVO' ? 'Ultimo esito: Il lead è interessato' :
-                                lead.callOutcome === 'RICHIAMARE' ? 'Ultimo esito: Da richiamare più tardi' :
-                                'Ultimo esito: Non interessato'
-                              }
-                              position="bottom"
-                            >
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded cursor-help ${
-                                lead.callOutcome === 'POSITIVO' ? 'bg-green-100 text-green-700' :
-                                lead.callOutcome === 'RICHIAMARE' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-red-100 text-red-700'
-                              }`}>
-                                {lead.callOutcome === 'POSITIVO' ? 'Interessato' :
-                                 lead.callOutcome === 'RICHIAMARE' ? 'Da richiamare' : 'Non interess.'}
-                              </span>
-                            </Tooltip>
-                          )}
                         </>
                       )}
                     </div>
                   </td>
-                  {/* Contattato - simple toggle, disabled for PERSO */}
-                  <td className="p-4">
-                    <div className={`flex items-center justify-center ${lead.status === 'PERSO' ? 'opacity-50' : ''}`}>
-                      <Tooltip 
-                        content={lead.status === 'PERSO' 
-                          ? "Non modificabile - lead perso" 
-                          : lead.contacted 
-                            ? "✅ Hai parlato con questo lead" 
-                            : lead.callAttempts > 0
-                              ? "Clicca per segnare come contattato"
-                              : "Clicca per registrare la chiamata"
-                        }
-                        position="top"
-                      >
-                        <div>
-                          <BooleanToggle
-                            value={lead.contacted}
-                            onChange={(v) => handleQuickStateUpdate(lead.id, "contacted", v)}
-                            compact
-                            disabled={lead.status === 'PERSO'}
-                          />
-                        </div>
-                      </Tooltip>
-                    </div>
+                  {/* Contattato */}
+                  <td className="p-4 text-center">
+                    {lead.contacted ? (
+                      <CheckCircle size={20} className="text-green-500 mx-auto" aria-hidden="true" />
+                    ) : (
+                      <Clock size={20} className="text-gray-400 mx-auto" aria-hidden="true" />
+                    )}
                   </td>
-                  {/* Target - disabled for PERSO */}
-                  <td className="p-4">
-                    <div className={`flex items-center justify-center ${lead.status === 'PERSO' ? 'opacity-50' : ''}`}>
-                      <Tooltip 
-                        content={lead.status === 'PERSO' 
-                          ? "Non modificabile - lead perso" 
-                          : lead.isTarget 
-                            ? "🎯 Lead in obiettivo - priorità alta" 
-                            : lead.callAttempts > 0
-                              ? "Clicca per segnare come target"
-                              : "Clicca per confermare contatto e segnare come target"
-                        }
-                        position="top"
+                  {/* Target - clickable toggle */}
+                  <td className="p-4 text-center">
+                    <Tooltip 
+                      content={lead.status === 'PERSO' 
+                        ? "Non modificabile - lead perso" 
+                        : lead.isTarget 
+                          ? "🎯 Lead prioritario - clicca per rimuovere" 
+                          : "Clicca per segnare come prioritario"
+                      }
+                      position="top"
+                    >
+                      <button
+                        onClick={() => lead.status !== 'PERSO' && handleQuickStateUpdate(lead.id, "isTarget", !lead.isTarget)}
+                        disabled={lead.status === 'PERSO'}
+                        className={`p-1 rounded-lg transition ${
+                          lead.status === 'PERSO' 
+                            ? 'opacity-50 cursor-not-allowed' 
+                            : 'hover:bg-yellow-50 cursor-pointer'
+                        }`}
                       >
-                        <div>
-                          <BooleanToggle
-                            value={lead.isTarget}
-                            onChange={(v) => handleQuickStateUpdate(lead.id, "isTarget", v)}
-                            compact
-                            disabled={lead.status === 'PERSO'}
-                          />
-                        </div>
-                      </Tooltip>
-                    </div>
+                        {lead.isTarget ? (
+                          <Target size={20} className="text-yellow-500 mx-auto" aria-hidden="true" />
+                        ) : (
+                          <Target size={20} className="text-gray-300 mx-auto" aria-hidden="true" />
+                        )}
+                      </button>
+                    </Tooltip>
                   </td>
-                  {/* Iscritto - disabled for PERSO */}
-                  <td className="p-4">
-                    <div className={`flex items-center justify-center ${lead.status === 'PERSO' ? 'opacity-50' : ''}`}>
-                      <Tooltip 
-                        content={lead.status === 'PERSO' 
-                          ? "Non modificabile - lead perso" 
-                          : lead.enrolled 
-                            ? "🎉 Lead iscritto al corso!" 
-                            : lead.callOutcome === 'POSITIVO'
-                              ? "Clicca per iscrivere (richiede conferma)"
-                              : "Richiede esito 'Interessato' per iscrivere"
-                        }
-                        position="top"
-                      >
-                        <div>
-                          <BooleanToggle
-                            value={lead.enrolled}
-                            onChange={(v) => handleQuickStateUpdate(lead.id, "enrolled", v)}
-                            compact
-                            disabled={lead.status === 'PERSO'}
-                          />
-                        </div>
-                      </Tooltip>
-                    </div>
+                  {/* Iscritto */}
+                  <td className="p-4 text-center">
+                    {lead.enrolled ? (
+                      <CheckCircle size={20} className="text-green-500 mx-auto" aria-hidden="true" />
+                    ) : (
+                      <XCircle size={20} className="text-gray-400 mx-auto" aria-hidden="true" />
+                    )}
                   </td>
-                  <td className="p-4 text-sm text-gray-500">
+                  {/* Data */}
+                  <td className="p-4 text-sm text-gray-600">
                     {new Date(lead.createdAt).toLocaleDateString("it-IT")}
                   </td>
+                  {/* Azioni */}
                   <td className="p-4">
-                    <div className="flex gap-1">
-                      {/* Action Wizard - Contextual helper */}
+                    <div className="flex gap-1" role="group" aria-label={`Azioni per ${lead.name}`}>
+                      {/* Action Wizard */}
                       <LeadActionWizard
                         lead={lead}
                         onLogCall={() => handleLogCall(lead)}
                         onSetTarget={(value) => handleQuickStateUpdate(lead.id, "isTarget", value)}
                         onSetEnrolled={() => handleQuickStateUpdate(lead.id, "enrolled", true)}
                       />
-                      <Tooltip content="Vedi dettagli completi e storico attività" position="top">
-                        <button
-                          onClick={() => setDetailLead(lead)}
-                          className="p-2 text-gray-500 hover:text-commercial hover:bg-commercial/10 rounded-lg transition"
-                        >
-                          <Eye size={18} />
-                        </button>
-                      </Tooltip>
-                      <Tooltip content="Modifica informazioni lead" position="top">
-                        <button
-                          onClick={() => openEditModal(lead)}
-                          className="p-2 text-gray-500 hover:text-commercial hover:bg-commercial/10 rounded-lg transition"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                      </Tooltip>
+                      <button
+                        onClick={() => setDetailLead(lead)}
+                        className="flex flex-col items-center p-1.5 text-gray-500 hover:text-commercial transition focus:outline-none focus:ring-2 focus:ring-commercial rounded"
+                        aria-label={`Visualizza dettagli di ${lead.name}`}
+                      >
+                        <Eye size={16} aria-hidden="true" />
+                        <span className="text-[10px] mt-0.5">Dettagli</span>
+                      </button>
+                      <button
+                        onClick={() => openEditModal(lead)}
+                        className="flex flex-col items-center p-1.5 text-gray-500 hover:text-commercial transition focus:outline-none focus:ring-2 focus:ring-commercial rounded"
+                        aria-label={`Modifica ${lead.name}`}
+                      >
+                        <Pencil size={16} aria-hidden="true" />
+                        <span className="text-[10px] mt-0.5">Modifica</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1129,95 +989,18 @@ export default function CommercialLeadsPage() {
         />
       </div>
 
-      {/* Edit Modal */}
-      {showEditModal && editingLead && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Modifica Lead</h2>
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editFormData.name}
-                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
-                />
-              </div>
-
-              {/* Contattato */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <BooleanToggle
-                    label="Contattato"
-                    value={editFormData.contacted}
-                    onChange={(v) => setEditFormData({ ...editFormData, contacted: v })}
-                  />
-                </div>
-              </div>
-
-              {/* Target */}
-              <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-                <div className="flex items-center justify-between">
-                  <BooleanToggle
-                    label="Target (In obiettivo)"
-                    value={editFormData.isTarget}
-                    onChange={(v) => setEditFormData({ ...editFormData, isTarget: v })}
-                  />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Note target..."
-                  value={editFormData.targetNote}
-                  onChange={(e) => setEditFormData({ ...editFormData, targetNote: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                />
-              </div>
-
-              {/* Iscritto */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <BooleanToggle
-                    label="Iscritto"
-                    value={editFormData.enrolled}
-                    onChange={(v) => setEditFormData({ ...editFormData, enrolled: v })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note Generali
-                </label>
-                <textarea
-                  value={editFormData.notes}
-                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition"
-                >
-                  Salva Modifiche
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Unified Lead Form Modal (Create/Edit) */}
+      <LeadFormModal
+        isOpen={showLeadFormModal}
+        onClose={() => setShowLeadFormModal(false)}
+        onSuccess={handleLeadFormSuccess}
+        lead={editingLead}
+        courses={courses}
+        campaigns={campaigns}
+        currentUserId={session?.user?.id}
+        accentColor="commercial"
+        showAssignment={false}
+      />
 
       {/* Lead Detail Modal */}
       {detailLead && (
@@ -1229,158 +1012,7 @@ export default function CommercialLeadsPage() {
         />
       )}
 
-      {/* Create Lead Modal - SIMPLIFIED (no email/phone) */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Nuovo Lead</h2>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={createFormData.name}
-                  onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
-                  placeholder="Nome e cognome del lead"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Corso <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={createFormData.courseId}
-                  onChange={(e) => {
-                    const newCourseId = e.target.value;
-                    // Find first campaign for this course
-                    const courseCampaigns = campaigns.filter(c => c.course?.id === newCourseId);
-                    const defaultCampaign = courseCampaigns[0];
-                    setCreateFormData({
-                      ...createFormData,
-                      courseId: newCourseId,
-                      campaignId: defaultCampaign?.id || "",
-                    });
-                  }}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
-                >
-                  <option value="">Seleziona un corso</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Campagna <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={createFormData.campaignId}
-                  onChange={(e) => setCreateFormData({ ...createFormData, campaignId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
-                  disabled={!createFormData.courseId}
-                >
-                  <option value="">{createFormData.courseId ? "Seleziona una campagna" : "Prima seleziona un corso"}</option>
-                  {campaigns
-                    .filter(campaign => campaign.course?.id === createFormData.courseId)
-                    .map((campaign) => (
-                      <option key={campaign.id} value={campaign.id}>
-                        {campaign.name}
-                      </option>
-                    ))}
-                </select>
-                {createFormData.courseId && campaigns.filter(c => c.course?.id === createFormData.courseId).length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    Nessuna campagna per questo corso. Contatta l&apos;amministratore.
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note
-                </label>
-                <textarea
-                  value={createFormData.notes}
-                  onChange={(e) => setCreateFormData({ ...createFormData, notes: e.target.value })}
-                  rows={3}
-                  placeholder="Note aggiuntive sul lead..."
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-commercial focus:border-commercial"
-                />
-              </div>
-
-              {/* Status Toggles */}
-              <div className="space-y-3 pt-2">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <BooleanToggle
-                    label="Contattato"
-                    value={createFormData.contacted}
-                    onChange={(v) => setCreateFormData({ ...createFormData, contacted: v })}
-                  />
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <BooleanToggle
-                    label="Target (In obiettivo)"
-                    value={createFormData.isTarget}
-                    onChange={(v) => setCreateFormData({ ...createFormData, isTarget: v })}
-                  />
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <BooleanToggle
-                    label="Iscritto"
-                    value={createFormData.enrolled}
-                    onChange={(v) => setCreateFormData({ ...createFormData, enrolled: v })}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                  disabled={creating}
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating || !createFormData.name || !createFormData.courseId || !createFormData.campaignId}
-                  className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {creating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Creazione...
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={18} />
-                      Crea Lead
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Enrolled Confirmation Modal - Two-step with delay */}
+      {/* Enrolled Confirmation Modal for table actions - Two-step with delay */}
       {(() => {
         const enrollingLead = pendingEnrolledLead ? leads.find(l => l.id === pendingEnrolledLead) : null;
         return (
@@ -1393,15 +1025,6 @@ export default function CommercialLeadsPage() {
           />
         );
       })()}
-
-      {/* Edit Form Enrolled Confirmation Modal - Two-step with delay */}
-      <EnrolledConfirmModal
-        isOpen={showEditEnrolledConfirm}
-        onClose={handleEditEnrolledCancel}
-        onConfirm={handleEditEnrolledConfirm}
-        leadName={editingLead?.name || ''}
-        courseName={editingLead?.course?.name || 'N/A'}
-      />
 
       {/* Call Outcome Modal - Using Reusable Component */}
       <CallOutcomeModal
@@ -1454,7 +1077,7 @@ export default function CommercialLeadsPage() {
                   Serve per tracciare i tentativi di chiamata e determinare se un lead diventa <strong>PERSO</strong>.
                 </p>
                 <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-                  <li><strong>Chiama:</strong> Clicca per registrare l&apos;esito di una chiamata</li>
+                  <li><strong>Ho Chiamato:</strong> Clicca DOPO aver chiamato per registrare l&apos;esito</li>
                   <li><strong>X/8:</strong> Numero di tentativi effettuati (max 8)</li>
                   <li><strong>Interessato:</strong> Il lead è interessato, continua nel funnel</li>
                   <li><strong>Da richiamare:</strong> Non risponde, riprova più tardi</li>

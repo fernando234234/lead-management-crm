@@ -20,6 +20,7 @@ interface UserData {
   createdAt: string;
   _count: {
     assignedLeads: number;
+    createdCampaigns: number;
   };
 }
 
@@ -36,6 +37,7 @@ const userExportColumns = [
   { key: "email", label: "Email" },
   { key: "role", label: "Ruolo" },
   { key: "_count.assignedLeads", label: "Lead Assegnati" },
+  { key: "_count.createdCampaigns", label: "Campagne Create" },
   { key: "createdAt", label: "Data Creazione" },
 ];
 
@@ -241,7 +243,7 @@ export default function AdminUsersPage() {
                     <th className="p-4 font-medium">Username</th>
                     <th className="p-4 font-medium">Email</th>
                     <th className="p-4 font-medium">Ruolo</th>
-                    <th className="p-4 font-medium">Lead Assegnati</th>
+                    <th className="p-4 font-medium">Attività</th>
                     <th className="p-4 font-medium">Creato il</th>
                     <th className="p-4 font-medium">Azioni</th>
                   </tr>
@@ -269,9 +271,17 @@ export default function AdminUsersPage() {
                           </span>
                         </td>
                         <td className="p-4">
-                          <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 bg-gray-100 rounded-full text-sm font-medium">
-                            {user._count.assignedLeads}
-                          </span>
+                          {user.role === "MARKETING" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-orange-50 text-orange-700 rounded-full text-sm font-medium">
+                              <Megaphone size={14} />
+                              {user._count.createdCampaigns} campagne
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-sm font-medium">
+                              <Users size={14} />
+                              {user._count.assignedLeads} lead
+                            </span>
+                          )}
                         </td>
                         <td className="p-4 text-sm text-gray-500">
                           {new Date(user.createdAt).toLocaleDateString("it-IT")}
@@ -288,10 +298,12 @@ export default function AdminUsersPage() {
                             <button
                               onClick={() => handleDelete(user.id)}
                               className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={user._count.assignedLeads > 0}
+                              disabled={user._count.assignedLeads > 0 || user._count.createdCampaigns > 0}
                               title={
                                 user._count.assignedLeads > 0
                                   ? "Riassegna i lead prima di eliminare"
+                                  : user._count.createdCampaigns > 0
+                                  ? "Riassegna le campagne prima di eliminare"
                                   : "Elimina utente"
                               }
                             >

@@ -31,16 +31,12 @@ interface Lead {
 interface KanbanCardProps {
   lead: Lead;
   onClick: () => void;
-  onDragStart: (e: React.DragEvent, leadId: string) => void;
-  onDragEnd: (e: React.DragEvent) => void;
   staleDays?: number;
 }
 
 export function KanbanCard({
   lead,
   onClick,
-  onDragStart,
-  onDragEnd,
   staleDays = 7,
 }: KanbanCardProps) {
   const daysInStatus = useMemo(() => {
@@ -64,9 +60,6 @@ export function KanbanCard({
 
   return (
     <article
-      draggable
-      onDragStart={(e) => onDragStart(e, lead.id)}
-      onDragEnd={onDragEnd}
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

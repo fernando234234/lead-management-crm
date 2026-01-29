@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { KanbanCard } from "./KanbanCard";
 import { UserPlus, Phone, MessageSquare, CheckCircle, XCircle } from "lucide-react";
 
@@ -33,10 +32,7 @@ interface KanbanColumnProps {
   label: string;
   leads: Lead[];
   color: string;
-  onDrop: (leadId: string, newStatus: string) => void;
   onLeadClick: (lead: Lead) => void;
-  onDragStart: (e: React.DragEvent, leadId: string) => void;
-  onDragEnd: (e: React.DragEvent) => void;
 }
 
 export function KanbanColumn({
@@ -44,32 +40,8 @@ export function KanbanColumn({
   label,
   leads,
   color,
-  onDrop,
   onLeadClick,
-  onDragStart,
-  onDragEnd,
 }: KanbanColumnProps) {
-  const [isDragOver, setIsDragOver] = useState(false);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const leadId = e.dataTransfer.getData("text/plain");
-    if (leadId) {
-      onDrop(leadId, status);
-    }
-  };
-
   const colorClasses: Record<string, string> = {
     blue: "bg-blue-500",
     yellow: "bg-yellow-500",
@@ -78,52 +50,37 @@ export function KanbanColumn({
     red: "bg-red-500",
   };
 
-  const bgColorClasses: Record<string, string> = {
-    blue: "bg-blue-50",
-    yellow: "bg-yellow-50",
-    purple: "bg-purple-50",
-    green: "bg-green-50",
-    red: "bg-red-50",
-  };
-
   const statusConfig: Record<string, { icon: React.ReactNode; hint: string }> = {
     NUOVO: { 
       icon: <UserPlus size={20} className="text-blue-400" />, 
-      hint: "Trascina qui per nuovi contatti" 
+      hint: "Nessun lead nuovo" 
     },
     CONTATTATO: { 
       icon: <Phone size={20} className="text-yellow-500" />, 
-      hint: "Trascina qui dopo il primo contatto" 
+      hint: "Nessun lead contattato" 
     },
     IN_TRATTATIVA: { 
       icon: <MessageSquare size={20} className="text-purple-500" />, 
-      hint: "Trascina qui per lead in negoziazione" 
+      hint: "Nessun lead in trattativa" 
     },
     ISCRITTO: { 
       icon: <CheckCircle size={20} className="text-green-500" />, 
-      hint: "Trascina qui i lead convertiti" 
+      hint: "Nessun lead iscritto" 
     },
     PERSO: { 
       icon: <XCircle size={20} className="text-red-400" />, 
-      hint: "Trascina qui i lead non interessati" 
+      hint: "Nessun lead perso" 
     },
   };
 
   const currentStatusConfig = statusConfig[status] || { 
     icon: null, 
-    hint: "Trascina qui un lead" 
+    hint: "Nessun lead" 
   };
 
   return (
     <section
-      className={`
-        flex flex-col min-w-[280px] max-w-[320px] rounded-xl
-        ${isDragOver ? bgColorClasses[color] : "bg-gray-50"}
-        transition-colors duration-200
-      `}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      className="flex flex-col min-w-[280px] max-w-[320px] rounded-xl bg-gray-50"
       aria-label={`Colonna ${label}, ${leads.length} lead`}
     >
       {/* Column Header */}
@@ -142,10 +99,7 @@ export function KanbanColumn({
 
       {/* Cards Container */}
       <div
-        className={`
-          flex-1 p-2 space-y-2 overflow-y-auto min-h-[200px] max-h-[calc(100vh-320px)]
-          ${isDragOver ? "ring-2 ring-inset ring-gray-300 rounded-b-xl" : ""}
-        `}
+        className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[200px] max-h-[calc(100vh-320px)]"
         role="list"
         aria-labelledby={`column-${status}-title`}
         aria-live="polite"
@@ -156,8 +110,6 @@ export function KanbanColumn({
               <KanbanCard
                 lead={lead}
                 onClick={() => onLeadClick(lead)}
-                onDragStart={onDragStart}
-                onDragEnd={onDragEnd}
               />
             </div>
           ))

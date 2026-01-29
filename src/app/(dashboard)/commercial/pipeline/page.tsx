@@ -19,6 +19,7 @@ import {
   PhoneOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 interface Lead {
   id: string;
@@ -151,24 +152,6 @@ export default function CommercialPipelinePage() {
     if (filterPerso === "perso" && lead.status !== "PERSO") return false;
     return true;
   });
-
-  const handleStatusChange = async (leadId: string, newStatus: string) => {
-    // Optimistic update
-    setLeads((prev) =>
-      prev.map((lead) => (lead.id === leadId ? { ...lead, status: newStatus } : lead))
-    );
-
-    try {
-      await fetch(`/api/leads/${leadId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-    } catch (error) {
-      console.error("Failed to update status:", error);
-      fetchData();
-    }
-  };
 
   const handleLeadClick = (lead: Lead) => {
     setSelectedLead(lead);
@@ -396,7 +379,6 @@ export default function CommercialPipelinePage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <KanbanBoard
             leads={filteredLeads}
-            onStatusChange={handleStatusChange}
             onLeadClick={handleLeadClick}
           />
         </div>
@@ -446,11 +428,15 @@ export default function CommercialPipelinePage() {
                     <span className="text-sm">{lead.course?.name || "-"}</span>
                   </td>
                   <td className="p-4">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[lead.status]}`}
-                    >
-                      {statusLabels[lead.status]}
-                    </span>
+                    <StatusBadge 
+                      status={lead.status as "NUOVO" | "CONTATTATO" | "IN_TRATTATIVA" | "ISCRITTO" | "PERSO"}
+                      callAttempts={lead.callAttempts || 0}
+                      callOutcome={lead.callOutcome as "POSITIVO" | "RICHIAMARE" | "NEGATIVO" | null}
+                      contacted={lead.contacted}
+                      enrolled={lead.enrolled}
+                      firstAttemptAt={lead.firstAttemptAt}
+                      size="sm"
+                    />
                   </td>
                   <td className="p-4">
                     {lead.contacted ? (
@@ -600,27 +586,23 @@ export default function CommercialPipelinePage() {
                 </div>
               )}
 
-              {/* Status Change */}
+              {/* Status (read-only, auto-computed) */}
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Cambia Stato</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <button
-                      key={value}
-                      onClick={() => {
-                        handleStatusChange(selectedLead.id, value);
-                        setSelectedLead({ ...selectedLead, status: value });
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                        selectedLead.status === value
-                          ? statusColors[value]
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Stato <span className="text-xs text-gray-500">(auto-calcolato)</span>
+                </p>
+                <StatusBadge 
+                  status={selectedLead.status as "NUOVO" | "CONTATTATO" | "IN_TRATTATIVA" | "ISCRITTO" | "PERSO"}
+                  callAttempts={selectedLead.callAttempts || 0}
+                  callOutcome={selectedLead.callOutcome as "POSITIVO" | "RICHIAMARE" | "NEGATIVO" | null}
+                  contacted={selectedLead.contacted}
+                  enrolled={selectedLead.enrolled}
+                  firstAttemptAt={selectedLead.firstAttemptAt}
+                  size="md"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Lo stato viene calcolato automaticamente in base alle chiamate e agli esiti.
+                </p>
               </div>
             </div>
 
@@ -635,9 +617,10 @@ export default function CommercialPipelinePage() {
                 <button
                   onClick={openOutcomeModal}
                   className="flex-1 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2"
+                  title="Hai chiamato questo lead? Registra l'esito"
                 >
                   <PhoneCall size={18} />
-                  Registra Chiamata ({selectedLead.callAttempts || 0}/8)
+                  Ho Chiamato ({selectedLead.callAttempts || 0}/8)
                 </button>
               ) : (
                 <button
@@ -657,7 +640,7 @@ export default function CommercialPipelinePage() {
       {showOutcomeModal && selectedLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-2">Registra Chiamata</h2>
+            <h2 className="text-xl font-bold mb-2">Ho Chiamato - Registra Esito</h2>
             
             {/* Call Attempt Tracking Info */}
             <div className="bg-gray-50 rounded-lg p-3 mb-4">

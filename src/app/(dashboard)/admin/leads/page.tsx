@@ -18,7 +18,6 @@ import {
   XCircle,
   Eye,
   UserPlus,
-  RefreshCw,
   CheckSquare,
   Square,
   Minus,
@@ -40,8 +39,11 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import CallOutcomeModal from "@/components/ui/CallOutcomeModal";
 import LeadActionWizard from "@/components/ui/LeadActionWizard";
 import EnrolledConfirmModal from "@/components/ui/EnrolledConfirmModal";
-
-type TriState = "SI" | "NO" | "ND";
+import DeleteLeadModal from "@/components/ui/DeleteLeadModal";
+import BulkDeleteModal from "@/components/ui/BulkDeleteModal";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { getPlatformLabel } from "@/lib/platforms";
+import LeadFormModal from "@/components/ui/LeadFormModal";
 
 interface Lead {
   id: string;
@@ -49,33 +51,32 @@ interface Lead {
   email: string | null;
   phone: string | null;
   notes: string | null;
-  // New tri-state fields
-  contattatoStato: TriState;
-  contattatoAt: string | null;
-  contattatoNote: string | null;
-  targetStato: TriState;
-  targetNote: string | null;
-  iscrittoStato: TriState;
-  iscrittoAt: string | null;
-  iscrittoNote: string | null;
-  // Legacy fields
+  // Status and tracking
   status: string;
   contacted: boolean;
   contactedAt: string | null;
   enrolled: boolean;
   enrolledAt: string | null;
   isTarget: boolean;
-  callOutcome: string | null;
-  outcomeNotes: string | null;
-  acquisitionCost?: number | null;
-  createdAt: string;
-  course: { id: string; name: string; price?: number } | null;
-  campaign: { id: string; name: string; source?: string; platform?: string } | null;
-  assignedTo: { id: string; name: string; email: string } | null;
+  targetNote: string | null;
   // Call tracking fields
   callAttempts: number;
   firstAttemptAt: string | null;
   lastAttemptAt: string | null;
+  callOutcome: string | null;
+  outcomeNotes: string | null;
+  // Other fields
+  acquisitionCost?: number | null;
+  createdAt: string;
+  course: { id: string; name: string; price?: number } | null;
+  campaign: { 
+    id: string; 
+    name: string; 
+    source?: string; 
+    platform?: string;
+    masterCampaign?: { id: string; name: string } | null;
+  } | null;
+  assignedTo: { id: string; name: string; email: string } | null;
 }
 
 interface Course {
@@ -89,6 +90,7 @@ interface Campaign {
   source?: string;
   platform?: string;
   course?: { id: string; name: string } | null;
+  masterCampaign?: { id: string; name: string } | null;
 }
 
 interface UserData {
@@ -135,14 +137,13 @@ export default function AdminLeadsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [commercials, setCommercials] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showLeadFormModal, setShowLeadFormModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   
   // Bulk Selection State
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-  const [showBulkStatusDropdown, setShowBulkStatusDropdown] = useState(false);
   
   // Import Modal State
   const [showImportModal, setShowImportModal] = useState(false);
@@ -154,6 +155,13 @@ export default function AdminLeadsPage() {
   // Enrolled Confirmation Modal State
   const [showEnrolledConfirm, setShowEnrolledConfirm] = useState(false);
   const [pendingEnrolledLead, setPendingEnrolledLead] = useState<Lead | null>(null);
+  
+  // Delete Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pendingDeleteLead, setPendingDeleteLead] = useState<Lead | null>(null);
+  
+  // Bulk Delete Modal State
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   
   // Filters
   const [search, setSearch] = useState("");
@@ -170,23 +178,6 @@ export default function AdminLeadsPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
-
-  // Form data
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    courseId: "",
-    campaignId: "",
-    assignedToId: "",
-    isTarget: false,
-    notes: "",
-    status: "NUOVO",
-    contacted: false,
-    callOutcome: "",
-    outcomeNotes: "",
-    enrolled: false,
-  });
 
   useEffect(() => {
     fetchData();
@@ -422,46 +413,13 @@ export default function AdminLeadsPage() {
     }
   };
 
-  const handleBulkStatusChange = async (status: string) => {
-    const leadIds = Array.from(selectedLeads);
-    
-    // Optimistic update
-    const previousLeads = [...leads];
-    setLeads(leads.map(lead => 
-      leadIds.includes(lead.id) ? { ...lead, status } : lead
-    ));
-    clearSelection();
-    setShowBulkStatusDropdown(false);
-
-    try {
-      const response = await fetch("/api/leads/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "status",
-          leadIds,
-          data: { status },
-        }),
-      });
-
-      if (!response.ok) {
-        // Rollback on error
-        setLeads(previousLeads);
-        toast.error("Errore nell'aggiornamento dello stato");
-      } else {
-        toast.success(`${leadIds.length} lead aggiornati`);
-      }
-    } catch (error) {
-      // Rollback on error
-      setLeads(previousLeads);
-      console.error("Failed to bulk update status:", error);
-      toast.error("Errore nell'aggiornamento dello stato");
-    }
+  // Open bulk delete modal
+  const handleBulkDeleteClick = () => {
+    setShowBulkDeleteModal(true);
   };
 
-  const handleBulkDelete = async () => {
-    const leadIds = Array.from(selectedLeads);
-    
+  // Confirm bulk delete (called from BulkDeleteModal)
+  const handleBulkDeleteConfirm = async (leadIds: string[]) => {
     // Optimistic delete
     const previousLeads = [...leads];
     setLeads(leads.filter(lead => !leadIds.includes(lead.id)));
@@ -481,7 +439,8 @@ export default function AdminLeadsPage() {
         setLeads(previousLeads);
         toast.error("Errore nell'eliminazione");
       } else {
-        toast.success(`${leadIds.length} lead eliminati`);
+        toast.success(`${leadIds.length} lead eliminati definitivamente`);
+        setShowBulkDeleteModal(false);
       }
     } catch (error) {
       setLeads(previousLeads);
@@ -490,7 +449,11 @@ export default function AdminLeadsPage() {
     }
   };
 
-  // Bulk Actions Configuration
+  const handleBulkDeleteCancel = () => {
+    setShowBulkDeleteModal(false);
+  };
+
+  // Bulk Actions Configuration - Status is READ-ONLY, so no status change action
   const bulkActions: BulkAction[] = [
     {
       id: "assign",
@@ -499,118 +462,40 @@ export default function AdminLeadsPage() {
       onClick: () => setShowAssignmentModal(true),
     },
     {
-      id: "status",
-      label: "Cambia Stato",
-      icon: <RefreshCw size={18} />,
-      onClick: () => setShowBulkStatusDropdown(true),
-    },
-    {
       id: "delete",
       label: "Elimina",
       icon: <Trash2 size={18} />,
       variant: "danger",
-      onClick: handleBulkDelete,
+      skipConfirm: true, // We use our own BulkDeleteModal
+      onClick: handleBulkDeleteClick,
     },
   ];
 
-  const openModal = (lead?: Lead) => {
-    if (lead) {
-      setEditingLead(lead);
-      setFormData({
-        name: lead.name,
-        email: lead.email || "",
-        phone: lead.phone || "",
-        courseId: lead.course?.id || "",
-        campaignId: lead.campaign?.id || "",
-        assignedToId: lead.assignedTo?.id || "",
-        isTarget: lead.isTarget,
-        notes: lead.notes || "",
-        status: lead.status,
-        contacted: lead.contacted,
-        callOutcome: lead.callOutcome || "",
-        outcomeNotes: lead.outcomeNotes || "",
-        enrolled: lead.enrolled,
-      });
-    } else {
-      setEditingLead(null);
-      // Default to first course, then find campaigns for that course
-      const defaultCourse = courses[0];
-      const courseCampaigns = defaultCourse 
-        ? campaigns.filter(c => c.course?.id === defaultCourse.id)
-        : [];
-      const defaultCampaign = courseCampaigns[0];
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        courseId: defaultCourse?.id || "",
-        campaignId: defaultCampaign?.id || "",
-        assignedToId: "",
-        isTarget: false,
-        notes: "",
-        status: "NUOVO",
-        contacted: false,
-        callOutcome: "",
-        outcomeNotes: "",
-        enrolled: false,
-      });
-    }
-    setShowModal(true);
+  // Open modal for creating new lead
+  const openCreateModal = () => {
+    setEditingLead(null);
+    setShowLeadFormModal(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Campaign is required
-    if (!formData.campaignId) {
-      toast.error("Seleziona una campagna per il lead");
-      return;
-    }
-
-    // Call outcome is required when contacted
-    if (formData.contacted && !formData.callOutcome) {
-      toast.error("Seleziona l'esito della chiamata");
-      return;
-    }
-
-    const payload = {
-      ...formData,
-      email: formData.email || null,
-      phone: formData.phone || null,
-      campaignId: formData.campaignId, // Required - not null
-      assignedToId: formData.assignedToId || null,
-      notes: formData.notes || null,
-      callOutcome: formData.callOutcome || null,
-      outcomeNotes: formData.outcomeNotes || null,
-    };
-
-    try {
-      if (editingLead) {
-        await fetch(`/api/leads/${editingLead.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        await fetch("/api/leads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      }
-      setShowModal(false);
-      toast.success(editingLead ? "Lead aggiornato" : "Lead creato");
-      // Only fetch leads, not courses/users/campaigns
-      fetchLeadsOnly();
-    } catch (error) {
-      console.error("Failed to save lead:", error);
-      toast.error("Errore nel salvataggio del lead");
-    }
+  // Open modal for editing existing lead
+  const openEditModal = (lead: Lead) => {
+    setEditingLead(lead);
+    setShowLeadFormModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Sei sicuro di voler eliminare questo lead?")) return;
+  // Handle modal success (create or edit)
+  const handleLeadFormSuccess = () => {
+    fetchLeadsOnly();
+  };
 
+  // Open delete modal
+  const handleDeleteClick = (lead: Lead) => {
+    setPendingDeleteLead(lead);
+    setShowDeleteModal(true);
+  };
+
+  // Confirm delete
+  const handleDeleteConfirm = async (id: string) => {
     // Optimistic delete
     const previousLeads = [...leads];
     setLeads(leads.filter(lead => lead.id !== id));
@@ -618,7 +503,9 @@ export default function AdminLeadsPage() {
     try {
       const response = await fetch(`/api/leads/${id}`, { method: "DELETE" });
       if (response.ok) {
-        toast.success("Lead eliminato");
+        toast.success("Lead eliminato definitivamente");
+        setShowDeleteModal(false);
+        setPendingDeleteLead(null);
       } else {
         setLeads(previousLeads);
         toast.error("Errore nell'eliminazione del lead");
@@ -630,31 +517,9 @@ export default function AdminLeadsPage() {
     }
   };
 
-  const handleQuickStatusUpdate = async (id: string, status: string) => {
-    // Optimistic update - update local state immediately
-    const previousLeads = [...leads];
-    setLeads(leads.map(lead => 
-      lead.id === id ? { ...lead, status } : lead
-    ));
-    
-    try {
-      const response = await fetch(`/api/leads/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      
-      if (!response.ok) {
-        // Rollback on error
-        setLeads(previousLeads);
-        toast.error("Errore nell'aggiornamento dello stato");
-      }
-    } catch (error) {
-      // Rollback on error
-      setLeads(previousLeads);
-      console.error("Failed to update status:", error);
-      toast.error("Errore nell'aggiornamento dello stato");
-    }
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setPendingDeleteLead(null);
   };
 
   const handleLeadUpdate = async (leadId: string, data: Partial<Lead>) => {
@@ -879,7 +744,7 @@ export default function AdminLeadsPage() {
             Importa
           </button>
           <button
-            onClick={() => openModal()}
+            onClick={openCreateModal}
             className="flex items-center gap-2 px-4 py-2 bg-admin text-white rounded-lg hover:opacity-90 transition"
           >
             <Plus size={20} />
@@ -1071,15 +936,8 @@ export default function AdminLeadsPage() {
                       <User size={20} className="text-gray-500" />
                     </div>
                     <div>
-                      <p className="font-medium flex items-center gap-2">
+                      <p className="font-medium">
                         {lead.name}
-                        {lead.isTarget && (
-                          <Tooltip content="Lead prioritario con alta probabilita di conversione" position="top">
-                            <span className="px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded cursor-help">
-                              Target
-                            </span>
-                          </Tooltip>
-                        )}
                       </p>
                       <div className="flex items-center gap-3 text-sm text-gray-600">
                         {lead.email && (
@@ -1105,17 +963,8 @@ export default function AdminLeadsPage() {
                   <span className="text-sm">{lead.assignedTo?.name || "-"}</span>
                 </td>
                 <td className="p-4">
-                  <label className="sr-only" htmlFor={`status-${lead.id}`}>Stato del lead {lead.name}</label>
-                  <select
-                    id={`status-${lead.id}`}
-                    value={lead.status}
-                    onChange={(e) => handleQuickStatusUpdate(lead.id, e.target.value)}
-                    className={`px-2 py-1 rounded-full text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-admin ${statusColors[lead.status]}`}
-                  >
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
+                  {/* Status is READ-ONLY on admin leads page - display only */}
+                  <StatusBadge status={lead.status as "NUOVO" | "CONTATTATO" | "IN_TRATTATIVA" | "ISCRITTO" | "PERSO"} />
                 </td>
                 {/* Chiamate Column - with call button, progress, outcome */}
                 <td className="p-4">
@@ -1138,9 +987,10 @@ export default function AdminLeadsPage() {
                         <button
                           onClick={() => handleLogCall(lead)}
                           className="px-3 py-1.5 text-xs font-medium bg-admin text-white rounded-lg hover:opacity-90 transition flex items-center gap-1"
+                          title="Registra l'esito di una chiamata effettuata"
                         >
                           <Phone size={12} />
-                          {lead.callAttempts === 0 ? 'Chiama' : `#${lead.callAttempts + 1}`}
+                          {lead.callAttempts === 0 ? 'Ho Chiamato' : `Esito #${lead.callAttempts + 1}`}
                         </button>
                         
                         {/* Progress bar */}
@@ -1264,7 +1114,7 @@ export default function AdminLeadsPage() {
                       <span className="text-[10px] mt-0.5">Dettagli</span>
                     </button>
                     <button
-                      onClick={() => openModal(lead)}
+                      onClick={() => openEditModal(lead)}
                       className="flex flex-col items-center p-1.5 text-gray-500 hover:text-admin transition focus:outline-none focus:ring-2 focus:ring-admin rounded"
                       aria-label={`Modifica ${lead.name}`}
                     >
@@ -1272,7 +1122,7 @@ export default function AdminLeadsPage() {
                       <span className="text-[10px] mt-0.5">Modifica</span>
                     </button>
                     <button
-                      onClick={() => handleDelete(lead.id)}
+                      onClick={() => handleDeleteClick(lead)}
                       className="flex flex-col items-center p-1.5 text-gray-500 hover:text-red-600 transition focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
                       aria-label={`Elimina ${lead.name}`}
                     >
@@ -1292,7 +1142,7 @@ export default function AdminLeadsPage() {
             title="Nessun lead trovato"
             description="Non ci sono lead che corrispondono ai filtri selezionati. Prova a modificare i filtri o crea un nuovo lead."
             actionLabel="Nuovo Lead"
-            onAction={() => openModal()}
+            onAction={openCreateModal}
             accentColor="admin"
           />
         )}
@@ -1307,271 +1157,18 @@ export default function AdminLeadsPage() {
         />
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="lead-form-title"
-        >
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 id="lead-form-title" className="text-xl font-bold mb-4">
-              {editingLead ? "Modifica Lead" : "Nuovo Lead"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-              {/* Basic Info */}
-              <fieldset>
-                <legend className="sr-only">Informazioni di base</legend>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label htmlFor="lead-name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Nome <span aria-hidden="true">*</span>
-                    </label>
-                    <input
-                      id="lead-name"
-                      type="text"
-                      required
-                      aria-required="true"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="lead-email" className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      id="lead-email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="lead-phone" className="block text-sm font-medium text-gray-700 mb-1">
-                      Telefono
-                    </label>
-                    <input
-                      id="lead-phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </fieldset>
-
-              {/* Course & Campaign */}
-              <fieldset>
-                <legend className="sr-only">Corso e campagna</legend>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="lead-course" className="block text-sm font-medium text-gray-700 mb-1">
-                      Corso <span aria-hidden="true">*</span>
-                    </label>
-                    <select
-                      id="lead-course"
-                      required
-                      aria-required="true"
-                      value={formData.courseId}
-                      onChange={(e) => {
-                        const newCourseId = e.target.value;
-                        // Find first campaign for this course
-                        const courseCampaigns = campaigns.filter(c => c.course?.id === newCourseId);
-                        const defaultCampaign = courseCampaigns[0];
-                        setFormData({ 
-                          ...formData, 
-                          courseId: newCourseId,
-                          campaignId: defaultCampaign?.id || ""
-                        });
-                      }}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                    >
-                      <option value="">Seleziona corso</option>
-                      {courses.map((course) => (
-                        <option key={course.id} value={course.id}>{course.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="lead-campaign" className="block text-sm font-medium text-gray-700 mb-1">
-                      Campagna <span aria-hidden="true">*</span>
-                    </label>
-                    <select
-                      id="lead-campaign"
-                      required
-                      aria-required="true"
-                      value={formData.campaignId}
-                      onChange={(e) => setFormData({ ...formData, campaignId: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                      disabled={!formData.courseId}
-                    >
-                      <option value="">{formData.courseId ? "Seleziona campagna" : "Prima seleziona un corso"}</option>
-                      {campaigns
-                        .filter(campaign => campaign.course?.id === formData.courseId)
-                        .map((campaign) => (
-                          <option key={campaign.id} value={campaign.id}>{campaign.name}</option>
-                        ))}
-                    </select>
-                    {formData.courseId && campaigns.filter(c => c.course?.id === formData.courseId).length === 0 && (
-                      <p className="text-xs text-amber-600 mt-1">
-                        Nessuna campagna per questo corso. Creane una prima.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </fieldset>
-
-              {/* Assignment */}
-              <fieldset>
-                <legend className="sr-only">Assegnazione</legend>
-                <div>
-                  <label htmlFor="lead-assigned" className="block text-sm font-medium text-gray-700 mb-1">
-                    Assegna a Commerciale
-                  </label>
-                  <select
-                    id="lead-assigned"
-                    value={formData.assignedToId}
-                    onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                  >
-                    <option value="">Non assegnato</option>
-                    {commercials.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name || user.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </fieldset>
-
-              {/* Status & Target */}
-              <fieldset>
-                <legend className="sr-only">Stato e opzioni</legend>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="lead-status" className="block text-sm font-medium text-gray-700 mb-1">
-                      Stato
-                    </label>
-                    <select
-                      id="lead-status"
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                    >
-                      {Object.entries(statusLabels).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-4 pt-6" role="group" aria-label="Opzioni lead">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.isTarget}
-                        onChange={(e) => setFormData({ ...formData, isTarget: e.target.checked })}
-                        className="w-4 h-4 focus:ring-2 focus:ring-admin"
-                      />
-                      <span className="text-sm">Lead Target</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.contacted}
-                        onChange={(e) => setFormData({ ...formData, contacted: e.target.checked })}
-                        className="w-4 h-4 focus:ring-2 focus:ring-admin"
-                      />
-                      <span className="text-sm">Contattato</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.enrolled}
-                        onChange={(e) => setFormData({ ...formData, enrolled: e.target.checked })}
-                        className="w-4 h-4 focus:ring-2 focus:ring-admin"
-                      />
-                      <span className="text-sm">Iscritto</span>
-                    </label>
-                  </div>
-                </div>
-              </fieldset>
-
-              {/* Call Outcome (required when contacted) */}
-              {formData.contacted && (
-                <fieldset>
-                  <legend className="sr-only">Esito chiamata</legend>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="lead-outcome" className="block text-sm font-medium text-gray-700 mb-1">
-                        Esito Chiamata <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="lead-outcome"
-                        required
-                        value={formData.callOutcome}
-                        onChange={(e) => setFormData({ ...formData, callOutcome: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                      >
-                        <option value="">Seleziona esito</option>
-                        <option value="POSITIVO">Interessato</option>
-                        <option value="RICHIAMARE">Da Richiamare</option>
-                        <option value="NEGATIVO">Non Interessato</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="lead-outcome-notes" className="block text-sm font-medium text-gray-700 mb-1">
-                        Note Esito
-                      </label>
-                      <input
-                        id="lead-outcome-notes"
-                        type="text"
-                        value={formData.outcomeNotes}
-                        onChange={(e) => setFormData({ ...formData, outcomeNotes: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </fieldset>
-              )}
-
-              {/* Notes */}
-              <div>
-                <label htmlFor="lead-notes" className="block text-sm font-medium text-gray-700 mb-1">
-                  Note
-                </label>
-                <textarea
-                  id="lead-notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin"
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-admin text-white rounded-lg hover:opacity-90 transition"
-                >
-                  {editingLead ? "Salva Modifiche" : "Crea Lead"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Unified Lead Form Modal (Create/Edit) */}
+      <LeadFormModal
+        isOpen={showLeadFormModal}
+        onClose={() => setShowLeadFormModal(false)}
+        onSuccess={handleLeadFormSuccess}
+        lead={editingLead}
+        courses={courses}
+        campaigns={campaigns}
+        commercials={commercials}
+        accentColor="admin"
+        showAssignment={true}
+      />
 
       {/* Lead Detail Modal */}
       {detailLead && (
@@ -1598,35 +1195,6 @@ export default function AdminLeadsPage() {
           onAssign={handleBulkAssign}
           onClose={() => setShowAssignmentModal(false)}
         />
-      )}
-
-      {/* Bulk Status Change Dropdown */}
-      {showBulkStatusDropdown && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-lg font-semibold mb-4">Cambia Stato</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Seleziona il nuovo stato per {selectedLeads.size} lead
-            </p>
-            <div className="space-y-2">
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <button
-                  key={value}
-                  onClick={() => handleBulkStatusChange(value)}
-                  className={`w-full text-left px-4 py-3 rounded-lg border hover:bg-gray-50 transition flex items-center justify-between ${statusColors[value]}`}
-                >
-                  <span className="font-medium">{label}</span>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowBulkStatusDropdown(false)}
-              className="w-full mt-4 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            >
-              Annulla
-            </button>
-          </div>
-        </div>
       )}
 
       {/* Import Modal */}
@@ -1666,6 +1234,24 @@ export default function AdminLeadsPage() {
         leadName={pendingEnrolledLead?.name || ''}
         courseName={pendingEnrolledLead?.course?.name || 'N/A'}
       />
+
+      {/* Delete Lead Modal */}
+      {showDeleteModal && pendingDeleteLead && (
+        <DeleteLeadModal
+          lead={pendingDeleteLead}
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
+      )}
+
+      {/* Bulk Delete Modal */}
+      {showBulkDeleteModal && selectedLeads.size > 0 && (
+        <BulkDeleteModal
+          leads={leads.filter(lead => selectedLeads.has(lead.id))}
+          onConfirm={handleBulkDeleteConfirm}
+          onCancel={handleBulkDeleteCancel}
+        />
+      )}
     </div>
   );
 }

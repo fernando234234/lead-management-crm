@@ -23,13 +23,13 @@ export default function CommercialLayout({
         </a>
         <Sidebar role="commercial" />
         <div className="flex-1 flex flex-col">
-          <header className="bg-white border-b border-gray-200 px-8 py-4" role="banner">
-            <div className="flex items-center justify-end gap-4">
+          <header className="bg-white border-b border-gray-200 px-6 py-2.5" role="banner">
+            <div className="flex items-center justify-end gap-3">
               <GlobalSearch role="commercial" />
               <NotificationBell role="commercial" />
             </div>
           </header>
-          <main id="main-content" className="flex-1 p-8" role="main" tabIndex={-1}>
+          <main id="main-content" className="flex-1 p-5" role="main" tabIndex={-1}>
             {children}
           </main>
         </div>

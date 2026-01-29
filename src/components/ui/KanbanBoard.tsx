@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { KanbanColumn } from "./KanbanColumn";
 
 interface Lead {
@@ -29,7 +28,6 @@ interface Lead {
 
 interface KanbanBoardProps {
   leads: Lead[];
-  onStatusChange: (leadId: string, newStatus: string) => void;
   onLeadClick: (lead: Lead) => void;
 }
 
@@ -41,34 +39,7 @@ const COLUMNS = [
   { status: "PERSO", label: "Perso", color: "red" },
 ];
 
-export function KanbanBoard({ leads, onStatusChange, onLeadClick }: KanbanBoardProps) {
-  const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
-
-  const handleDragStart = (e: React.DragEvent, leadId: string) => {
-    setDraggedLeadId(leadId);
-    e.dataTransfer.setData("text/plain", leadId);
-    e.dataTransfer.effectAllowed = "move";
-    
-    // Add a slight delay to allow the drag image to be captured
-    const target = e.target as HTMLElement;
-    setTimeout(() => {
-      target.style.opacity = "0.5";
-    }, 0);
-  };
-
-  const handleDragEnd = (e: React.DragEvent) => {
-    setDraggedLeadId(null);
-    const target = e.target as HTMLElement;
-    target.style.opacity = "1";
-  };
-
-  const handleDrop = (leadId: string, newStatus: string) => {
-    const lead = leads.find((l) => l.id === leadId);
-    if (lead && lead.status !== newStatus) {
-      onStatusChange(leadId, newStatus);
-    }
-  };
-
+export function KanbanBoard({ leads, onLeadClick }: KanbanBoardProps) {
   const getLeadsByStatus = (status: string) => {
     return leads.filter((lead) => lead.status === status);
   };
@@ -82,10 +53,7 @@ export function KanbanBoard({ leads, onStatusChange, onLeadClick }: KanbanBoardP
           label={column.label}
           leads={getLeadsByStatus(column.status)}
           color={column.color}
-          onDrop={handleDrop}
           onLeadClick={onLeadClick}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
         />
       ))}
     </div>

@@ -21,6 +21,7 @@ import {
 import ActivityTimeline from "./ActivityTimeline";
 import TaskModal from "./TaskModal";
 import CallOutcomeModal from "./CallOutcomeModal";
+import { getPlatformLabel } from "@/lib/platforms";
 
 interface Lead {
   id: string;
@@ -47,7 +48,12 @@ interface Lead {
   createdAt: string;
   updatedAt?: string;
   course: { id: string; name: string; price?: number } | null;
-  campaign: { id: string; name: string; platform?: string } | null;
+  campaign: { 
+    id: string; 
+    name: string; 
+    platform?: string;
+    masterCampaign?: { id: string; name: string } | null;
+  } | null;
   assignedTo: { id: string; name: string; email: string } | null;
   
   // Status
@@ -443,9 +449,10 @@ export default function LeadDetailModal({
                 <button
                   onClick={() => setShowCallOutcomeModal(true)}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-commercial text-white hover:opacity-90 transition font-medium"
+                  title="Hai chiamato? Registra l'esito"
                 >
                   <PhoneCall size={18} />
-                  {localLead.callAttempts ? `Chiamata #${(localLead.callAttempts || 0) + 1}` : "Prima Chiamata"}
+                  {localLead.callAttempts ? `Ho Chiamato #${(localLead.callAttempts || 0) + 1}` : "Ho Chiamato"}
                 </button>
               )}
               {!canLogCall && (
@@ -613,11 +620,13 @@ export default function LeadDetailModal({
                       <Megaphone size={18} className="text-gray-400 mt-0.5" />
                       <div>
                         <p className="text-xs text-gray-400">Campagna</p>
-                        <p className="text-sm font-medium">{lead.campaign.name}</p>
+                        <p className="text-sm font-medium">
+                          {lead.campaign.masterCampaign?.name || lead.campaign.name}
+                        </p>
                         {lead.campaign.platform && (
-                          <p className="text-xs text-gray-500">
-                            {lead.campaign.platform}
-                          </p>
+                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700">
+                            {getPlatformLabel(lead.campaign.platform)}
+                          </span>
                         )}
                       </div>
                     </div>

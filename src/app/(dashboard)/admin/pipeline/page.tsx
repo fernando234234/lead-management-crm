@@ -17,6 +17,7 @@ import {
   User,
   Pencil,
 } from "lucide-react";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 interface Lead {
   id: string;
@@ -126,25 +127,6 @@ export default function AdminPipelinePage() {
     if (filterCampaign && lead.campaign?.id !== filterCampaign) return false;
     return true;
   });
-
-  const handleStatusChange = async (leadId: string, newStatus: string) => {
-    // Optimistic update
-    setLeads((prev) =>
-      prev.map((lead) => (lead.id === leadId ? { ...lead, status: newStatus } : lead))
-    );
-
-    try {
-      await fetch(`/api/leads/${leadId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-    } catch (error) {
-      console.error("Failed to update status:", error);
-      // Revert on error
-      fetchData();
-    }
-  };
 
   const handleLeadClick = (lead: Lead) => {
     setSelectedLead(lead);
@@ -318,7 +300,6 @@ export default function AdminPipelinePage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <KanbanBoard
             leads={filteredLeads}
-            onStatusChange={handleStatusChange}
             onLeadClick={handleLeadClick}
           />
         </div>
@@ -372,11 +353,15 @@ export default function AdminPipelinePage() {
                     <span className="text-sm">{lead.assignedTo?.name || "-"}</span>
                   </td>
                   <td className="p-4">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[lead.status]}`}
-                    >
-                      {statusLabels[lead.status]}
-                    </span>
+                    <StatusBadge 
+                      status={lead.status as "NUOVO" | "CONTATTATO" | "IN_TRATTATIVA" | "ISCRITTO" | "PERSO"}
+                      callAttempts={lead.callAttempts || 0}
+                      callOutcome={lead.callOutcome as "POSITIVO" | "RICHIAMARE" | "NEGATIVO" | null}
+                      contacted={lead.contacted}
+                      enrolled={lead.enrolled}
+                      firstAttemptAt={lead.firstAttemptAt}
+                      size="sm"
+                    />
                   </td>
                   <td className="p-4">
                     {lead.contacted ? (
@@ -482,27 +467,23 @@ export default function AdminPipelinePage() {
                 </div>
               )}
 
-              {/* Status Change */}
+              {/* Status (read-only, auto-computed) */}
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Cambia Stato</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <button
-                      key={value}
-                      onClick={() => {
-                        handleStatusChange(selectedLead.id, value);
-                        setSelectedLead({ ...selectedLead, status: value });
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                        selectedLead.status === value
-                          ? statusColors[value]
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Stato <span className="text-xs text-gray-500">(auto-calcolato)</span>
+                </p>
+                <StatusBadge 
+                  status={selectedLead.status as "NUOVO" | "CONTATTATO" | "IN_TRATTATIVA" | "ISCRITTO" | "PERSO"}
+                  callAttempts={selectedLead.callAttempts || 0}
+                  callOutcome={selectedLead.callOutcome as "POSITIVO" | "RICHIAMARE" | "NEGATIVO" | null}
+                  contacted={selectedLead.contacted}
+                  enrolled={selectedLead.enrolled}
+                  firstAttemptAt={selectedLead.firstAttemptAt}
+                  size="md"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Lo stato viene calcolato automaticamente in base alle chiamate e agli esiti.
+                </p>
               </div>
             </div>
 

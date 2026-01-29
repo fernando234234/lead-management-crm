@@ -29,8 +29,12 @@ import {
 import ExportButton from "@/components/ui/ExportButton";
 import LeadDetailModal from "@/components/ui/LeadDetailModal";
 import toast from "react-hot-toast";
-
-// Tri-state type (removed, using boolean)
+import {
+  PLATFORM_OPTIONS,
+  PLATFORM_FILTER_OPTIONS,
+  getPlatformLabel,
+  getPlatformColor,
+} from "@/lib/platforms";
 
 // Export columns configuration
 const leadExportColumns = [
@@ -43,14 +47,6 @@ const leadExportColumns = [
   { key: "campaign.name", label: "Campagna" },
   { key: "campaign.platform", label: "Piattaforma" },
   { key: "createdAt", label: "Data Creazione" },
-];
-
-// Platform options
-const platformOptions = [
-  { value: "META", label: "Meta (FB/IG)" },
-  { value: "LINKEDIN", label: "LinkedIn" },
-  { value: "GOOGLE_ADS", label: "Google Ads" },
-  { value: "TIKTOK", label: "TikTok" },
 ];
 
 // Boolean display helpers
@@ -334,10 +330,6 @@ export default function MarketingLeadsPage() {
       uniqueCampaigns,
     };
   }, [filteredLeads, groupedLeads]);
-
-  const getPlatformLabel = (platform: string) => {
-    return platformOptions.find((p) => p.value === platform)?.label || platform;
-  };
 
   const toggleCampaignExpanded = (campaignId: string) => {
     setExpandedCampaigns((prev) => {

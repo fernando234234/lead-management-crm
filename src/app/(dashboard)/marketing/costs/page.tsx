@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card } from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -13,15 +13,16 @@ import {
   BarChart3,
   Megaphone,
   Users,
+  ChevronDown,
+  ChevronRight,
+  Calendar,
 } from "lucide-react";
-
-// Platform options
-const platformOptions = [
-  { value: "META", label: "Meta (FB/IG)", color: "bg-blue-100 text-blue-700" },
-  { value: "GOOGLE_ADS", label: "Google Ads", color: "bg-red-100 text-red-700" },
-  { value: "LINKEDIN", label: "LinkedIn", color: "bg-sky-100 text-sky-700" },
-  { value: "TIKTOK", label: "TikTok", color: "bg-gray-100 text-gray-700" },
-];
+import {
+  PLATFORM_OPTIONS,
+  PLATFORM_FILTER_OPTIONS,
+  getPlatformLabel,
+  getPlatformColor,
+} from "@/lib/platforms";
 
 interface Campaign {
   id: string;
@@ -30,7 +31,6 @@ interface Campaign {
   budget: number; // Legacy
   totalSpent: number; // From CampaignSpend records
   status: string;
-  startDate: string;
   leadCount?: number;
   metrics?: {
     totalLeads: number;
@@ -51,10 +51,26 @@ interface PlatformCost {
   cpl: number;
 }
 
+interface SpendRecord {
+  id: string;
+  startDate: string;
+  endDate: string | null;
+  amount: number;
+  notes: string | null;
+}
+
 export default function MarketingCostsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterPlatform, setFilterPlatform] = useState("");
+  
+  // Drill-down state
+  const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
+  const [spendRecords, setSpendRecords] = useState<Record<string, SpendRecord[]>>({});
+  const [loadingSpend, setLoadingSpend] = useState<string | null>(null);
+  
+  // AbortController ref for cleanup
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Date range filter state (strings for DateRangeFilter component)
   const [startDate, setStartDate] = useState<string | null>(null);
@@ -66,6 +82,14 @@ export default function MarketingCostsPage() {
   };
 
   const fetchData = useCallback(async () => {
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    
     setLoading(true);
     try {
       // Build URL with date parameters for spend filtering
@@ -78,10 +102,14 @@ export default function MarketingCostsPage() {
       }
       
       const url = `/api/campaigns${params.toString() ? `?${params}` : ""}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: abortControllerRef.current.signal });
       const data = await res.json();
       setCampaigns(data);
     } catch (error) {
+      // Ignore abort errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error("Failed to fetch campaigns:", error);
     } finally {
       setLoading(false);
@@ -90,7 +118,51 @@ export default function MarketingCostsPage() {
 
   useEffect(() => {
     fetchData();
+    
+    // Cleanup on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [fetchData]);
+  
+  // Fetch spend records for drill-down
+  const fetchSpendRecords = useCallback(async (campaignId: string) => {
+    if (spendRecords[campaignId]) {
+      // Already loaded, just toggle
+      setExpandedCampaign(expandedCampaign === campaignId ? null : campaignId);
+      return;
+    }
+    
+    setLoadingSpend(campaignId);
+    setExpandedCampaign(campaignId);
+    
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      
+      const url = `/api/campaigns/${campaignId}/spend${params.toString() ? `?${params}` : ""}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      setSpendRecords(prev => ({
+        ...prev,
+        [campaignId]: data.records || []
+      }));
+    } catch (error) {
+      console.error("Failed to fetch spend records:", error);
+    } finally {
+      setLoadingSpend(null);
+    }
+  }, [startDate, endDate, spendRecords, expandedCampaign]);
+  
+  // Clear spend records cache when date filter changes
+  useEffect(() => {
+    setSpendRecords({});
+    setExpandedCampaign(null);
+  }, [startDate, endDate]);
 
   // Filter campaigns
   const filteredCampaigns = useMemo(() => {
@@ -124,13 +196,12 @@ export default function MarketingCostsPage() {
 
     filteredCampaigns.forEach((campaign) => {
       const platform = campaign.platform;
-      const platformConfig = platformOptions.find((p) => p.value === platform);
 
       if (!platformMap[platform]) {
         platformMap[platform] = {
           platform,
-          label: platformConfig?.label || platform,
-          color: platformConfig?.color || "bg-gray-100 text-gray-700",
+          label: getPlatformLabel(platform),
+          color: getPlatformColor(platform),
           totalSpent: 0,
           campaigns: 0,
           leads: 0,
@@ -150,10 +221,6 @@ export default function MarketingCostsPage() {
 
     return Object.values(platformMap).sort((a, b) => b.totalSpent - a.totalSpent);
   }, [filteredCampaigns]);
-
-  const getPlatformLabel = (platform: string) => {
-    return platformOptions.find((p) => p.value === platform)?.label || platform;
-  };
 
   if (loading) {
     return (
@@ -223,8 +290,7 @@ export default function MarketingCostsPage() {
               onChange={(e) => setFilterPlatform(e.target.value)}
               className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-marketing focus:outline-none"
             >
-              <option value="">Tutte le piattaforme</option>
-              {platformOptions.map((p) => (
+              {PLATFORM_FILTER_OPTIONS.map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
                 </option>
@@ -335,32 +401,107 @@ export default function MarketingCostsPage() {
               {filteredCampaigns.map((campaign) => {
                 const leads = campaign.leadCount || campaign.metrics?.totalLeads || 0;
                 const cpl = leads > 0 ? (campaign.totalSpent || 0) / leads : 0;
+                const isExpanded = expandedCampaign === campaign.id;
+                const isLoading = loadingSpend === campaign.id;
+                const records = spendRecords[campaign.id] || [];
 
                 return (
-                  <tr key={campaign.id} className="border-b last:border-b-0 hover:bg-gray-50">
-                    <td className="p-4">
-                      <span className="font-medium text-gray-900">{campaign.name}</span>
-                    </td>
-                    <td className="p-4">
-                      <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                        {getPlatformLabel(campaign.platform)}
-                      </span>
-                    </td>
-                    <td className="p-4 text-gray-600">
-                      {campaign.course?.name || "-"}
-                    </td>
-                    <td className="p-4 text-right font-semibold">
-                      €{(campaign.totalSpent || 0).toLocaleString("it-IT")}
-                    </td>
-                    <td className="p-4 text-right text-gray-600">
-                      {leads}
-                    </td>
-                    <td className="p-4 text-right">
-                      <span className={`font-medium ${cpl > 50 ? "text-red-600" : cpl > 30 ? "text-yellow-600" : "text-green-600"}`}>
-                        €{cpl.toFixed(2)}
-                      </span>
-                    </td>
-                  </tr>
+                  <React.Fragment key={campaign.id}>
+                    <tr 
+                      className="border-b hover:bg-gray-50 cursor-pointer"
+                      onClick={() => fetchSpendRecords(campaign.id)}
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown size={16} className="text-gray-400" />
+                          ) : (
+                            <ChevronRight size={16} className="text-gray-400" />
+                          )}
+                          <span className="font-medium text-gray-900">{campaign.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className="text-xs px-2 py-1 bg-gray-100 rounded">
+                          {getPlatformLabel(campaign.platform)}
+                        </span>
+                      </td>
+                      <td className="p-4 text-gray-600">
+                        {campaign.course?.name || "-"}
+                      </td>
+                      <td className="p-4 text-right font-semibold">
+                        €{(campaign.totalSpent || 0).toLocaleString("it-IT")}
+                      </td>
+                      <td className="p-4 text-right text-gray-600">
+                        {leads}
+                      </td>
+                      <td className="p-4 text-right">
+                        <span className={`font-medium ${cpl > 50 ? "text-red-600" : cpl > 30 ? "text-yellow-600" : "text-green-600"}`}>
+                          €{cpl.toFixed(2)}
+                        </span>
+                      </td>
+                    </tr>
+                    
+                    {/* Drill-down: Spend Records */}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={6} className="bg-gray-50 p-0">
+                          <div className="p-4 pl-10 border-l-4 border-orange-300">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Calendar size={14} className="text-gray-400" />
+                              <span className="text-sm font-medium text-gray-700">
+                                Storico Spese
+                              </span>
+                            </div>
+                            
+                            {isLoading ? (
+                              <div className="space-y-2">
+                                <Skeleton className="h-8 w-full" />
+                                <Skeleton className="h-8 w-full" />
+                              </div>
+                            ) : records.length === 0 ? (
+                              <p className="text-sm text-gray-500 italic">
+                                Nessuna spesa registrata per questa campagna.
+                              </p>
+                            ) : (
+                              <div className="bg-white rounded-lg border overflow-hidden">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="bg-gray-100 text-gray-600">
+                                      <th className="px-3 py-2 text-left font-medium">Periodo</th>
+                                      <th className="px-3 py-2 text-right font-medium">Importo</th>
+                                      <th className="px-3 py-2 text-left font-medium">Note</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {records.map((record) => (
+                                      <tr key={record.id} className="border-t hover:bg-gray-50">
+                                        <td className="px-3 py-2">
+                                          {new Date(record.startDate).toLocaleDateString("it-IT")}
+                                          {record.endDate && (
+                                            <span className="text-gray-400">
+                                              {" → "}
+                                              {new Date(record.endDate).toLocaleDateString("it-IT")}
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-medium">
+                                          €{Number(record.amount).toLocaleString("it-IT")}
+                                        </td>
+                                        <td className="px-3 py-2 text-gray-500">
+                                          {record.notes || "-"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
               {filteredCampaigns.length === 0 && (
