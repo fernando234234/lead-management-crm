@@ -984,21 +984,56 @@ export default function AdminLeadsPage() {
                       </Tooltip>
                     ) : (
                       <>
-                        <button
-                          onClick={() => handleLogCall(lead)}
-                          className="px-3 py-1.5 text-xs font-medium bg-admin text-white rounded-lg hover:opacity-90 transition flex items-center gap-1"
-                          title="Registra l'esito di una chiamata effettuata"
-                        >
-                          <Phone size={12} />
-                          {lead.callAttempts === 0 ? 'Ho Chiamato' : `Esito #${lead.callAttempts + 1}`}
-                        </button>
+                        {(() => {
+                          // Calculate days left for RICHIAMARE leads
+                          const isRichiamare = lead.callOutcome === 'RICHIAMARE';
+                          const isPositivo = lead.callOutcome === 'POSITIVO';
+                          let daysLeft = 15;
+                          if (isRichiamare && lead.lastAttemptAt) {
+                            const daysSince = Math.floor((Date.now() - new Date(lead.lastAttemptAt).getTime()) / (1000 * 60 * 60 * 24));
+                            daysLeft = 15 - daysSince;
+                          }
+                          const isUrgent = isRichiamare && daysLeft <= 3;
+                          const isWarning = isRichiamare && daysLeft <= 7 && daysLeft > 3;
+                          const isExpired = isRichiamare && daysLeft <= 0;
+
+                          return (
+                            <button
+                              onClick={() => handleLogCall(lead)}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex flex-col items-center gap-0.5 min-w-[90px] ${
+                                isExpired ? 'bg-red-600 text-white animate-pulse' :
+                                isUrgent ? 'bg-red-500 text-white' :
+                                isWarning ? 'bg-amber-500 text-white' :
+                                isRichiamare ? 'bg-yellow-500 text-white' :
+                                isPositivo ? 'bg-green-600 text-white' :
+                                'bg-admin text-white hover:opacity-90'
+                              }`}
+                              title={isRichiamare ? `${daysLeft} giorni prima di PERSO automatico` : "Registra l'esito di una chiamata"}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Phone size={12} />
+                                {lead.callAttempts === 0 ? 'Ho Chiamato' : 
+                                 isExpired ? 'SCADUTO!' :
+                                 isRichiamare ? 'Richiama!' : 
+                                 isPositivo ? `Esito #${lead.callAttempts + 1} ✓` :
+                                 `Esito #${lead.callAttempts + 1}`}
+                              </span>
+                              {isRichiamare && !isExpired && (
+                                <span className="text-[10px] opacity-90 flex items-center gap-0.5">
+                                  <Clock size={9} />
+                                  {daysLeft}gg rimasti
+                                </span>
+                              )}
+                              {isPositivo && (
+                                <span className="text-[10px] opacity-90">Interessato</span>
+                              )}
+                            </button>
+                          );
+                        })()}
                         
-                        {/* Progress bar */}
+                        {/* Progress bar - only show if calls made */}
                         {lead.callAttempts > 0 && (
                           <div className="w-full mt-1">
-                            <div className="flex justify-between text-[10px] text-gray-500 mb-0.5">
-                              <span>{lead.callAttempts}/8</span>
-                            </div>
                             <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
                               <div 
                                 className={`h-full transition-all ${
@@ -1008,43 +1043,11 @@ export default function AdminLeadsPage() {
                                 style={{ width: `${(lead.callAttempts / 8) * 100}%` }}
                               />
                             </div>
+                            <div className="text-[9px] text-gray-400 text-center mt-0.5">
+                              {lead.callAttempts}/8 tentativi
+                            </div>
                           </div>
                         )}
-                        
-                        {/* Last outcome badge */}
-                        {lead.callOutcome && (
-                          <span className={`mt-1 px-2 py-0.5 text-[10px] rounded-full ${
-                            lead.callOutcome === 'POSITIVO' ? 'bg-green-100 text-green-700' :
-                            lead.callOutcome === 'RICHIAMARE' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
-                            {lead.callOutcome === 'POSITIVO' ? 'Interessato' :
-                             lead.callOutcome === 'RICHIAMARE' ? 'Da richiamare' : 'Non interess.'}
-                          </span>
-                        )}
-                        
-                        {/* Stale warning */}
-                        {lead.callOutcome === 'RICHIAMARE' && lead.lastAttemptAt && (() => {
-                          const daysSince = Math.floor((Date.now() - new Date(lead.lastAttemptAt).getTime()) / (1000 * 60 * 60 * 24));
-                          const daysLeft = 15 - daysSince;
-                          if (daysLeft <= 0) {
-                            return (
-                              <span className="mt-1 px-2 py-0.5 text-[10px] bg-red-500 text-white rounded-full animate-pulse">
-                                Scaduto!
-                              </span>
-                            );
-                          } else if (daysLeft <= 5) {
-                            return (
-                              <Tooltip content={`Solo ${daysLeft} giorni prima di PERSO automatico`} position="top">
-                                <span className="mt-1 px-2 py-0.5 text-[10px] bg-yellow-100 text-yellow-700 rounded-full flex items-center gap-1">
-                                  <AlertTriangle size={10} />
-                                  {daysLeft}g
-                                </span>
-                              </Tooltip>
-                            );
-                          }
-                          return null;
-                        })()}
                       </>
                     )}
                   </div>
