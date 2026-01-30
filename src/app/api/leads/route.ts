@@ -253,6 +253,23 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Calculate status based on call data if provided
+    type LeadStatus = "NUOVO" | "CONTATTATO" | "IN_TRATTATIVA" | "ISCRITTO" | "PERSO";
+    let calculatedStatus: LeadStatus = "NUOVO";
+    if (body.enrolled) {
+      calculatedStatus = "ISCRITTO";
+    } else if (body.callOutcome === "NEGATIVO") {
+      calculatedStatus = "PERSO";
+    } else if (body.callAttempts >= 8 && body.callOutcome === "RICHIAMARE") {
+      calculatedStatus = "PERSO";
+    } else if (body.isTarget || body.callOutcome === "POSITIVO") {
+      calculatedStatus = "IN_TRATTATIVA";
+    } else if (body.contacted || body.callAttempts > 0) {
+      calculatedStatus = "CONTATTATO";
+    }
+
+    const now = new Date().toISOString();
+    
     const lead = await prisma.lead.create({
       data: {
         name: body.name.trim(),
@@ -269,7 +286,16 @@ export async function POST(request: NextRequest) {
         contacted: body.contacted ?? false,
         isTarget: body.isTarget ?? false,
         enrolled: body.enrolled ?? false,
-        status: body.status || "NUOVO",
+        // Call tracking fields
+        contactedAt: body.contactedAt || (body.contacted ? now : null),
+        callOutcome: body.callOutcome || null,
+        callAttempts: body.callAttempts ?? 0,
+        firstAttemptAt: body.callAttempts > 0 ? (body.firstAttemptAt || now) : null,
+        lastAttemptAt: body.callAttempts > 0 ? (body.lastAttemptAt || now) : null,
+        // Enrollment
+        enrolledAt: body.enrolledAt || (body.enrolled ? now : null),
+        // Calculated status
+        status: calculatedStatus,
       },
       include: {
         course: { select: { id: true, name: true } },
@@ -308,7 +334,7 @@ export async function POST(request: NextRequest) {
         campaignOwnerId,
         "LEAD_CREATED",
         "Nuovo lead nella tua campagna",
-        `È stato aggiunto un nuovo lead "${body.name}" alla campagna "${lead.campaign?.name}"`,
+        `È stato aggiunto un nuovo lead "${body.name}" alla campagna "${campaign.name}"`,
         `/marketing/leads`
       );
     }
