@@ -284,7 +284,7 @@ export default function AdminLeadsPage() {
     });
 
     return result;
-  }, [leads, search, filterStatus, filterCourse, filterCommercial, sortField, sortDirection]);
+  }, [leads, search, filterStatus, filterPerso, filterCourse, filterCommercial, sortField, sortDirection]);
 
   // Sort icon helper
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -305,7 +305,7 @@ export default function AdminLeadsPage() {
   useEffect(() => {
     setCurrentPage(1);
     setSelectedLeads(new Set()); // Clear selection when filters change
-  }, [search, filterStatus, filterCourse, filterCommercial]);
+  }, [search, filterStatus, filterPerso, filterCourse, filterCommercial]);
 
   // Selection helpers
   const allCurrentPageSelected = useMemo(() => {
