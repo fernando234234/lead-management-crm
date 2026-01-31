@@ -209,6 +209,9 @@ export function FullPageLoader({
 /**
  * Table skeleton loader
  */
+// Deterministic widths to avoid SSR hydration mismatch
+const SKELETON_WIDTHS = [75, 60, 85, 70, 65, 80, 55, 90, 72, 68];
+
 export function TableSkeleton({ 
   rows = 5, 
   cols = 5 
@@ -233,7 +236,7 @@ export function TableSkeleton({
               <div 
                 key={colIndex} 
                 className="h-4 bg-gray-100 rounded flex-1"
-                style={{ width: `${Math.random() * 40 + 60}%` }}
+                style={{ width: `${SKELETON_WIDTHS[(rowIndex * cols + colIndex) % SKELETON_WIDTHS.length]}%` }}
               />
             ))}
           </div>

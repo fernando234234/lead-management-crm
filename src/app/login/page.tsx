@@ -1,14 +1,23 @@
 "use client";
 
 import { useState, useEffect, Suspense, useCallback, useRef } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, useSession, getCsrfToken } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LogIn, User, Lock, AlertCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
 
 // Constants
 const LOGIN_TIMEOUT_MS = 15000;
+const SIGNIN_TIMEOUT_MS = 10000;
 const SESSION_FETCH_TIMEOUT_MS = 5000;
 const REDIRECT_FALLBACK_DELAY_MS = 2000;
+
+// Helper: wrap promise with timeout
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms)),
+  ]);
+}
 
 // Role-based routes
 const ROLE_ROUTES: Record<string, string> = {
@@ -162,14 +171,19 @@ function LoginForm() {
     }, LOGIN_TIMEOUT_MS);
 
     try {
-      // Step 1: Authenticate
-      const signInPromise = signIn("credentials", {
-        username: username.trim().toLowerCase(),
-        password,
-        redirect: false,
-      });
+      // Refresh CSRF token before authentication
+      await getCsrfToken();
       
-      const result = await signInPromise;
+      // Step 1: Authenticate with timeout
+      const result = await withTimeout(
+        signIn("credentials", {
+          username: username.trim().toLowerCase(),
+          password,
+          redirect: false,
+        }),
+        SIGNIN_TIMEOUT_MS,
+        "Timeout durante l'autenticazione. Riprova."
+      );
 
       // Check if aborted
       if (abortControllerRef.current?.signal.aborted) {
@@ -281,7 +295,7 @@ function LoginForm() {
                   required
                   disabled={loading}
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
                   placeholder="simone."
                   autoComplete="username"
                   autoCapitalize="none"
