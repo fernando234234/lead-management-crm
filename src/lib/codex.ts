@@ -257,6 +257,7 @@ async function exchangeDeviceCodeForTokens(
   accessToken: string;
   refreshToken?: string;
   idToken?: string;
+  apiKey?: string;
   expiresIn: number;
 }> {
   const response = await fetch(OPENAI_OAUTH_CONFIG.tokenEndpoint, {
@@ -281,12 +282,57 @@ async function exchangeDeviceCodeForTokens(
 
   const data = await response.json();
   
+  // Now do a TOKEN EXCHANGE to get an actual OpenAI API key
+  // This is the critical step - the OAuth access_token doesn't have model.request scope
+  // We need to exchange the id_token for an API key
+  let apiKey: string | undefined;
+  
+  if (data.id_token) {
+    try {
+      apiKey = await exchangeIdTokenForApiKey(data.id_token);
+      console.log("Successfully obtained API key via token exchange");
+    } catch (error) {
+      console.error("Failed to exchange id_token for API key:", error);
+      // Continue without API key - will use access_token (may have limited scope)
+    }
+  }
+  
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     idToken: data.id_token,
+    apiKey,
     expiresIn: data.expires_in || 3600,
   };
+}
+
+/**
+ * Exchange an id_token for an OpenAI API key using token exchange grant
+ * This is how Codex gets an API key that has the model.request scope
+ */
+async function exchangeIdTokenForApiKey(idToken: string): Promise<string> {
+  const response = await fetch(OPENAI_OAUTH_CONFIG.tokenEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+      client_id: OPENAI_OAUTH_CONFIG.clientId,
+      requested_token: "openai-api-key",
+      subject_token: idToken,
+      subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("API key exchange failed:", response.status, error);
+    throw new Error(`API key exchange failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.access_token;
 }
 
 /**
@@ -389,10 +435,13 @@ export async function exchangeCodeForTokens(
 
 /**
  * Refresh an expired access token using the refresh token
+ * Also performs token exchange to get a new API key if id_token is returned
  */
 export async function refreshAccessToken(refreshToken: string): Promise<{
   accessToken: string;
   refreshToken?: string;
+  idToken?: string;
+  apiKey?: string;
   expiresIn: number;
 }> {
   const response = await fetch(OPENAI_OAUTH_CONFIG.tokenEndpoint, {
@@ -414,9 +463,22 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
 
   const data = await response.json();
   
+  // If we got an id_token, exchange it for an API key
+  let apiKey: string | undefined;
+  if (data.id_token) {
+    try {
+      apiKey = await exchangeIdTokenForApiKey(data.id_token);
+      console.log("Successfully refreshed API key via token exchange");
+    } catch (error) {
+      console.error("Failed to exchange refreshed id_token for API key:", error);
+    }
+  }
+  
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
+    idToken: data.id_token,
+    apiKey,
     expiresIn: data.expires_in,
   };
 }
@@ -455,6 +517,10 @@ export async function getUserInfo(accessToken: string): Promise<{
 
 /**
  * Store OAuth tokens for a user (encrypted)
+ * 
+ * IMPORTANT: We store the API key (obtained via token exchange) as the primary
+ * token for making API calls. The access_token from OAuth doesn't have the
+ * model.request scope needed to call chat/completions.
  */
 export async function storeUserTokens(
   userId: string,
@@ -462,6 +528,7 @@ export async function storeUserTokens(
     accessToken: string;
     refreshToken?: string;
     idToken?: string;
+    apiKey?: string; // The actual OpenAI API key from token exchange
     expiresIn: number;
   },
   accountInfo?: {
@@ -471,10 +538,14 @@ export async function storeUserTokens(
 ) {
   const expiresAt = new Date(Date.now() + tokens.expiresIn * 1000);
   
+  // Store the API key as the primary access token if available
+  // This is the token that has the model.request scope
+  const primaryToken = tokens.apiKey || tokens.accessToken;
+  
   await prisma.user.update({
     where: { id: userId },
     data: {
-      openaiAccessToken: encrypt(tokens.accessToken),
+      openaiAccessToken: encrypt(primaryToken),
       openaiRefreshToken: tokens.refreshToken ? encrypt(tokens.refreshToken) : null,
       openaiIdToken: tokens.idToken ? encrypt(tokens.idToken) : null,
       openaiTokenExpiresAt: expiresAt,
@@ -486,6 +557,9 @@ export async function storeUserTokens(
 
 /**
  * Get a valid access token for a user (refreshes if expired)
+ * 
+ * NOTE: This returns the API key (obtained via token exchange), not the OAuth access_token.
+ * The API key has the model.request scope needed for chat/completions.
  */
 export async function getValidAccessToken(userId: string): Promise<string | null> {
   const user = await prisma.user.findUnique({
@@ -493,6 +567,7 @@ export async function getValidAccessToken(userId: string): Promise<string | null
     select: {
       openaiAccessToken: true,
       openaiRefreshToken: true,
+      openaiIdToken: true,
       openaiTokenExpiresAt: true,
     },
   });
@@ -516,9 +591,12 @@ export async function getValidAccessToken(userId: string): Promise<string | null
       const refreshToken = decrypt(user.openaiRefreshToken);
       const newTokens = await refreshAccessToken(refreshToken);
       
+      // Store tokens (storeUserTokens will use apiKey if available, else accessToken)
       await storeUserTokens(userId, newTokens);
       
-      return newTokens.accessToken;
+      // Return the API key if we got one, otherwise the access token
+      // The API key has the model.request scope we need
+      return newTokens.apiKey || newTokens.accessToken;
     } catch (error) {
       console.error("Failed to refresh token:", error);
       // Clear invalid tokens
