@@ -1,65 +1,25 @@
 /**
- * OpenAI Codex Integration Helper
+ * OpenAI API Key Integration Helper
  * 
- * This module handles OAuth authentication with ChatGPT and API calls
- * using each user's own subscription (Plus/Pro/Enterprise).
+ * This module handles API key storage and API calls to OpenAI
+ * using each user's own API key.
  * 
- * Uses Device Code Flow for web app compatibility:
- * 1. Request user code from OpenAI
- * 2. User visits verification URL and enters code
- * 3. Poll for completion
- * 4. Exchange for access/refresh tokens
- * 
- * Based on OpenAI Codex App Server protocol:
- * - OAuth client_id: app_EMoamEEZ73f0CkXaXp7hrann
- * - Device auth endpoint: https://auth.openai.com/api/accounts/deviceauth/usercode
- * - Token refresh URL: https://auth.openai.com/oauth/token
+ * Each admin provides their own OpenAI API key which is stored
+ * encrypted in the database. Usage is billed to their account.
  */
 
 import { prisma } from "./prisma";
 import crypto from "crypto";
 
-// OpenAI OAuth Configuration
-export const OPENAI_OAUTH_CONFIG = {
-  clientId: "app_EMoamEEZ73f0CkXaXp7hrann",
-  // Device Code Flow endpoints
-  deviceCodeEndpoint: "https://auth.openai.com/api/accounts/deviceauth/usercode",
-  deviceTokenEndpoint: "https://auth.openai.com/api/accounts/deviceauth/token",
-  tokenEndpoint: "https://auth.openai.com/oauth/token",
-  // Verification URL where users enter the code
-  verificationUrl: "https://auth.openai.com/codex/device",
-  // Callback URI for device auth token exchange
-  deviceCallbackUri: "https://auth.openai.com/deviceauth/callback",
-  // Legacy - kept for compatibility but not used in device code flow
-  authorizationEndpoint: "https://auth.openai.com/authorize",
-  scopes: ["openid", "profile", "email", "offline_access", "model.read", "model.request"],
+// OpenAI API Configuration
+export const OPENAI_API_CONFIG = {
+  baseUrl: "https://api.openai.com/v1",
+  chatCompletionsEndpoint: "https://api.openai.com/v1/chat/completions",
+  modelsEndpoint: "https://api.openai.com/v1/models",
 };
 
 // Encryption key from environment (should be 32 bytes for AES-256)
 const ENCRYPTION_KEY = process.env.OPENAI_TOKEN_ENCRYPTION_KEY || "default-key-change-in-production";
-
-// In-memory store for pending device code sessions (serverless-safe with short TTL)
-// In production, consider using Redis or database for multi-instance support
-interface DeviceCodeSession {
-  deviceAuthId: string;
-  userCode: string;
-  userId: string;
-  createdAt: number;
-  interval: number;
-  expiresAt: number;
-}
-
-const pendingDeviceCodes = new Map<string, DeviceCodeSession>();
-
-// Clean up expired sessions periodically
-function cleanupExpiredSessions() {
-  const now = Date.now();
-  Array.from(pendingDeviceCodes.entries()).forEach(([sessionId, session]) => {
-    if (now > session.expiresAt) {
-      pendingDeviceCodes.delete(sessionId);
-    }
-  });
-}
 
 /**
  * Encrypt a string value for secure storage
@@ -89,411 +49,69 @@ export function decrypt(encryptedText: string): string {
 }
 
 // ============================================================================
-// DEVICE CODE FLOW - For web app OAuth (works on Vercel)
+// API KEY MANAGEMENT
 // ============================================================================
 
 /**
- * Request a device code from OpenAI
- * Returns a session ID and user code that the user must enter at the verification URL
+ * Validate an OpenAI API key by making a test request
  */
-export async function requestDeviceCode(userId: string): Promise<{
-  sessionId: string;
-  userCode: string;
-  verificationUrl: string;
-  expiresIn: number;
-  interval: number;
+export async function validateApiKey(apiKey: string): Promise<{
+  valid: boolean;
+  error?: string;
 }> {
-  // Clean up old sessions first
-  cleanupExpiredSessions();
-
-  const response = await fetch(OPENAI_OAUTH_CONFIG.deviceCodeEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      client_id: OPENAI_OAUTH_CONFIG.clientId,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error("Device code request failed:", response.status, error);
-    throw new Error(`Failed to request device code: ${response.status}`);
-  }
-
-  const data = await response.json();
-  
-  // Response format: { device_auth_id, user_code, interval }
-  const sessionId = crypto.randomBytes(16).toString("hex");
-  const expiresIn = 900; // 15 minutes (OpenAI default)
-  
-  // Store the session
-  const session: DeviceCodeSession = {
-    deviceAuthId: data.device_auth_id,
-    userCode: data.user_code,
-    userId,
-    createdAt: Date.now(),
-    interval: parseInt(data.interval) || 5,
-    expiresAt: Date.now() + expiresIn * 1000,
-  };
-  
-  pendingDeviceCodes.set(sessionId, session);
-  
-  return {
-    sessionId,
-    userCode: data.user_code,
-    verificationUrl: OPENAI_OAUTH_CONFIG.verificationUrl,
-    expiresIn,
-    interval: session.interval,
-  };
-}
-
-/**
- * Get a pending device code session
- */
-export function getDeviceCodeSession(sessionId: string): DeviceCodeSession | null {
-  cleanupExpiredSessions();
-  return pendingDeviceCodes.get(sessionId) || null;
-}
-
-/**
- * Poll for device code completion
- * Returns null if still pending, throws if expired/failed
- */
-export async function pollDeviceCode(sessionId: string): Promise<{
-  status: "pending" | "complete" | "expired";
-  tokens?: {
-    accessToken: string;
-    refreshToken?: string;
-    idToken?: string;
-    expiresIn: number;
-  };
-  accountInfo?: {
-    email?: string;
-    planType?: string;
-  };
-} | null> {
-  const session = pendingDeviceCodes.get(sessionId);
-  
-  if (!session) {
-    return { status: "expired" };
-  }
-  
-  // Check if session expired
-  if (Date.now() > session.expiresAt) {
-    pendingDeviceCodes.delete(sessionId);
-    return { status: "expired" };
-  }
-  
   try {
-    // Poll the device token endpoint
-    const response = await fetch(OPENAI_OAUTH_CONFIG.deviceTokenEndpoint, {
-      method: "POST",
+    const response = await fetch(OPENAI_API_CONFIG.modelsEndpoint, {
       headers: {
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        device_auth_id: session.deviceAuthId,
-        user_code: session.userCode,
-      }),
     });
-    
-    // 403/404 means user hasn't completed auth yet
-    if (response.status === 403 || response.status === 404) {
-      return { status: "pending" };
+
+    if (response.ok) {
+      return { valid: true };
     }
-    
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("Device token poll failed:", response.status, error);
-      
-      // Check for specific error conditions
-      if (response.status === 400) {
-        pendingDeviceCodes.delete(sessionId);
-        return { status: "expired" };
-      }
-      
-      return { status: "pending" };
-    }
-    
-    // Success! We got the authorization code
-    const data = await response.json();
-    
-    // Response: { authorization_code, code_challenge, code_verifier }
-    const authCode = data.authorization_code;
-    const codeVerifier = data.code_verifier;
-    
-    // Exchange for tokens
-    const tokens = await exchangeDeviceCodeForTokens(authCode, codeVerifier);
-    
-    // Extract account info from id_token if available
-    const accountInfo = extractAccountInfo(tokens.idToken);
-    
-    // Store tokens for the user
-    await storeUserTokens(session.userId, tokens, accountInfo);
-    
-    // Clean up the session
-    pendingDeviceCodes.delete(sessionId);
-    
+
+    const error = await response.json();
     return {
-      status: "complete",
-      tokens,
-      accountInfo,
+      valid: false,
+      error: error.error?.message || `API returned ${response.status}`,
     };
   } catch (error) {
-    console.error("Error polling device code:", error);
-    return { status: "pending" };
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : "Connection failed",
+    };
   }
 }
 
 /**
- * Exchange device auth code for tokens
+ * Store an API key for a user (encrypted)
  */
-async function exchangeDeviceCodeForTokens(
-  authCode: string,
-  codeVerifier: string
-): Promise<{
-  accessToken: string;
-  refreshToken?: string;
-  idToken?: string;
-  expiresIn: number;
-}> {
-  const response = await fetch(OPENAI_OAUTH_CONFIG.tokenEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code: authCode,
-      redirect_uri: OPENAI_OAUTH_CONFIG.deviceCallbackUri,
-      client_id: OPENAI_OAUTH_CONFIG.clientId,
-      code_verifier: codeVerifier,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error("Token exchange failed:", response.status, error);
-    throw new Error(`Token exchange failed: ${response.status}`);
-  }
-
-  const data = await response.json();
-  
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    idToken: data.id_token,
-    expiresIn: data.expires_in || 3600,
-  };
-}
-
-/**
- * Extract account info from the id_token JWT
- */
-function extractAccountInfo(idToken?: string): { email?: string; planType?: string } {
-  if (!idToken) {
-    return { planType: "unknown" };
-  }
-  
-  try {
-    // Decode JWT payload (middle part)
-    const parts = idToken.split(".");
-    if (parts.length !== 3) {
-      return { planType: "unknown" };
-    }
-    
-    const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf8"));
-    
-    // Extract email and plan type from the JWT claims
-    const email = payload.email;
-    const authClaims = payload["https://api.openai.com/auth"] || {};
-    const planType = authClaims.chatgpt_plan_type || "unknown";
-    
-    return { email, planType };
-  } catch (error) {
-    console.error("Error extracting account info from id_token:", error);
-    return { planType: "unknown" };
-  }
-}
-
-/**
- * Cancel a pending device code session
- */
-export function cancelDeviceCodeSession(sessionId: string): void {
-  pendingDeviceCodes.delete(sessionId);
-}
-
-// ============================================================================
-// LEGACY OAUTH FLOW - Kept for reference but not used
-// ============================================================================
-
-/**
- * Generate the OAuth authorization URL for ChatGPT login
- * @deprecated Use requestDeviceCode() instead - standard OAuth doesn't work on Vercel
- */
-export function generateAuthUrl(redirectUri: string, state: string): string {
-  const params = new URLSearchParams({
-    client_id: OPENAI_OAUTH_CONFIG.clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    scope: OPENAI_OAUTH_CONFIG.scopes.join(" "),
-    state: state,
-  });
-  
-  return `${OPENAI_OAUTH_CONFIG.authorizationEndpoint}?${params.toString()}`;
-}
-
-/**
- * Exchange authorization code for access tokens
- */
-export async function exchangeCodeForTokens(
-  code: string,
-  redirectUri: string
-): Promise<{
-  accessToken: string;
-  refreshToken?: string;
-  idToken?: string;
-  expiresIn: number;
-  tokenType: string;
-}> {
-  const response = await fetch(OPENAI_OAUTH_CONFIG.tokenEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: OPENAI_OAUTH_CONFIG.clientId,
-      code: code,
-      redirect_uri: redirectUri,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Token exchange failed: ${error}`);
-  }
-
-  const data = await response.json();
-  
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    idToken: data.id_token,
-    expiresIn: data.expires_in,
-    tokenType: data.token_type,
-  };
-}
-
-/**
- * Refresh an expired access token using the refresh token
- */
-export async function refreshAccessToken(refreshToken: string): Promise<{
-  accessToken: string;
-  refreshToken?: string;
-  expiresIn: number;
-}> {
-  const response = await fetch(OPENAI_OAUTH_CONFIG.tokenEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: OPENAI_OAUTH_CONFIG.clientId,
-      refresh_token: refreshToken,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Token refresh failed: ${error}`);
-  }
-
-  const data = await response.json();
-  
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresIn: data.expires_in,
-  };
-}
-
-/**
- * Get user info from OpenAI using the access token
- */
-export async function getUserInfo(accessToken: string): Promise<{
-  email?: string;
-  name?: string;
-  picture?: string;
-}> {
-  const response = await fetch("https://api.openai.com/v1/me", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    // Try the userinfo endpoint instead
-    const userInfoResponse = await fetch("https://auth.openai.com/userinfo", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    
-    if (!userInfoResponse.ok) {
-      throw new Error("Failed to get user info");
-    }
-    
-    return await userInfoResponse.json();
-  }
-
-  return await response.json();
-}
-
-/**
- * Store OAuth tokens for a user (encrypted)
- */
-export async function storeUserTokens(
+export async function storeApiKey(
   userId: string,
-  tokens: {
-    accessToken: string;
-    refreshToken?: string;
-    idToken?: string;
-    expiresIn: number;
-  },
-  accountInfo?: {
-    email?: string;
-    planType?: string;
-  }
-) {
-  const expiresAt = new Date(Date.now() + tokens.expiresIn * 1000);
-  
+  apiKey: string
+): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
     data: {
-      openaiAccessToken: encrypt(tokens.accessToken),
-      openaiRefreshToken: tokens.refreshToken ? encrypt(tokens.refreshToken) : null,
-      openaiIdToken: tokens.idToken ? encrypt(tokens.idToken) : null,
-      openaiTokenExpiresAt: expiresAt,
-      openaiAccountEmail: accountInfo?.email,
-      openaiPlanType: accountInfo?.planType,
+      openaiAccessToken: encrypt(apiKey),
+      // Clear any old OAuth fields
+      openaiRefreshToken: null,
+      openaiIdToken: null,
+      openaiTokenExpiresAt: null,
+      openaiAccountEmail: null,
+      openaiPlanType: "api_key",
     },
   });
 }
 
 /**
- * Get a valid access token for a user (refreshes if expired)
+ * Get the stored API key for a user
  */
-export async function getValidAccessToken(userId: string): Promise<string | null> {
+export async function getApiKey(userId: string): Promise<string | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       openaiAccessToken: true,
-      openaiRefreshToken: true,
-      openaiTokenExpiresAt: true,
     },
   });
 
@@ -501,72 +119,32 @@ export async function getValidAccessToken(userId: string): Promise<string | null
     return null;
   }
 
-  // Check if token is expired (with 5 minute buffer)
-  const isExpired = user.openaiTokenExpiresAt 
-    ? new Date(user.openaiTokenExpiresAt).getTime() < Date.now() + 5 * 60 * 1000
-    : true;
-
-  if (!isExpired) {
-    return decrypt(user.openaiAccessToken);
-  }
-
-  // Try to refresh if we have a refresh token
-  if (user.openaiRefreshToken) {
-    try {
-      const refreshToken = decrypt(user.openaiRefreshToken);
-      const newTokens = await refreshAccessToken(refreshToken);
-      
-      await storeUserTokens(userId, newTokens);
-      
-      return newTokens.accessToken;
-    } catch (error) {
-      console.error("Failed to refresh token:", error);
-      // Clear invalid tokens
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          openaiAccessToken: null,
-          openaiRefreshToken: null,
-          openaiIdToken: null,
-          openaiTokenExpiresAt: null,
-        },
-      });
-      return null;
-    }
-  }
-
-  return null;
+  return decrypt(user.openaiAccessToken);
 }
 
 /**
- * Check if a user has connected their ChatGPT account
+ * Check if a user has connected their OpenAI account
  */
 export async function isUserConnected(userId: string): Promise<{
   connected: boolean;
-  email?: string;
   planType?: string;
-  expiresAt?: Date;
 }> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       openaiAccessToken: true,
-      openaiAccountEmail: true,
       openaiPlanType: true,
-      openaiTokenExpiresAt: true,
     },
   });
 
   return {
     connected: !!user?.openaiAccessToken,
-    email: user?.openaiAccountEmail || undefined,
     planType: user?.openaiPlanType || undefined,
-    expiresAt: user?.openaiTokenExpiresAt || undefined,
   };
 }
 
 /**
- * Disconnect a user's ChatGPT account
+ * Disconnect a user's OpenAI account (remove API key)
  */
 export async function disconnectUser(userId: string): Promise<void> {
   await prisma.user.update({
@@ -582,11 +160,15 @@ export async function disconnectUser(userId: string): Promise<void> {
   });
 }
 
+// ============================================================================
+// CHAT COMPLETION
+// ============================================================================
+
 /**
- * Make a chat completion request using the user's access token
+ * Make a chat completion request using the user's API key
  */
 export async function chatCompletion(
-  accessToken: string,
+  apiKey: string,
   messages: { role: "system" | "user" | "assistant"; content: string }[],
   options?: {
     model?: string;
@@ -601,11 +183,11 @@ export async function chatCompletion(
     totalTokens: number;
   };
 }> {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch(OPENAI_API_CONFIG.chatCompletionsEndpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: options?.model || "gpt-4o",
@@ -633,8 +215,8 @@ export async function chatCompletion(
 }
 
 /**
- * Generate a CSRF state token for OAuth flow
+ * Get a valid API key for a user (alias for getApiKey for compatibility)
  */
-export function generateStateToken(): string {
-  return crypto.randomBytes(32).toString("hex");
+export async function getValidAccessToken(userId: string): Promise<string | null> {
+  return getApiKey(userId);
 }

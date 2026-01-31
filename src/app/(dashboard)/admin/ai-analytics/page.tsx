@@ -6,7 +6,7 @@ import {
   Sparkles, 
   Send, 
   Loader2, 
-  Link2, 
+  Key, 
   Unlink, 
   AlertCircle,
   CheckCircle2,
@@ -16,9 +16,10 @@ import {
   TrendingUp,
   Users,
   Zap,
-  Copy,
+  Eye,
+  EyeOff,
   ExternalLink,
-  X,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,16 +37,7 @@ interface Message {
 
 interface ConnectionStatus {
   connected: boolean;
-  email?: string;
   planType?: string;
-  expiresAt?: string;
-}
-
-interface DeviceCodeState {
-  sessionId: string;
-  userCode: string;
-  verificationUrl: string;
-  expiresAt: number;
 }
 
 const EXAMPLE_QUESTIONS = [
@@ -64,10 +56,9 @@ export default function AIAnalyticsPage() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Device Code Flow state
-  const [deviceCode, setDeviceCode] = useState<DeviceCodeState | null>(null);
-  const [codeCopied, setCodeCopied] = useState(false);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  // API Key input state
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -81,15 +72,6 @@ export default function AIAnalyticsPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, []);
 
   const checkConnectionStatus = async () => {
     try {
@@ -105,107 +87,34 @@ export default function AIAnalyticsPage() {
     }
   };
 
-  // Start polling for device code completion
-  const startPolling = useCallback((sessionId: string) => {
-    // Clear any existing polling
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
+  const handleConnect = async () => {
+    if (!apiKey.trim()) {
+      setError("Inserisci la tua API key OpenAI");
+      return;
     }
 
-    const poll = async () => {
-      try {
-        const response = await fetch(`/api/codex/auth/callback?sessionId=${sessionId}`);
-        const data = await response.json();
-
-        if (data.status === "complete") {
-          // Success!
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-          }
-          setDeviceCode(null);
-          setIsConnecting(false);
-          setConnectionStatus({
-            connected: true,
-            email: data.email,
-            planType: data.planType,
-          });
-        } else if (data.status === "expired") {
-          // Session expired
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-          }
-          setDeviceCode(null);
-          setIsConnecting(false);
-          setError("La sessione è scaduta. Riprova.");
-        }
-        // If still pending, continue polling
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
-    };
-
-    // Poll every 5 seconds
-    pollingRef.current = setInterval(poll, 5000);
-    // Also poll immediately
-    poll();
-  }, []);
-
-  const handleConnect = async () => {
     setIsConnecting(true);
     setError(null);
     
     try {
-      const response = await fetch("/api/codex/auth", { method: "POST" });
-      if (!response.ok) {
-        throw new Error("Failed to start authentication");
-      }
+      const response = await fetch("/api/codex/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKey.trim() }),
+      });
       
       const data = await response.json();
       
-      // Set device code state
-      setDeviceCode({
-        sessionId: data.sessionId,
-        userCode: data.userCode,
-        verificationUrl: data.verificationUrl,
-        expiresAt: Date.now() + data.expiresIn * 1000,
-      });
-      
-      // Start polling for completion
-      startPolling(data.sessionId);
-    } catch (err) {
-      setError("Impossibile avviare la connessione");
-      setIsConnecting(false);
-    }
-  };
-
-  const handleCancelConnect = async () => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-    
-    if (deviceCode) {
-      // Cancel the session on the server
-      try {
-        await fetch(`/api/codex/auth/callback?sessionId=${deviceCode.sessionId}`, {
-          method: "DELETE",
-        });
-      } catch (err) {
-        console.error("Error cancelling session:", err);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save API key");
       }
-    }
-    
-    setDeviceCode(null);
-    setIsConnecting(false);
-  };
-
-  const handleCopyCode = () => {
-    if (deviceCode) {
-      navigator.clipboard.writeText(deviceCode.userCode);
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
+      
+      setConnectionStatus({ connected: true, planType: "api_key" });
+      setApiKey("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossibile salvare la API key");
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -303,13 +212,8 @@ export default function AIAnalyticsPage() {
               <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <span className="text-sm text-green-700">
-                  {connectionStatus.email || "Connesso"}
+                  API Key configurata
                 </span>
-                {connectionStatus.planType && connectionStatus.planType !== "unknown" && (
-                  <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                    {connectionStatus.planType}
-                  </span>
-                )}
               </div>
               <button
                 onClick={handleDisconnect}
@@ -319,25 +223,7 @@ export default function AIAnalyticsPage() {
                 Disconnetti
               </button>
             </>
-          ) : (
-            <button
-              onClick={handleConnect}
-              disabled={isConnecting}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all",
-                "bg-gradient-to-r from-purple-600 to-indigo-600 text-white",
-                "hover:from-purple-700 hover:to-indigo-700",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              {isConnecting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Link2 className="h-4 w-4" />
-              )}
-              Connetti ChatGPT
-            </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -357,120 +243,100 @@ export default function AIAnalyticsPage() {
 
       {/* Main Content */}
       {!connectionStatus?.connected ? (
-        /* Not Connected State */
+        /* Not Connected State - API Key Input */
         <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-8">
           <div className="max-w-xl mx-auto text-center">
-            {/* Device Code Flow - Showing user code */}
-            {deviceCode ? (
-              <>
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-200 animate-pulse">
-                  <Loader2 className="h-8 w-8 text-white animate-spin" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-3">
-                  Completa l'autenticazione
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  Visita il sito OpenAI e inserisci questo codice per collegare il tuo account ChatGPT:
-                </p>
-                
-                {/* User Code Display */}
-                <div className="bg-white border-2 border-purple-200 rounded-xl p-6 mb-6 shadow-sm">
-                  <div className="flex items-center justify-center gap-3 mb-4">
-                    <span className="text-4xl font-mono font-bold tracking-widest text-purple-700">
-                      {deviceCode.userCode}
-                    </span>
-                    <button
-                      onClick={handleCopyCode}
-                      className={cn(
-                        "p-2 rounded-lg transition-all",
-                        codeCopied 
-                          ? "bg-green-100 text-green-600" 
-                          : "bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600"
-                      )}
-                      title="Copia codice"
-                    >
-                      {codeCopied ? (
-                        <CheckCircle2 className="h-5 w-5" />
-                      ) : (
-                        <Copy className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                  
-                  <a
-                    href={deviceCode.verificationUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all",
-                      "bg-gradient-to-r from-purple-600 to-indigo-600 text-white",
-                      "hover:from-purple-700 hover:to-indigo-700 hover:shadow-lg"
-                    )}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Apri {deviceCode.verificationUrl}
-                  </a>
-                </div>
-
-                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-6">
-                  <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
-                  <span>In attesa dell'autenticazione...</span>
-                </div>
-
-                <button
-                  onClick={handleCancelConnect}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                  Annulla
-                </button>
-              </>
-            ) : (
-              /* Initial Connect State */
-              <>
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-200">
-                  <Sparkles className="h-8 w-8 text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-3">
-                  Connetti il tuo account ChatGPT
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  Per utilizzare AI Analytics, connetti il tuo abbonamento ChatGPT (Plus, Pro o Enterprise).
-                  L'utilizzo viene addebitato sul tuo abbonamento personale.
-                </p>
-                <div className="flex flex-col gap-3 text-sm text-gray-500 mb-6">
-                  <div className="flex items-center justify-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Analisi dati in linguaggio naturale</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Il tuo abbonamento, i tuoi dati</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Nessun costo aggiuntivo per Job Formazione</span>
-                  </div>
-                </div>
-                <button
-                  onClick={handleConnect}
-                  disabled={isConnecting}
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-200">
+              <Sparkles className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">
+              Configura la tua API Key OpenAI
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Per utilizzare AI Analytics, inserisci la tua API key di OpenAI.
+              L'utilizzo viene addebitato sul tuo account OpenAI.
+            </p>
+            
+            {/* API Key Input */}
+            <div className="bg-white border border-purple-200 rounded-xl p-6 mb-6 text-left">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                OpenAI API Key
+              </label>
+              <div className="relative">
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="sk-..."
                   className={cn(
-                    "inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all",
-                    "bg-gradient-to-r from-purple-600 to-indigo-600 text-white",
-                    "hover:from-purple-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-purple-200",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
+                    "w-full px-4 py-3 pr-12 rounded-lg border border-gray-300",
+                    "focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent",
+                    "font-mono text-sm"
                   )}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {isConnecting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Link2 className="h-5 w-5" />
-                  )}
-                  Connetti ChatGPT
+                  {showApiKey ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
-              </>
-            )}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                La tua API key viene salvata in modo sicuro e criptato.
+              </p>
+            </div>
+
+            {/* Info box */}
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-left">
+              <div className="flex gap-3">
+                <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700">
+                  <p className="font-medium mb-1">Come ottenere una API key:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-blue-600">
+                    <li>Vai su <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline font-medium">platform.openai.com/api-keys</a></li>
+                    <li>Crea una nuova API key</li>
+                    <li>Copia e incolla qui la key</li>
+                  </ol>
+                  <p className="mt-2 text-xs">
+                    Nota: devi avere crediti sul tuo account OpenAI per usare l'API.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 text-sm text-gray-500 mb-6">
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span>Analisi dati in linguaggio naturale</span>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span>Il tuo account, i tuoi costi</span>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span>API key salvata in modo sicuro</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleConnect}
+              disabled={isConnecting || !apiKey.trim()}
+              className={cn(
+                "inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all",
+                "bg-gradient-to-r from-purple-600 to-indigo-600 text-white",
+                "hover:from-purple-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-purple-200",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              {isConnecting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Key className="h-5 w-5" />
+              )}
+              Salva API Key
+            </button>
           </div>
         </div>
       ) : (
@@ -609,9 +475,9 @@ export default function AIAnalyticsPage() {
           <div className="text-sm text-blue-700">
             <p className="font-medium mb-1">Come funziona</p>
             <p className="text-blue-600">
-              AI Analytics utilizza il tuo abbonamento ChatGPT personale per analizzare i dati del CRM.
-              I dati vengono aggregati e anonimizzati prima di essere inviati all'AI.
-              L'utilizzo viene conteggiato sul tuo piano ChatGPT.
+              AI Analytics utilizza la tua API key OpenAI per analizzare i dati del CRM.
+              I dati vengono aggregati e inviati all'AI per l'analisi.
+              L'utilizzo viene addebitato sul tuo account OpenAI.
             </p>
           </div>
         </div>
