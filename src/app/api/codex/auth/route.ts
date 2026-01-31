@@ -1,21 +1,22 @@
 /**
- * OpenAI API Key Management Route
+ * OpenAI Device Code Auth Route
  * 
- * Handles storing and managing OpenAI API keys for each user.
+ * Uses Device Code Flow for OAuth - compatible with Vercel deployment.
  * 
- * GET - Check connection status
- * POST - Save/update API key
- * DELETE - Remove API key
+ * Flow:
+ * 1. POST /api/codex/auth - Start device code flow, returns user code
+ * 2. User visits verification URL and enters the code
+ * 3. GET /api/codex/auth/poll?sessionId=xxx - Poll for completion
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { 
+  requestDeviceCode, 
   isUserConnected, 
   disconnectUser,
-  validateApiKey,
-  storeApiKey,
+  OPENAI_OAUTH_CONFIG,
 } from "@/lib/codex";
 
 // GET: Check connection status
@@ -44,8 +45,8 @@ export async function GET() {
   }
 }
 
-// POST: Save API key
-export async function POST(request: NextRequest) {
+// POST: Start Device Code Flow
+export async function POST() {
   try {
     const session = await getServerSession(authOptions);
     
@@ -58,39 +59,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { apiKey } = await request.json();
-
-    if (!apiKey || typeof apiKey !== "string") {
-      return NextResponse.json(
-        { error: "API key is required" },
-        { status: 400 }
-      );
-    }
-
-    // Validate the API key
-    const validation = await validateApiKey(apiKey);
+    // Request a device code from OpenAI
+    const deviceCode = await requestDeviceCode(session.user.id);
     
-    if (!validation.valid) {
-      return NextResponse.json(
-        { error: validation.error || "Invalid API key" },
-        { status: 400 }
-      );
-    }
-
-    // Store the API key (encrypted)
-    await storeApiKey(session.user.id, apiKey);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      sessionId: deviceCode.sessionId,
+      userCode: deviceCode.userCode,
+      verificationUrl: deviceCode.verificationUrl,
+      expiresIn: deviceCode.expiresIn,
+      interval: deviceCode.interval,
+    });
   } catch (error) {
-    console.error("Error saving API key:", error);
+    console.error("Error starting device code flow:", error);
     return NextResponse.json(
-      { error: "Failed to save API key" },
+      { error: "Failed to start authentication" },
       { status: 500 }
     );
   }
 }
 
-// DELETE: Disconnect (remove API key)
+// DELETE: Disconnect ChatGPT account
 export async function DELETE() {
   try {
     const session = await getServerSession(authOptions);
