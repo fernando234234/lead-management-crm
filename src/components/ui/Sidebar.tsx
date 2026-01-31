@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Wallet,
+  Brain,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -51,6 +52,7 @@ const roleConfig = {
       { href: "/admin/platforms", label: "Analisi Piattaforme", icon: Wallet },
       { href: "/admin/reports", label: "Report", icon: BarChart3 },
       { href: "/admin/sanity-check", label: "Sanity Check", icon: ShieldCheck },
+      { href: "/admin/ai-analytics", label: "AI Analytics", icon: Brain },
       { href: "/admin/settings", label: "Impostazioni", icon: Settings },
     ],
   },

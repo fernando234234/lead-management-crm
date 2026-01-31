@@ -121,13 +121,36 @@ Lead status transitions are driven by actions, not direct edits:
 - Filtri: corso, piattaforma, intervallo date
 - Metriche: spesa, lead, iscritti, CPL, conversione, #campagne; dettaglio campagne per piattaforma
 
+### 5. AI Analytics (Admin Only)
+
+- Page: `/admin/ai-analytics`
+- Each admin uses **THEIR OWN ChatGPT subscription** (Plus/Pro/Enterprise) via OAuth
+- Uses **Device Code Flow** for OAuth (compatible with Vercel deployment)
+- OAuth tokens are stored encrypted in the database per user
+- Environment variable: `OPENAI_TOKEN_ENCRYPTION_KEY` (generate with `openssl rand -base64 32`)
+- No shared API key - usage is billed to each admin's personal subscription
+
+**Device Code Flow:**
+1. User clicks "Connect ChatGPT"
+2. System displays a user code (e.g., `XXXX-XXXX`)
+3. User visits `https://auth.openai.com/codex/device` and enters the code
+4. System polls for completion and stores tokens when authorized
+
+**Files:**
+- `src/lib/codex.ts` - OAuth helpers with Device Code Flow functions
+- `src/app/api/codex/auth/route.ts` - Start device code flow (POST), check status (GET)
+- `src/app/api/codex/auth/callback/route.ts` - Poll for completion (GET), cancel session (DELETE)
+- `src/app/api/codex/query/route.ts` - AI query endpoint
+
 ## Key Files Reference
 
 | File | Purpose |
 |------|---------|
 | `src/lib/platforms.ts` | Centralized platform constants |
+| `src/lib/codex.ts` | OpenAI/ChatGPT OAuth and API helpers |
 | `src/app/(dashboard)/marketing/platforms/page.tsx` | Analisi piattaforme (marketing, read-only) |
 | `src/app/(dashboard)/admin/platforms/page.tsx` | Analisi piattaforme (admin, read-only) |
+| `src/app/(dashboard)/admin/ai-analytics/page.tsx` | AI Analytics (admin-only) |
 | `src/lib/auth.ts` | NextAuth configuration |
 | `src/lib/prisma.ts` | Prisma client singleton |
 | `src/types/index.ts` | TypeScript type definitions |

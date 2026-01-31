@@ -236,6 +236,15 @@ model User {
   updatedAt          DateTime       @updatedAt
   mustChangePassword Boolean        @default(false)
   username           String         @unique
+  
+  // OpenAI/ChatGPT OAuth tokens (for AI Analytics - each user's own subscription)
+  openaiAccessToken    String?       // Encrypted access token
+  openaiRefreshToken   String?       // Encrypted refresh token
+  openaiIdToken        String?       // Encrypted ID token
+  openaiTokenExpiresAt DateTime?     // Token expiration time
+  openaiAccountEmail   String?       // ChatGPT account email
+  openaiPlanType       String?       // "free", "plus", "pro", "enterprise"
+  
   createdCampaigns   Campaign[]
   goals              Goal[]
   assignedLeads      Lead[]         @relation("AssignedTo")
