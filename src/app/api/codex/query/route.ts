@@ -2,13 +2,15 @@
  * AI Query Route
  * 
  * Accepts natural language questions about CRM data and returns AI-powered answers
- * using the user's own ChatGPT subscription.
+ * using multi-provider routing (Groq, OpenRouter) with automatic fallback.
+ * 
+ * No user authentication to AI providers needed - uses server-side API keys.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getValidAccessToken, chatCompletion } from "@/lib/codex";
+import { queryAI, getRateLimitSummary } from "@/lib/ai-providers";
 import { prisma } from "@/lib/prisma";
 
 // System prompt that explains the CRM context
@@ -29,11 +31,12 @@ ISTRUZIONI:
 2. Usa i dati forniti per rispondere alle domande
 3. Sii conciso ma preciso
 4. Se servono calcoli (ROI, CPL, tassi di conversione), falli
-5. Formatta numeri in modo leggibile (es. 1.234,56 €)
+5. Formatta numeri in modo leggibile (es. 1.234,56 EUR)
 6. Se i dati non sono sufficienti, dillo chiaramente
+7. Usa elenchi puntati e formattazione per chiarezza
 
 ESEMPI DI DOMANDE:
-- "Qual è il CPL medio per META questo mese?"
+- "Qual e il CPL medio per META questo mese?"
 - "Quanti lead sono stati convertiti negli ultimi 30 giorni?"
 - "Quale campagna ha il miglior ROI?"
 - "Confronta le performance tra piattaforme"
@@ -58,13 +61,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
     }
 
-    // Get user's access token
-    const accessToken = await getValidAccessToken(session.user.id);
-    
-    if (!accessToken) {
+    // Check if any providers are configured
+    const status = getRateLimitSummary();
+    if (status.configuredProviders.length === 0) {
       return NextResponse.json(
-        { error: "Not connected to ChatGPT. Please connect your account first." },
-        { status: 401 }
+        { 
+          error: "AI non configurato. Contatta l'amministratore per configurare GROQ_API_KEY o OPENROUTER_API_KEY.",
+          code: "NO_PROVIDERS"
+        },
+        { status: 503 }
       );
     }
 
@@ -80,35 +85,55 @@ ${context ? `CONTESTO AGGIUNTIVO:\n${context}\n\n` : ""}DOMANDA:
 ${question}
 `;
 
-    // Make the API call using the user's token
-    const result = await chatCompletion(accessToken, [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userMessage },
-    ], {
-      model: "gpt-4o",
-      temperature: 0.3, // Lower temperature for more factual responses
-      maxTokens: 2000,
-    });
+    // Make the API call using the multi-provider router
+    const result = await queryAI(
+      [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+      {
+        temperature: 0.3, // Lower temperature for more factual responses
+        maxTokens: 4000,
+      }
+    );
 
     return NextResponse.json({
       answer: result.content,
+      model: result.model,
+      provider: result.provider,
       usage: result.usage,
+      latencyMs: result.latencyMs,
     });
   } catch (error) {
     console.error("Query error:", error);
     
     // Handle specific errors
     if (error instanceof Error) {
-      if (error.message.includes("rate limit")) {
+      if (error.message.includes("rate limit") || error.message.includes("Rate limit")) {
         return NextResponse.json(
-          { error: "Rate limit exceeded. Please wait and try again." },
+          { 
+            error: "Limite di richieste raggiunto. Riprova tra qualche minuto.",
+            code: "RATE_LIMITED"
+          },
           { status: 429 }
         );
       }
-      if (error.message.includes("quota")) {
+      if (error.message.includes("No AI providers configured")) {
         return NextResponse.json(
-          { error: "Your ChatGPT quota has been exceeded." },
-          { status: 402 }
+          { 
+            error: "AI non configurato. Contatta l'amministratore.",
+            code: "NO_PROVIDERS"
+          },
+          { status: 503 }
+        );
+      }
+      if (error.message.includes("All AI models")) {
+        return NextResponse.json(
+          { 
+            error: "Tutti i modelli AI sono temporaneamente non disponibili. Riprova tra qualche minuto.",
+            code: "ALL_RATE_LIMITED"
+          },
+          { status: 503 }
         );
       }
     }
@@ -121,13 +146,43 @@ ${question}
 }
 
 /**
+ * GET endpoint to check AI status
+ */
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const status = getRateLimitSummary();
+    
+    return NextResponse.json({
+      configured: status.configuredProviders.length > 0,
+      providers: status.configuredProviders,
+      availableModels: status.availableModels,
+      rateLimitedModels: status.rateLimitedModels,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Status check failed" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * Fetch aggregated CRM data for AI analysis
  */
 async function fetchCRMData() {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   // Run all queries in parallel for efficiency
   const [

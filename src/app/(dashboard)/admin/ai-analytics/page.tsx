@@ -6,19 +6,16 @@ import {
   Sparkles, 
   Send, 
   Loader2, 
-  Link2, 
-  Unlink, 
   AlertCircle,
-  CheckCircle2,
   MessageSquare,
   Lightbulb,
   BarChart3,
   TrendingUp,
   Users,
   Zap,
-  Copy,
-  ExternalLink,
-  X,
+  CheckCircle2,
+  Clock,
+  Cpu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,54 +24,44 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  model?: string;
+  provider?: string;
   usage?: {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
   };
+  latencyMs?: number;
 }
 
-interface ConnectionStatus {
-  connected: boolean;
-  email?: string;
-  planType?: string;
-  expiresAt?: string;
-}
-
-interface DeviceCodeState {
-  sessionId: string;
-  userCode: string;
-  verificationUrl: string;
-  expiresAt: number;
+interface AIStatus {
+  configured: boolean;
+  providers: string[];
+  availableModels: number;
+  rateLimitedModels: number;
 }
 
 const EXAMPLE_QUESTIONS = [
-  { icon: BarChart3, text: "Qual è il CPL medio per piattaforma questo mese?" },
+  { icon: BarChart3, text: "Qual e il CPL medio per piattaforma questo mese?" },
   { icon: TrendingUp, text: "Confronta le performance tra META e Google Ads" },
   { icon: Users, text: "Quali commerciali hanno le migliori conversioni?" },
   { icon: Zap, text: "Quale campagna ha il miglior ROI negli ultimi 30 giorni?" },
 ];
 
 export default function AIAnalyticsPage() {
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [aiStatus, setAIStatus] = useState<AIStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Device Code Flow state
-  const [deviceCode, setDeviceCode] = useState<DeviceCodeState | null>(null);
-  const [codeCopied, setCodeCopied] = useState(false);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Check connection status on mount
+  // Check AI status on mount
   useEffect(() => {
-    checkConnectionStatus();
+    checkAIStatus();
   }, []);
 
   // Auto-scroll to bottom when new messages arrive
@@ -82,142 +69,20 @@ export default function AIAnalyticsPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, []);
-
-  const checkConnectionStatus = async () => {
+  const checkAIStatus = async () => {
     try {
-      const response = await fetch("/api/codex/auth");
+      const response = await fetch("/api/codex/query");
       if (response.ok) {
         const data = await response.json();
-        setConnectionStatus(data);
+        setAIStatus(data);
+      } else {
+        setAIStatus({ configured: false, providers: [], availableModels: 0, rateLimitedModels: 0 });
       }
     } catch (error) {
-      console.error("Error checking connection:", error);
+      console.error("Error checking AI status:", error);
+      setAIStatus({ configured: false, providers: [], availableModels: 0, rateLimitedModels: 0 });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Start polling for device code completion
-  const startPolling = useCallback((sessionId: string) => {
-    // Clear any existing polling
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-    }
-
-    const poll = async () => {
-      try {
-        const response = await fetch(`/api/codex/auth/callback?sessionId=${sessionId}`);
-        const data = await response.json();
-
-        if (data.status === "complete") {
-          // Success!
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-          }
-          setDeviceCode(null);
-          setIsConnecting(false);
-          setConnectionStatus({
-            connected: true,
-            email: data.email,
-            planType: data.planType,
-          });
-        } else if (data.status === "expired") {
-          // Session expired
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-          }
-          setDeviceCode(null);
-          setIsConnecting(false);
-          setError("La sessione è scaduta. Riprova.");
-        }
-        // If still pending, continue polling
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
-    };
-
-    // Poll every 5 seconds
-    pollingRef.current = setInterval(poll, 5000);
-    // Also poll immediately
-    poll();
-  }, []);
-
-  const handleConnect = async () => {
-    setIsConnecting(true);
-    setError(null);
-    
-    try {
-      const response = await fetch("/api/codex/auth", { method: "POST" });
-      if (!response.ok) {
-        throw new Error("Failed to start authentication");
-      }
-      
-      const data = await response.json();
-      
-      // Set device code state
-      setDeviceCode({
-        sessionId: data.sessionId,
-        userCode: data.userCode,
-        verificationUrl: data.verificationUrl,
-        expiresAt: Date.now() + data.expiresIn * 1000,
-      });
-      
-      // Start polling for completion
-      startPolling(data.sessionId);
-    } catch (err) {
-      setError("Impossibile avviare la connessione");
-      setIsConnecting(false);
-    }
-  };
-
-  const handleCancelConnect = async () => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-    
-    if (deviceCode) {
-      // Cancel the session on the server
-      try {
-        await fetch(`/api/codex/auth/callback?sessionId=${deviceCode.sessionId}`, {
-          method: "DELETE",
-        });
-      } catch (err) {
-        console.error("Error cancelling session:", err);
-      }
-    }
-    
-    setDeviceCode(null);
-    setIsConnecting(false);
-  };
-
-  const handleCopyCode = () => {
-    if (deviceCode) {
-      navigator.clipboard.writeText(deviceCode.userCode);
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    try {
-      const response = await fetch("/api/codex/auth", { method: "DELETE" });
-      if (response.ok) {
-        setConnectionStatus({ connected: false });
-        setMessages([]);
-      }
-    } catch (error) {
-      setError("Impossibile disconnettere l'account");
     }
   };
 
@@ -255,10 +120,16 @@ export default function AIAnalyticsPage() {
         role: "assistant",
         content: data.answer,
         timestamp: new Date(),
+        model: data.model,
+        provider: data.provider,
         usage: data.usage,
+        latencyMs: data.latencyMs,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Refresh status to update rate limit info
+      checkAIStatus();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Errore durante la query");
     } finally {
@@ -296,47 +167,27 @@ export default function AIAnalyticsPage() {
           </p>
         </div>
         
-        {/* Connection Status */}
+        {/* AI Status Badge */}
         <div className="flex items-center gap-3">
-          {connectionStatus?.connected ? (
-            <>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-700">
-                  {connectionStatus.email || "Connesso"}
+          {aiStatus?.configured ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700">
+                {aiStatus.availableModels} modelli disponibili
+              </span>
+              {aiStatus.rateLimitedModels > 0 && (
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
+                  {aiStatus.rateLimitedModels} in pausa
                 </span>
-                {connectionStatus.planType && connectionStatus.planType !== "unknown" && (
-                  <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                    {connectionStatus.planType}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={handleDisconnect}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <Unlink className="h-4 w-4" />
-                Disconnetti
-              </button>
-            </>
+              )}
+            </div>
           ) : (
-            <button
-              onClick={handleConnect}
-              disabled={isConnecting}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all",
-                "bg-gradient-to-r from-purple-600 to-indigo-600 text-white",
-                "hover:from-purple-700 hover:to-indigo-700",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              {isConnecting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Link2 className="h-4 w-4" />
-              )}
-              Connetti ChatGPT
-            </button>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <span className="text-sm text-red-700">
+                AI non configurato
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -350,127 +201,36 @@ export default function AIAnalyticsPage() {
             onClick={() => setError(null)}
             className="ml-auto text-red-500 hover:text-red-700"
           >
-            ×
+            x
           </button>
         </div>
       )}
 
       {/* Main Content */}
-      {!connectionStatus?.connected ? (
-        /* Not Connected State */
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-8">
+      {!aiStatus?.configured ? (
+        /* Not Configured State */
+        <div className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-100 rounded-2xl p-8">
           <div className="max-w-xl mx-auto text-center">
-            {/* Device Code Flow - Showing user code */}
-            {deviceCode ? (
-              <>
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-200 animate-pulse">
-                  <Loader2 className="h-8 w-8 text-white animate-spin" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-3">
-                  Completa l'autenticazione
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  Visita il sito OpenAI e inserisci questo codice per collegare il tuo account ChatGPT:
-                </p>
-                
-                {/* User Code Display */}
-                <div className="bg-white border-2 border-purple-200 rounded-xl p-6 mb-6 shadow-sm">
-                  <div className="flex items-center justify-center gap-3 mb-4">
-                    <span className="text-4xl font-mono font-bold tracking-widest text-purple-700">
-                      {deviceCode.userCode}
-                    </span>
-                    <button
-                      onClick={handleCopyCode}
-                      className={cn(
-                        "p-2 rounded-lg transition-all",
-                        codeCopied 
-                          ? "bg-green-100 text-green-600" 
-                          : "bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600"
-                      )}
-                      title="Copia codice"
-                    >
-                      {codeCopied ? (
-                        <CheckCircle2 className="h-5 w-5" />
-                      ) : (
-                        <Copy className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                  
-                  <a
-                    href={deviceCode.verificationUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all",
-                      "bg-gradient-to-r from-purple-600 to-indigo-600 text-white",
-                      "hover:from-purple-700 hover:to-indigo-700 hover:shadow-lg"
-                    )}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Apri {deviceCode.verificationUrl}
-                  </a>
-                </div>
-
-                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-6">
-                  <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
-                  <span>In attesa dell'autenticazione...</span>
-                </div>
-
-                <button
-                  onClick={handleCancelConnect}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                  Annulla
-                </button>
-              </>
-            ) : (
-              /* Initial Connect State */
-              <>
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-200">
-                  <Sparkles className="h-8 w-8 text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-3">
-                  Connetti il tuo account ChatGPT
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  Per utilizzare AI Analytics, connetti il tuo abbonamento ChatGPT (Plus, Pro o Enterprise).
-                  L'utilizzo viene addebitato sul tuo abbonamento personale.
-                </p>
-                <div className="flex flex-col gap-3 text-sm text-gray-500 mb-6">
-                  <div className="flex items-center justify-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Analisi dati in linguaggio naturale</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Il tuo abbonamento, i tuoi dati</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span>Nessun costo aggiuntivo per Job Formazione</span>
-                  </div>
-                </div>
-                <button
-                  onClick={handleConnect}
-                  disabled={isConnecting}
-                  className={cn(
-                    "inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all",
-                    "bg-gradient-to-r from-purple-600 to-indigo-600 text-white",
-                    "hover:from-purple-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-purple-200",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
-                >
-                  {isConnecting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Link2 className="h-5 w-5" />
-                  )}
-                  Connetti ChatGPT
-                </button>
-              </>
-            )}
+            <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-red-200">
+              <AlertCircle className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">
+              AI Analytics non configurato
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Per utilizzare AI Analytics, e necessario configurare almeno un provider AI.
+              Contatta l'amministratore di sistema per aggiungere le chiavi API.
+            </p>
+            <div className="bg-white border border-gray-200 rounded-xl p-4 text-left text-sm">
+              <p className="font-medium text-gray-900 mb-2">Variabili d'ambiente necessarie:</p>
+              <code className="block bg-gray-100 rounded p-2 text-xs font-mono text-gray-700">
+                GROQ_API_KEY=gsk_...<br/>
+                OPENROUTER_API_KEY=sk-or-...
+              </code>
+              <p className="text-gray-500 mt-2 text-xs">
+                Basta configurare uno dei due provider. Groq e gratuito con limiti, OpenRouter ha modelli gratuiti.
+              </p>
+            </div>
           </div>
         </div>
       ) : (
@@ -489,7 +249,7 @@ export default function AIAnalyticsPage() {
                 </h3>
                 <p className="text-gray-500 mb-6 max-w-md">
                   Fai domande sui dati del CRM in linguaggio naturale. 
-                  L'AI analizzerà lead, campagne, spese e performance.
+                  L'AI analizzer lead, campagne, spese e performance.
                 </p>
                 
                 {/* Example Questions */}
@@ -533,9 +293,26 @@ export default function AIAnalyticsPage() {
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                       {message.content}
                     </div>
-                    {message.usage && (
-                      <div className="mt-2 pt-2 border-t border-gray-200/50 text-xs text-gray-500">
-                        Token: {message.usage.totalTokens.toLocaleString()}
+                    {/* Metadata for assistant messages */}
+                    {message.role === "assistant" && (message.model || message.usage) && (
+                      <div className="mt-2 pt-2 border-t border-gray-200/50 flex flex-wrap gap-3 text-xs text-gray-500">
+                        {message.model && (
+                          <span className="flex items-center gap-1">
+                            <Cpu className="h-3 w-3" />
+                            {message.model.split("/").pop()?.replace(":free", "")}
+                          </span>
+                        )}
+                        {message.latencyMs && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {(message.latencyMs / 1000).toFixed(1)}s
+                          </span>
+                        )}
+                        {message.usage && (
+                          <span>
+                            {message.usage.totalTokens.toLocaleString()} token
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -604,14 +381,14 @@ export default function AIAnalyticsPage() {
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
         <div className="flex gap-3">
           <div className="flex-shrink-0">
-            <AlertCircle className="h-5 w-5 text-blue-500" />
+            <Sparkles className="h-5 w-5 text-blue-500" />
           </div>
           <div className="text-sm text-blue-700">
             <p className="font-medium mb-1">Come funziona</p>
             <p className="text-blue-600">
-              AI Analytics utilizza il tuo abbonamento ChatGPT personale per analizzare i dati del CRM.
-              I dati vengono aggregati e anonimizzati prima di essere inviati all'AI.
-              L'utilizzo viene conteggiato sul tuo piano ChatGPT.
+              AI Analytics utilizza modelli AI avanzati (DeepSeek R1, Kimi K2, Llama 3) per analizzare i dati del CRM.
+              Il sistema seleziona automaticamente il modello piu intelligente disponibile e passa al successivo in caso di limiti.
+              I dati vengono aggregati e anonimizzati prima dell'analisi.
             </p>
           </div>
         </div>

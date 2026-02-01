@@ -124,30 +124,47 @@ Lead status transitions are driven by actions, not direct edits:
 ### 5. AI Analytics (Admin Only)
 
 - Page: `/admin/ai-analytics`
-- Each admin uses **THEIR OWN ChatGPT subscription** (Plus/Pro/Enterprise) via OAuth
-- Uses **Device Code Flow** for OAuth (compatible with Vercel deployment)
-- OAuth tokens are stored encrypted in the database per user
-- Environment variable: `OPENAI_TOKEN_ENCRYPTION_KEY` (generate with `openssl rand -base64 32`)
-- No shared API key - usage is billed to each admin's personal subscription
+- Uses **multi-provider AI routing** with automatic fallback
+- **FREE models** from Groq and OpenRouter (no cost to users)
+- Server-side API keys - no user authentication to AI providers needed
+- Intelligent fallback: tries smartest model first, falls back on rate limits
 
-**Device Code Flow:**
-1. User clicks "Connect ChatGPT"
-2. System displays a user code (e.g., `XXXX-XXXX`)
-3. User visits `https://auth.openai.com/codex/device` and enters the code
-4. System polls for completion and stores tokens when authorized
+**Providers (in priority order):**
+1. **OpenRouter** - DeepSeek R1, Chimeras, Kimi K2, Llama 405B (all free)
+2. **Groq** - Kimi K2, GPT-OSS-120B, Llama 3.3 70B (free tier with limits)
+
+**Model Priority (Intelligence-first):**
+```
+R1 → Chimeras → Kimi (Groq) → Kimi (Free) → 405B → GPT-OSS → 70B → 8B
+```
+
+**Environment Variables:**
+```bash
+GROQ_API_KEY=gsk_...           # Free at console.groq.com
+OPENROUTER_API_KEY=sk-or-...   # Free at openrouter.ai/keys
+```
 
 **Files:**
-- `src/lib/codex.ts` - OAuth helpers with Device Code Flow functions
-- `src/app/api/codex/auth/route.ts` - Start device code flow (POST), check status (GET)
-- `src/app/api/codex/auth/callback/route.ts` - Poll for completion (GET), cancel session (DELETE)
-- `src/app/api/codex/query/route.ts` - AI query endpoint
+- `src/lib/ai-providers/config.ts` - Model and provider configuration
+- `src/lib/ai-providers/router.ts` - Smart routing with fallback logic
+- `src/lib/ai-providers/index.ts` - Main exports
+- `src/app/api/codex/query/route.ts` - AI query endpoint (POST) and status (GET)
+- `src/app/(dashboard)/admin/ai-analytics/page.tsx` - Admin UI
+
+**Features:**
+- Automatic rate limit detection and exponential backoff
+- Fallback to next-smartest model when rate limited
+- Shows which model was used for each response
+- No user configuration needed - works out of the box
 
 ## Key Files Reference
 
 | File | Purpose |
 |------|---------|
 | `src/lib/platforms.ts` | Centralized platform constants |
-| `src/lib/codex.ts` | OpenAI/ChatGPT OAuth and API helpers |
+| `src/lib/ai-providers/` | Multi-provider AI system (Groq, OpenRouter) |
+| `src/lib/ai-providers/config.ts` | Model configs and intelligence rankings |
+| `src/lib/ai-providers/router.ts` | Smart routing with rate limit handling |
 | `src/app/(dashboard)/marketing/platforms/page.tsx` | Analisi piattaforme (marketing, read-only) |
 | `src/app/(dashboard)/admin/platforms/page.tsx` | Analisi piattaforme (admin, read-only) |
 | `src/app/(dashboard)/admin/ai-analytics/page.tsx` | AI Analytics (admin-only) |
