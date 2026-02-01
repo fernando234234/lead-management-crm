@@ -1,45 +1,68 @@
 /**
- * AI Query Route
+ * AI Query Route with ReAct Pattern
  * 
- * Accepts natural language questions about CRM data and returns AI-powered answers
- * using multi-provider routing (Groq, OpenRouter) with automatic fallback.
+ * Uses multi-provider AI with tool calling for intelligent data fetching.
+ * The AI decides which data to fetch based on the user's question.
  * 
- * No user authentication to AI providers needed - uses server-side API keys.
+ * Flow:
+ * 1. User asks a question
+ * 2. AI analyzes and decides which tools to call
+ * 3. Tools fetch specific data from Prisma
+ * 4. AI analyzes results and responds
+ * 5. Repeat if more data needed (max 5 iterations)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { queryAI, getRateLimitSummary } from "@/lib/ai-providers";
-import { prisma } from "@/lib/prisma";
+import { 
+  queryAI, 
+  getRateLimitSummary, 
+  TOOL_DEFINITIONS, 
+  executeTool,
+  ChatMessage,
+  ToolName
+} from "@/lib/ai-providers";
 
-// System prompt that explains the CRM context
+// Maximum tool call iterations to prevent infinite loops
+const MAX_ITERATIONS = 5;
+
+// System prompt for ReAct pattern
 const SYSTEM_PROMPT = `Sei un assistente AI per un CRM di gestione lead di Job Formazione, un'azienda di formazione italiana.
 
-CONTESTO DATABASE:
-- Lead: potenziali clienti con stati (NUOVO, CONTATTATO, IN_TRATTATIVA, ISCRITTO, PERSO)
-- Campaign: campagne pubblicitarie su piattaforme (META, GOOGLE_ADS, LINKEDIN, TIKTOK)
-- CampaignSpend: spese per campagna con date
-- Course: corsi offerti con prezzi
-- User: utenti con ruoli (ADMIN, COMMERCIAL, MARKETING)
+HAI ACCESSO A STRUMENTI (TOOLS) per recuperare dati specifici dal database. USALI!
 
-DATI DISPONIBILI (ti verranno forniti nel messaggio):
-I dati aggregati del CRM saranno inclusi nel messaggio dell'utente.
+STRUMENTI DISPONIBILI:
+- get_lead_stats: Statistiche lead (conteggi, stati, piattaforme, conversioni)
+- get_spend_data: Dati spesa pubblicitaria (spesa, CPL per piattaforma)
+- get_revenue_data: Dati ricavi da iscrizioni (ricavi, ROI, profitto)
+- get_call_analytics: Analisi chiamate (orari migliori, esiti, pattern)
+- get_campaigns: Lista campagne con metriche
+- get_commercials_performance: Performance commerciali
+- get_trends: Trend storici (lead, spesa, iscrizioni nel tempo)
+- get_recent_leads: Lead recenti individuali
+- get_courses: Lista corsi con prezzi
 
 ISTRUZIONI:
-1. Rispondi sempre in italiano
-2. Usa i dati forniti per rispondere alle domande
-3. Sii conciso ma preciso
-4. Se servono calcoli (ROI, CPL, tassi di conversione), falli
-5. Formatta numeri in modo leggibile (es. 1.234,56 EUR)
-6. Se i dati non sono sufficienti, dillo chiaramente
-7. Usa elenchi puntati e formattazione per chiarezza
+1. Analizza la domanda dell'utente
+2. Decidi quali dati ti servono
+3. Usa gli strumenti appropriati con le date corrette
+4. Analizza i risultati e rispondi
+5. Se servono altri dati, chiama altri strumenti
 
-ESEMPI DI DOMANDE:
-- "Qual e il CPL medio per META questo mese?"
-- "Quanti lead sono stati convertiti negli ultimi 30 giorni?"
-- "Quale campagna ha il miglior ROI?"
-- "Confronta le performance tra piattaforme"
+FORMATO DATE: Usa sempre ISO format (YYYY-MM-DD)
+- "questo mese" → primo e ultimo giorno del mese corrente
+- "ultimi 30 giorni" → da 30 giorni fa a oggi
+- "gennaio" → 2026-01-01 a 2026-01-31
+- "ultimo trimestre" → ultimi 3 mesi
+
+RISPOSTE:
+- Sempre in italiano
+- Usa formattazione chiara (elenchi, numeri formattati)
+- Sii preciso con i calcoli (ROI, CPL, tassi)
+- Se i dati non bastano, dillo chiaramente
+
+OGGI: ${new Date().toISOString().split('T')[0]}
 `;
 
 export async function POST(request: NextRequest) {
@@ -73,37 +96,128 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch relevant CRM data based on the question
-    const crmData = await fetchCRMData();
+    // Build initial messages
+    const messages: ChatMessage[] = [
+      { role: "system", content: SYSTEM_PROMPT },
+      { 
+        role: "user", 
+        content: context 
+          ? `CONTESTO AGGIUNTIVO:\n${context}\n\nDOMANDA:\n${question}`
+          : question 
+      },
+    ];
 
-    // Build the user message with context
-    const userMessage = `
-DATI CRM ATTUALI:
-${JSON.stringify(crmData, null, 2)}
+    let iteration = 0;
+    let totalLatencyMs = 0;
+    let totalTokens = 0;
+    let finalModel = "";
+    let finalProvider = "";
+    const toolCallsHistory: Array<{ tool: string; args: Record<string, unknown>; result: unknown }> = [];
 
-${context ? `CONTESTO AGGIUNTIVO:\n${context}\n\n` : ""}DOMANDA:
-${question}
-`;
-
-    // Make the API call using the multi-provider router
-    const result = await queryAI(
-      [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ],
-      {
-        temperature: 0.3, // Lower temperature for more factual responses
+    // ReAct loop
+    while (iteration < MAX_ITERATIONS) {
+      iteration++;
+      
+      console.log(`[ReAct] Iteration ${iteration}/${MAX_ITERATIONS}`);
+      
+      // Query AI with tools
+      const result = await queryAI(messages, {
+        temperature: 0.3,
         maxTokens: 4000,
+        tools: TOOL_DEFINITIONS,
+        tool_choice: "auto",
+      });
+
+      totalLatencyMs += result.latencyMs;
+      totalTokens += result.usage?.totalTokens || 0;
+      finalModel = result.model;
+      finalProvider = result.provider;
+
+      // Check if AI wants to call tools
+      if (result.tool_calls && result.tool_calls.length > 0) {
+        console.log(`[ReAct] AI requested ${result.tool_calls.length} tool(s)`);
+        
+        // Add assistant message with tool calls
+        messages.push({
+          role: "assistant",
+          content: result.content || "",
+          tool_calls: result.tool_calls,
+        });
+
+        // Execute each tool call
+        for (const toolCall of result.tool_calls) {
+          const toolName = toolCall.function.name as ToolName;
+          let args: Record<string, unknown>;
+          
+          try {
+            args = JSON.parse(toolCall.function.arguments);
+          } catch {
+            args = {};
+          }
+
+          console.log(`[ReAct] Calling tool: ${toolName}`, args);
+          
+          const toolResult = await executeTool(toolName, args);
+          
+          toolCallsHistory.push({
+            tool: toolName,
+            args,
+            result: toolResult.success ? toolResult.data : { error: toolResult.error }
+          });
+
+          // Add tool result message
+          messages.push({
+            role: "tool",
+            content: JSON.stringify(toolResult.success ? toolResult.data : { error: toolResult.error }),
+            tool_call_id: toolCall.id,
+          });
+        }
+        
+        // Continue loop to get AI's analysis of tool results
+        continue;
       }
-    );
+
+      // No tool calls - AI is ready to respond
+      console.log(`[ReAct] Complete after ${iteration} iteration(s)`);
+      
+      return NextResponse.json({
+        answer: result.content,
+        model: finalModel,
+        provider: finalProvider,
+        usage: {
+          promptTokens: 0, // Aggregate not tracked per-call
+          completionTokens: 0,
+          totalTokens,
+        },
+        latencyMs: totalLatencyMs,
+        iterations: iteration,
+        toolCalls: toolCallsHistory.map(t => ({ tool: t.tool, args: t.args })),
+      });
+    }
+
+    // Max iterations reached - return what we have
+    console.log(`[ReAct] Max iterations (${MAX_ITERATIONS}) reached`);
+    
+    // Make one final call without tools to get a summary
+    const finalResult = await queryAI(messages, {
+      temperature: 0.3,
+      maxTokens: 4000,
+    });
 
     return NextResponse.json({
-      answer: result.content,
-      model: result.model,
-      provider: result.provider,
-      usage: result.usage,
-      latencyMs: result.latencyMs,
+      answer: finalResult.content,
+      model: finalResult.model,
+      provider: finalResult.provider,
+      usage: {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: totalTokens + (finalResult.usage?.totalTokens || 0),
+      },
+      latencyMs: totalLatencyMs + finalResult.latencyMs,
+      iterations: iteration,
+      toolCalls: toolCallsHistory.map(t => ({ tool: t.tool, args: t.args })),
     });
+
   } catch (error) {
     console.error("Query error:", error);
     
@@ -167,6 +281,10 @@ export async function GET() {
       providers: status.configuredProviders,
       availableModels: status.availableModels,
       rateLimitedModels: status.rateLimitedModels,
+      tools: TOOL_DEFINITIONS.map(t => ({
+        name: t.function.name,
+        description: t.function.description,
+      })),
     });
   } catch (error) {
     return NextResponse.json(
@@ -174,169 +292,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
-
-/**
- * Fetch aggregated CRM data for AI analysis
- */
-async function fetchCRMData() {
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  // Run all queries in parallel for efficiency
-  const [
-    leadStats,
-    leadsByStatus,
-    leadsByPlatform,
-    campaignStats,
-    spendByPlatform,
-    recentLeads,
-    courseStats,
-    commercialStats,
-  ] = await Promise.all([
-    // Overall lead statistics
-    prisma.lead.aggregate({
-      _count: true,
-      where: {
-        createdAt: { gte: thirtyDaysAgo },
-      },
-    }),
-    
-    // Leads by status
-    prisma.lead.groupBy({
-      by: ["status"],
-      _count: true,
-      where: {
-        createdAt: { gte: thirtyDaysAgo },
-      },
-    }),
-    
-    // Leads by platform (via campaign)
-    prisma.$queryRaw`
-      SELECT c.platform, COUNT(l.id)::int as count
-      FROM "Lead" l
-      JOIN "Campaign" c ON l."campaignId" = c.id
-      WHERE l."createdAt" >= ${thirtyDaysAgo}
-      GROUP BY c.platform
-    `,
-    
-    // Campaign statistics
-    prisma.campaign.aggregate({
-      _count: true,
-      where: {
-        status: "ACTIVE",
-      },
-    }),
-    
-    // Spend by platform (last 30 days)
-    prisma.$queryRaw`
-      SELECT c.platform, SUM(cs.amount)::float as total_spend
-      FROM "CampaignSpend" cs
-      JOIN "Campaign" c ON cs."campaignId" = c.id
-      WHERE cs."startDate" >= ${thirtyDaysAgo}
-      GROUP BY c.platform
-    `,
-    
-    // Recent leads count
-    prisma.lead.count({
-      where: {
-        createdAt: { gte: thisMonth },
-      },
-    }),
-    
-    // Course statistics
-    prisma.course.findMany({
-      where: { active: true },
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        _count: {
-          select: {
-            leads: {
-              where: {
-                createdAt: { gte: thirtyDaysAgo },
-              },
-            },
-          },
-        },
-      },
-    }),
-    
-    // Commercial performance
-    prisma.user.findMany({
-      where: { role: "COMMERCIAL" },
-      select: {
-        id: true,
-        name: true,
-        _count: {
-          select: {
-            contactedLeads: {
-              where: {
-                contactedAt: { gte: thirtyDaysAgo },
-              },
-            },
-            assignedLeads: {
-              where: {
-                enrolled: true,
-                enrolledAt: { gte: thirtyDaysAgo },
-              },
-            },
-          },
-        },
-      },
-    }),
-  ]);
-
-  // Calculate derived metrics
-  const totalLeads = leadStats._count;
-  const enrolledLeads = leadsByStatus.find(s => s.status === "ISCRITTO")?._count || 0;
-  const conversionRate = totalLeads > 0 ? ((enrolledLeads / totalLeads) * 100).toFixed(2) : "0";
-
-  // Format spend data
-  const spendData = spendByPlatform as { platform: string; total_spend: number }[];
-  const totalSpend = spendData.reduce((sum, p) => sum + (p.total_spend || 0), 0);
-  const cpl = totalLeads > 0 ? (totalSpend / totalLeads).toFixed(2) : "N/A";
-
-  return {
-    periodo: "Ultimi 30 giorni",
-    dataAggiornamento: now.toISOString(),
-    
-    leadStatistiche: {
-      totale: totalLeads,
-      perStato: leadsByStatus.reduce((acc, s) => {
-        acc[s.status] = s._count;
-        return acc;
-      }, {} as Record<string, number>),
-      perPiattaforma: leadsByPlatform,
-      questoMese: recentLeads,
-      tassoConversione: `${conversionRate}%`,
-    },
-    
-    campagne: {
-      attive: campaignStats._count,
-    },
-    
-    spese: {
-      totale: totalSpend.toFixed(2),
-      perPiattaforma: spendData.reduce((acc, p) => {
-        acc[p.platform] = p.total_spend?.toFixed(2) || "0";
-        return acc;
-      }, {} as Record<string, string>),
-      cplMedio: cpl,
-    },
-    
-    corsi: courseStats.map(c => ({
-      nome: c.name,
-      prezzo: c.price.toString(),
-      leadsUltimi30gg: c._count.leads,
-    })),
-    
-    commerciali: commercialStats.map(u => ({
-      nome: u.name,
-      leadContattati: u._count.contactedLeads,
-      iscrizioni: u._count.assignedLeads,
-    })),
-  };
 }

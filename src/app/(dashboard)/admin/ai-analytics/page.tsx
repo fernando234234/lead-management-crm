@@ -19,6 +19,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface ToolCall {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -32,6 +37,8 @@ interface Message {
     totalTokens: number;
   };
   latencyMs?: number;
+  iterations?: number;
+  toolCalls?: ToolCall[];
 }
 
 interface AIStatus {
@@ -39,6 +46,7 @@ interface AIStatus {
   providers: string[];
   availableModels: number;
   rateLimitedModels: number;
+  tools?: Array<{ name: string; description: string }>;
 }
 
 const EXAMPLE_QUESTIONS = [
@@ -124,6 +132,8 @@ export default function AIAnalyticsPage() {
         provider: data.provider,
         usage: data.usage,
         latencyMs: data.latencyMs,
+        iterations: data.iterations,
+        toolCalls: data.toolCalls,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -293,6 +303,23 @@ export default function AIAnalyticsPage() {
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                       {message.content}
                     </div>
+                    {/* Tool calls indicator */}
+                    {message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-200/50">
+                        <div className="flex flex-wrap gap-1.5">
+                          {message.toolCalls.map((tc, i) => (
+                            <span 
+                              key={i}
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700"
+                              title={JSON.stringify(tc.args, null, 2)}
+                            >
+                              <Zap className="h-3 w-3 mr-1" />
+                              {tc.tool.replace('get_', '')}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {/* Metadata for assistant messages */}
                     {message.role === "assistant" && (message.model || message.usage) && (
                       <div className="mt-2 pt-2 border-t border-gray-200/50 flex flex-wrap gap-3 text-xs text-gray-500">
@@ -308,7 +335,13 @@ export default function AIAnalyticsPage() {
                             {(message.latencyMs / 1000).toFixed(1)}s
                           </span>
                         )}
-                        {message.usage && (
+                        {message.iterations && message.iterations > 1 && (
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            {message.iterations} passaggi
+                          </span>
+                        )}
+                        {message.usage && message.usage.totalTokens > 0 && (
                           <span>
                             {message.usage.totalTokens.toLocaleString()} token
                           </span>
@@ -323,9 +356,14 @@ export default function AIAnalyticsPage() {
             {/* Loading Indicator */}
             {isSending && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-2xl px-4 py-3 flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-                  <span className="text-sm text-gray-500">Elaborazione...</span>
+                <div className="bg-gray-100 rounded-2xl px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                    <span className="text-sm text-gray-500">Analisi in corso...</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    L'AI sta recuperando e analizzando i dati necessari
+                  </p>
                 </div>
               </div>
             )}
@@ -384,12 +422,30 @@ export default function AIAnalyticsPage() {
             <Sparkles className="h-5 w-5 text-blue-500" />
           </div>
           <div className="text-sm text-blue-700">
-            <p className="font-medium mb-1">Come funziona</p>
+            <p className="font-medium mb-1">Come funziona (ReAct Pattern)</p>
             <p className="text-blue-600">
-              AI Analytics utilizza modelli AI avanzati (DeepSeek R1, Kimi K2, Llama 3) per analizzare i dati del CRM.
-              Il sistema seleziona automaticamente il modello piu intelligente disponibile e passa al successivo in caso di limiti.
-              I dati vengono aggregati e anonimizzati prima dell'analisi.
+              L'AI analizza la tua domanda e decide quali dati recuperare dal database.
+              Puo fare piu query (lead, spese, ricavi, chiamate, trend) per rispondere in modo completo.
+              I badge colorati mostrano quali strumenti sono stati usati per ogni risposta.
             </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                <Zap className="h-3 w-3 mr-1" />
+                lead_stats
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                <Zap className="h-3 w-3 mr-1" />
+                spend_data
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                <Zap className="h-3 w-3 mr-1" />
+                revenue_data
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                <Zap className="h-3 w-3 mr-1" />
+                trends
+              </span>
+            </div>
           </div>
         </div>
       </div>

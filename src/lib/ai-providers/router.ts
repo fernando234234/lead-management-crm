@@ -17,14 +17,36 @@ import {
 
 // Types
 export interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+}
+
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface ToolDefinition {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
 }
 
 export interface QueryOptions {
   temperature?: number;
   maxTokens?: number;
   minIntelligence?: number;
+  tools?: ToolDefinition[];
+  tool_choice?: "auto" | "none" | { type: "function"; function: { name: string } };
 }
 
 export interface QueryResult {
@@ -38,6 +60,8 @@ export interface QueryResult {
     reasoningTokens?: number;
   };
   latencyMs: number;
+  tool_calls?: ToolCall[];
+  finish_reason?: "stop" | "tool_calls" | "length";
 }
 
 // Rate limit tracking (in-memory, resets on serverless cold start)
@@ -164,12 +188,18 @@ async function callProvider(
     ...provider.headers,
   };
   
-  const body = {
+  const body: Record<string, unknown> = {
     model: model.id,
     messages,
     temperature: options.temperature ?? 0.3,
     max_tokens: options.maxTokens ?? 4000,
   };
+
+  // Add tools if provided
+  if (options.tools && options.tools.length > 0) {
+    body.tools = options.tools;
+    body.tool_choice = options.tool_choice ?? "auto";
+  }
   
   const response = await fetch(`${provider.baseUrl}/chat/completions`, {
     method: "POST",
@@ -200,8 +230,11 @@ async function callProvider(
   
   const data = await response.json();
   
-  const content = data.choices?.[0]?.message?.content || "";
-  const reasoning = data.choices?.[0]?.message?.reasoning;
+  const message = data.choices?.[0]?.message;
+  const content = message?.content || "";
+  const reasoning = message?.reasoning;
+  const tool_calls = message?.tool_calls;
+  const finish_reason = data.choices?.[0]?.finish_reason;
   
   return {
     content: reasoning ? `${content}` : content,  // R1 models have reasoning
@@ -214,6 +247,8 @@ async function callProvider(
       reasoningTokens: data.usage.completion_tokens_details?.reasoning_tokens,
     } : undefined,
     latencyMs,
+    tool_calls,
+    finish_reason,
   };
 }
 
