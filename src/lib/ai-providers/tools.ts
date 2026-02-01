@@ -436,12 +436,16 @@ async function getSpendData(args: Record<string, unknown>) {
     ? Prisma.sql`AND c.platform = ${args.platform as string}` 
     : Prisma.empty;
 
+  // Note: Spend records have startDate and optional endDate
+  // We need to find records that OVERLAP with the query period, not just start within it
+  // Overlap condition: spend.startDate <= queryEnd AND (spend.endDate >= queryStart OR spend.endDate IS NULL)
   const [spendByPlatform, leadsByPlatform, totalSpend] = await Promise.all([
     prisma.$queryRaw<{ platform: string; total_spend: number }[]>`
       SELECT c.platform, COALESCE(SUM(cs.amount), 0)::float as total_spend
       FROM "CampaignSpend" cs
       JOIN "Campaign" c ON cs."campaignId" = c.id
-      WHERE cs."startDate" >= ${startDate} AND cs."startDate" <= ${endDate}
+      WHERE cs."startDate" <= ${endDate} 
+        AND (cs."endDate" >= ${startDate} OR cs."endDate" IS NULL)
       ${platformFilterSql}
       GROUP BY c.platform
       ORDER BY total_spend DESC
@@ -458,7 +462,8 @@ async function getSpendData(args: Record<string, unknown>) {
       SELECT COALESCE(SUM(cs.amount), 0)::float as total
       FROM "CampaignSpend" cs
       JOIN "Campaign" c ON cs."campaignId" = c.id
-      WHERE cs."startDate" >= ${startDate} AND cs."startDate" <= ${endDate}
+      WHERE cs."startDate" <= ${endDate} 
+        AND (cs."endDate" >= ${startDate} OR cs."endDate" IS NULL)
       ${platformFilterSql}
     `
   ]);
@@ -528,11 +533,13 @@ async function getRevenueData(args: Record<string, unknown>) {
   `;
 
   // Get spend for ROI calculation
+  // Use overlap logic: spend period overlaps with query period
   const spendData = await prisma.$queryRaw<{ platform: string; total_spend: number }[]>`
     SELECT c.platform, COALESCE(SUM(cs.amount), 0)::float as total_spend
     FROM "CampaignSpend" cs
     JOIN "Campaign" c ON cs."campaignId" = c.id
-    WHERE cs."startDate" >= ${startDate} AND cs."startDate" <= ${endDate}
+    WHERE cs."startDate" <= ${endDate} 
+      AND (cs."endDate" >= ${startDate} OR cs."endDate" IS NULL)
     ${platformFilterSql}
     GROUP BY c.platform
   `;
@@ -712,13 +719,14 @@ async function getCampaigns(args: Record<string, unknown>) {
       c.name,
       c.platform,
       c.status,
-      COUNT(l.id)::int as leads,
+      COUNT(DISTINCT l.id)::int as leads,
       COALESCE(SUM(cs.amount), 0)::float as spend
     FROM "Campaign" c
     LEFT JOIN "Lead" l ON l."campaignId" = c.id 
       AND l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
     LEFT JOIN "CampaignSpend" cs ON cs."campaignId" = c.id
-      AND cs."startDate" >= ${startDate} AND cs."startDate" <= ${endDate}
+      AND cs."startDate" <= ${endDate} 
+      AND (cs."endDate" >= ${startDate} OR cs."endDate" IS NULL)
     WHERE 1=1
       ${platformFilterSql}
       ${statusFilterSql}
