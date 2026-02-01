@@ -27,15 +27,20 @@ import {
 // Maximum tool call iterations to prevent infinite loops
 const MAX_ITERATIONS = 5;
 
-// Get current date info for the prompt
-const now = new Date();
-const today = now.toISOString().split('T')[0];
-const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+/**
+ * Build the system prompt with current dates
+ * Called at request time to ensure dates are always fresh
+ */
+function buildSystemPrompt(): string {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
 
-// System prompt for ReAct pattern
-const SYSTEM_PROMPT = `Sei un analista AI esperto per il CRM di Job Formazione, un'azienda italiana di formazione professionale.
+  return `Sei un analista AI esperto per il CRM di Job Formazione, un'azienda italiana di formazione professionale.
 
 ═══════════════════════════════════════════════════════════════
 CONTESTO BUSINESS
@@ -171,6 +176,7 @@ REGOLE DI RISPOSTA
 
 RISPONDI SEMPRE IN ITALIANO.
 `;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -203,9 +209,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build initial messages
+    // Build initial messages with fresh dates
     const messages: ChatMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildSystemPrompt() },
       { 
         role: "user", 
         content: context 
