@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // ============================================================================
 // Tool Definitions (for AI function calling)
@@ -375,6 +376,11 @@ async function getLeadStats(args: Record<string, unknown>) {
     };
   }
 
+  // Build platform filter for raw query
+  const platformFilterSql = args.platform 
+    ? Prisma.sql`AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+
   const [total, byStatus, byPlatform, enrolled] = await Promise.all([
     prisma.lead.count({ where: { ...whereClause, ...platformFilter } }),
     prisma.lead.groupBy({
@@ -387,7 +393,7 @@ async function getLeadStats(args: Record<string, unknown>) {
       FROM "Lead" l
       JOIN "Campaign" c ON l."campaignId" = c.id
       WHERE l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
-      ${args.platform ? prisma.$queryRaw`AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+      ${platformFilterSql}
       GROUP BY c.platform
       ORDER BY count DESC
     `,
@@ -425,10 +431,10 @@ async function getSpendData(args: Record<string, unknown>) {
   const endDate = new Date(args.endDate as string);
   endDate.setHours(23, 59, 59, 999);
 
-  let platformFilter = "";
-  if (args.platform) {
-    platformFilter = `AND c.platform = '${args.platform}'`;
-  }
+  // Build platform filter for raw query
+  const platformFilterSql = args.platform 
+    ? Prisma.sql`AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
 
   const [spendByPlatform, leadsByPlatform, totalSpend] = await Promise.all([
     prisma.$queryRaw<{ platform: string; total_spend: number }[]>`
@@ -436,7 +442,7 @@ async function getSpendData(args: Record<string, unknown>) {
       FROM "CampaignSpend" cs
       JOIN "Campaign" c ON cs."campaignId" = c.id
       WHERE cs."startDate" >= ${startDate} AND cs."startDate" <= ${endDate}
-      ${args.platform ? prisma.$queryRaw`AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+      ${platformFilterSql}
       GROUP BY c.platform
       ORDER BY total_spend DESC
     `,
@@ -445,7 +451,7 @@ async function getSpendData(args: Record<string, unknown>) {
       FROM "Lead" l
       JOIN "Campaign" c ON l."campaignId" = c.id
       WHERE l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
-      ${args.platform ? prisma.$queryRaw`AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+      ${platformFilterSql}
       GROUP BY c.platform
     `,
     prisma.$queryRaw<{ total: number }[]>`
@@ -453,7 +459,7 @@ async function getSpendData(args: Record<string, unknown>) {
       FROM "CampaignSpend" cs
       JOIN "Campaign" c ON cs."campaignId" = c.id
       WHERE cs."startDate" >= ${startDate} AND cs."startDate" <= ${endDate}
-      ${args.platform ? prisma.$queryRaw`AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+      ${platformFilterSql}
     `
   ]);
 
@@ -487,6 +493,14 @@ async function getRevenueData(args: Record<string, unknown>) {
   const endDate = new Date(args.endDate as string);
   endDate.setHours(23, 59, 59, 999);
 
+  // Build filters for raw query
+  const platformFilterSql = args.platform 
+    ? Prisma.sql`AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+  const courseFilterSql = args.courseId 
+    ? Prisma.sql`AND l."courseId" = ${args.courseId as string}` 
+    : Prisma.empty;
+
   // Get enrollments with course prices
   const enrollments = await prisma.$queryRaw<{ 
     platform: string; 
@@ -507,8 +521,8 @@ async function getRevenueData(args: Record<string, unknown>) {
     WHERE l.status = 'ISCRITTO'
       AND l."enrolledAt" >= ${startDate} 
       AND l."enrolledAt" <= ${endDate}
-      ${args.platform ? prisma.$queryRaw`AND c.platform = ${args.platform}` : prisma.$queryRaw``}
-      ${args.courseId ? prisma.$queryRaw`AND l."courseId" = ${args.courseId}` : prisma.$queryRaw``}
+      ${platformFilterSql}
+      ${courseFilterSql}
     GROUP BY c.platform, co.name, co.price
     ORDER BY total_revenue DESC
   `;
@@ -519,7 +533,7 @@ async function getRevenueData(args: Record<string, unknown>) {
     FROM "CampaignSpend" cs
     JOIN "Campaign" c ON cs."campaignId" = c.id
     WHERE cs."startDate" >= ${startDate} AND cs."startDate" <= ${endDate}
-    ${args.platform ? prisma.$queryRaw`AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+    ${platformFilterSql}
     GROUP BY c.platform
   `;
 
@@ -574,6 +588,17 @@ async function getCallAnalytics(args: Record<string, unknown>) {
   const endDate = new Date(args.endDate as string);
   endDate.setHours(23, 59, 59, 999);
 
+  // Build filters for raw query
+  const commercialFilterActivitySql = args.commercialId 
+    ? Prisma.sql`AND la."userId" = ${args.commercialId as string}` 
+    : Prisma.empty;
+  const outcomeFilterSql = args.outcome 
+    ? Prisma.sql`AND l."callOutcome" = ${args.outcome as string}` 
+    : Prisma.empty;
+  const commercialFilterLeadSql = args.commercialId 
+    ? Prisma.sql`AND l."contactedById" = ${args.commercialId as string}` 
+    : Prisma.empty;
+
   // Get call data from LeadActivity (type = CALL)
   const callData = await prisma.$queryRaw<{
     outcome: string;
@@ -590,8 +615,8 @@ async function getCallAnalytics(args: Record<string, unknown>) {
     JOIN "Lead" l ON la."leadId" = l.id
     WHERE la.type = 'CALL'
       AND la."createdAt" >= ${startDate} AND la."createdAt" <= ${endDate}
-      ${args.commercialId ? prisma.$queryRaw`AND la."userId" = ${args.commercialId}` : prisma.$queryRaw``}
-      ${args.outcome ? prisma.$queryRaw`AND l."callOutcome" = ${args.outcome}` : prisma.$queryRaw``}
+      ${commercialFilterActivitySql}
+      ${outcomeFilterSql}
     GROUP BY l."callOutcome", EXTRACT(HOUR FROM la."createdAt"), EXTRACT(DOW FROM la."createdAt")
   `;
 
@@ -601,7 +626,7 @@ async function getCallAnalytics(args: Record<string, unknown>) {
     FROM "Lead" l
     WHERE l."callOutcome" IS NOT NULL
       AND l."lastAttemptAt" >= ${startDate} AND l."lastAttemptAt" <= ${endDate}
-      ${args.commercialId ? prisma.$queryRaw`AND l."contactedById" = ${args.commercialId}` : prisma.$queryRaw``}
+      ${commercialFilterLeadSql}
     GROUP BY l."callOutcome"
   `;
 
@@ -666,6 +691,14 @@ async function getCampaigns(args: Record<string, unknown>) {
   endDate.setHours(23, 59, 59, 999);
   const limit = Math.min((args.limit as number) || 10, 50);
 
+  // Build filters for raw query
+  const platformFilterSql = args.platform 
+    ? Prisma.sql`AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+  const statusFilterSql = args.status 
+    ? Prisma.sql`AND c.status = ${args.status as string}` 
+    : Prisma.empty;
+
   const campaigns = await prisma.$queryRaw<{
     id: string;
     name: string;
@@ -687,8 +720,8 @@ async function getCampaigns(args: Record<string, unknown>) {
     LEFT JOIN "CampaignSpend" cs ON cs."campaignId" = c.id
       AND cs."startDate" >= ${startDate} AND cs."startDate" <= ${endDate}
     WHERE 1=1
-      ${args.platform ? prisma.$queryRaw`AND c.platform = ${args.platform}` : prisma.$queryRaw``}
-      ${args.status ? prisma.$queryRaw`AND c.status = ${args.status}` : prisma.$queryRaw``}
+      ${platformFilterSql}
+      ${statusFilterSql}
     GROUP BY c.id, c.name, c.platform, c.status
     ORDER BY spend DESC
     LIMIT ${limit}
@@ -805,13 +838,24 @@ async function getTrends(args: Record<string, unknown>) {
       dateFormat = "YYYY-MM";
   }
 
+  // Build platform join for raw query
+  const platformJoinLeadSql = args.platform 
+    ? Prisma.sql`JOIN "Campaign" c ON l."campaignId" = c.id AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+  const platformJoinSpendSql = args.platform 
+    ? Prisma.sql`JOIN "Campaign" c ON cs."campaignId" = c.id AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+  const platformJoinRevenueSql = args.platform 
+    ? Prisma.sql`JOIN "Campaign" c ON l."campaignId" = c.id AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+
   let query;
   switch (metric) {
     case "leads":
       query = prisma.$queryRaw<{ period: string; value: number }[]>`
         SELECT TO_CHAR(l."createdAt", ${dateFormat}) as period, COUNT(*)::int as value
         FROM "Lead" l
-        ${args.platform ? prisma.$queryRaw`JOIN "Campaign" c ON l."campaignId" = c.id AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+        ${platformJoinLeadSql}
         WHERE l."createdAt" >= ${startDate}
         GROUP BY TO_CHAR(l."createdAt", ${dateFormat})
         ORDER BY period
@@ -821,7 +865,7 @@ async function getTrends(args: Record<string, unknown>) {
       query = prisma.$queryRaw<{ period: string; value: number }[]>`
         SELECT TO_CHAR(l."enrolledAt", ${dateFormat}) as period, COUNT(*)::int as value
         FROM "Lead" l
-        ${args.platform ? prisma.$queryRaw`JOIN "Campaign" c ON l."campaignId" = c.id AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+        ${platformJoinLeadSql}
         WHERE l.status = 'ISCRITTO' AND l."enrolledAt" >= ${startDate}
         GROUP BY TO_CHAR(l."enrolledAt", ${dateFormat})
         ORDER BY period
@@ -831,7 +875,7 @@ async function getTrends(args: Record<string, unknown>) {
       query = prisma.$queryRaw<{ period: string; value: number }[]>`
         SELECT TO_CHAR(cs."startDate", ${dateFormat}) as period, COALESCE(SUM(cs.amount), 0)::float as value
         FROM "CampaignSpend" cs
-        ${args.platform ? prisma.$queryRaw`JOIN "Campaign" c ON cs."campaignId" = c.id AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+        ${platformJoinSpendSql}
         WHERE cs."startDate" >= ${startDate}
         GROUP BY TO_CHAR(cs."startDate", ${dateFormat})
         ORDER BY period
@@ -842,7 +886,7 @@ async function getTrends(args: Record<string, unknown>) {
         SELECT TO_CHAR(l."enrolledAt", ${dateFormat}) as period, COALESCE(SUM(co.price), 0)::float as value
         FROM "Lead" l
         JOIN "Course" co ON l."courseId" = co.id
-        ${args.platform ? prisma.$queryRaw`JOIN "Campaign" c ON l."campaignId" = c.id AND c.platform = ${args.platform}` : prisma.$queryRaw``}
+        ${platformJoinRevenueSql}
         WHERE l.status = 'ISCRITTO' AND l."enrolledAt" >= ${startDate}
         GROUP BY TO_CHAR(l."enrolledAt", ${dateFormat})
         ORDER BY period
