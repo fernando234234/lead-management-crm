@@ -396,6 +396,627 @@ export const TOOL_DEFINITIONS = [
         required: ["metric", "period1Start", "period1End", "period2Start", "period2End"]
       }
     }
+  },
+  // ============================================================================
+  // USER & TEAM TOOLS
+  // ============================================================================
+  {
+    type: "function" as const,
+    function: {
+      name: "get_users",
+      description: "Get list of users (commercials, admins, marketing staff). Use for questions about team members or to find user IDs for other tools.",
+      parameters: {
+        type: "object",
+        properties: {
+          role: {
+            type: "string",
+            enum: ["ADMIN", "COMMERCIAL", "MARKETING"],
+            description: "Filter by role (optional)"
+          },
+          includeStats: {
+            type: "boolean",
+            description: "Include basic stats like lead count (default false, slower)"
+          }
+        }
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_goals",
+      description: "Get monthly goals and progress for commercials. Use for questions about targets, quotas, or performance vs goals.",
+      parameters: {
+        type: "object",
+        properties: {
+          userId: {
+            type: "string",
+            description: "Filter by user ID (optional)"
+          },
+          month: {
+            type: "number",
+            description: "Month (1-12). Default: current month"
+          },
+          year: {
+            type: "number",
+            description: "Year. Default: current year"
+          },
+          includeProgress: {
+            type: "boolean",
+            description: "Include actual progress vs goals (default true)"
+          }
+        }
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_tasks",
+      description: "Get tasks for commercials. Use for questions about pending work, follow-ups, or task completion.",
+      parameters: {
+        type: "object",
+        properties: {
+          userId: {
+            type: "string",
+            description: "Filter by user ID (optional)"
+          },
+          completed: {
+            type: "boolean",
+            description: "Filter by completion status (optional)"
+          },
+          priority: {
+            type: "string",
+            enum: ["HIGH", "MEDIUM", "LOW"],
+            description: "Filter by priority (optional)"
+          },
+          dueBefore: {
+            type: "string",
+            description: "Filter tasks due before this date (YYYY-MM-DD)"
+          },
+          limit: {
+            type: "number",
+            description: "Maximum tasks to return (default 20)"
+          }
+        }
+      }
+    }
+  },
+  // ============================================================================
+  // ADVANCED ANALYSIS TOOLS
+  // ============================================================================
+  {
+    type: "function" as const,
+    function: {
+      name: "get_funnel_analysis",
+      description: "Get complete sales funnel analysis from NUOVO to ISCRITTO. Shows conversion rates between each stage. Use for funnel optimization questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          startDate: {
+            type: "string",
+            description: "Start date (YYYY-MM-DD)"
+          },
+          endDate: {
+            type: "string",
+            description: "End date (YYYY-MM-DD)"
+          },
+          platform: {
+            type: "string",
+            enum: ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK"],
+            description: "Filter by platform (optional)"
+          },
+          courseId: {
+            type: "string",
+            description: "Filter by course ID (optional)"
+          },
+          commercialId: {
+            type: "string",
+            description: "Filter by commercial (optional)"
+          }
+        },
+        required: ["startDate", "endDate"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_platform_comparison",
+      description: "Compare all platforms head-to-head on key metrics. Use for deciding where to allocate budget or comparing platform effectiveness.",
+      parameters: {
+        type: "object",
+        properties: {
+          startDate: {
+            type: "string",
+            description: "Start date (YYYY-MM-DD)"
+          },
+          endDate: {
+            type: "string",
+            description: "End date (YYYY-MM-DD)"
+          },
+          courseId: {
+            type: "string",
+            description: "Filter by course ID (optional)"
+          },
+          metrics: {
+            type: "array",
+            items: { type: "string" },
+            description: "Metrics to compare: leads, spend, cpl, enrollments, conversion_rate, revenue, roi (default: all)"
+          }
+        },
+        required: ["startDate", "endDate"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_lead_quality_analysis",
+      description: "Analyze lead quality by source, platform, or campaign. Measures quality by conversion rate, time to convert, and engagement. Use for source quality questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          startDate: {
+            type: "string",
+            description: "Start date (YYYY-MM-DD)"
+          },
+          endDate: {
+            type: "string",
+            description: "End date (YYYY-MM-DD)"
+          },
+          groupBy: {
+            type: "string",
+            enum: ["platform", "campaign", "course", "source"],
+            description: "How to group the analysis (default: platform)"
+          }
+        },
+        required: ["startDate", "endDate"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_response_time_analysis",
+      description: "Analyze time from lead creation to first contact. Faster response = better conversion. Use for efficiency questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          startDate: {
+            type: "string",
+            description: "Start date (YYYY-MM-DD)"
+          },
+          endDate: {
+            type: "string",
+            description: "End date (YYYY-MM-DD)"
+          },
+          commercialId: {
+            type: "string",
+            description: "Filter by commercial (optional)"
+          },
+          platform: {
+            type: "string",
+            enum: ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK"],
+            description: "Filter by platform (optional)"
+          }
+        },
+        required: ["startDate", "endDate"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_enrollment_timeline",
+      description: "Analyze how long it takes to convert leads to enrollments. Shows distribution of days from creation to enrollment. Use for sales cycle questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          startDate: {
+            type: "string",
+            description: "Start date (YYYY-MM-DD)"
+          },
+          endDate: {
+            type: "string",
+            description: "End date (YYYY-MM-DD)"
+          },
+          platform: {
+            type: "string",
+            enum: ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK"],
+            description: "Filter by platform (optional)"
+          },
+          courseId: {
+            type: "string",
+            description: "Filter by course (optional)"
+          }
+        },
+        required: ["startDate", "endDate"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_daily_activity",
+      description: "Get day-by-day activity breakdown. Shows leads created, calls made, enrollments per day. Use for daily performance tracking.",
+      parameters: {
+        type: "object",
+        properties: {
+          startDate: {
+            type: "string",
+            description: "Start date (YYYY-MM-DD)"
+          },
+          endDate: {
+            type: "string",
+            description: "End date (YYYY-MM-DD)"
+          },
+          commercialId: {
+            type: "string",
+            description: "Filter by commercial (optional)"
+          },
+          activityTypes: {
+            type: "array",
+            items: { type: "string" },
+            description: "Activity types to include: leads, calls, enrollments, contacts (default: all)"
+          }
+        },
+        required: ["startDate", "endDate"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_lost_leads_analysis",
+      description: "Analyze lost leads (PERSO status) - why were they lost, after how many attempts, from which sources. Use for improving conversion.",
+      parameters: {
+        type: "object",
+        properties: {
+          startDate: {
+            type: "string",
+            description: "Start date (YYYY-MM-DD)"
+          },
+          endDate: {
+            type: "string",
+            description: "End date (YYYY-MM-DD)"
+          },
+          platform: {
+            type: "string",
+            enum: ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK"],
+            description: "Filter by platform (optional)"
+          },
+          courseId: {
+            type: "string",
+            description: "Filter by course (optional)"
+          }
+        },
+        required: ["startDate", "endDate"]
+      }
+    }
+  },
+  // ============================================================================
+  // ADVANCED MATH TOOLS
+  // ============================================================================
+  {
+    type: "function" as const,
+    function: {
+      name: "calculate_cpl",
+      description: "Calculate Cost Per Lead. Divides total spend by total leads. Use for quick CPL calculations.",
+      parameters: {
+        type: "object",
+        properties: {
+          spend: {
+            type: "number",
+            description: "Total advertising spend"
+          },
+          leads: {
+            type: "number",
+            description: "Total number of leads"
+          }
+        },
+        required: ["spend", "leads"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "calculate_conversion_rate",
+      description: "Calculate conversion rate between any two numbers. Use for custom conversion calculations.",
+      parameters: {
+        type: "object",
+        properties: {
+          converted: {
+            type: "number",
+            description: "Number of conversions (numerator)"
+          },
+          total: {
+            type: "number",
+            description: "Total attempts (denominator)"
+          },
+          label: {
+            type: "string",
+            description: "Optional label for the result"
+          }
+        },
+        required: ["converted", "total"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "calculate_growth_rate",
+      description: "Calculate growth rate between two periods. Returns percentage increase or decrease.",
+      parameters: {
+        type: "object",
+        properties: {
+          previousValue: {
+            type: "number",
+            description: "Value from previous period"
+          },
+          currentValue: {
+            type: "number",
+            description: "Value from current period"
+          },
+          label: {
+            type: "string",
+            description: "Optional label (e.g., 'Lead growth')"
+          }
+        },
+        required: ["previousValue", "currentValue"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "calculate_forecast",
+      description: "Simple linear forecast based on historical data. Projects future values based on trend. Use for budget planning or target setting.",
+      parameters: {
+        type: "object",
+        properties: {
+          historicalValues: {
+            type: "array",
+            items: { type: "number" },
+            description: "Array of historical values in chronological order"
+          },
+          periodsToForecast: {
+            type: "number",
+            description: "Number of periods to forecast (default 3)"
+          },
+          label: {
+            type: "string",
+            description: "Label for the metric being forecast"
+          }
+        },
+        required: ["historicalValues"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "calculate_weighted_average",
+      description: "Calculate weighted average. Useful for blended CPL, weighted conversion rates, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          values: {
+            type: "array",
+            items: { type: "number" },
+            description: "Array of values"
+          },
+          weights: {
+            type: "array",
+            items: { type: "number" },
+            description: "Array of weights (must match values length)"
+          },
+          label: {
+            type: "string",
+            description: "Optional label for the result"
+          }
+        },
+        required: ["values", "weights"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "calculate_cagr",
+      description: "Calculate Compound Annual Growth Rate. Use for long-term growth analysis.",
+      parameters: {
+        type: "object",
+        properties: {
+          startValue: {
+            type: "number",
+            description: "Beginning value"
+          },
+          endValue: {
+            type: "number",
+            description: "Ending value"
+          },
+          periods: {
+            type: "number",
+            description: "Number of periods (years, months, etc.)"
+          },
+          periodType: {
+            type: "string",
+            enum: ["years", "months", "quarters"],
+            description: "Type of period (default: years)"
+          }
+        },
+        required: ["startValue", "endValue", "periods"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "calculate_break_even",
+      description: "Calculate break-even point. How many enrollments needed to cover costs.",
+      parameters: {
+        type: "object",
+        properties: {
+          totalCost: {
+            type: "number",
+            description: "Total cost to cover"
+          },
+          revenuePerUnit: {
+            type: "number",
+            description: "Revenue per enrollment (course price)"
+          },
+          costPerUnit: {
+            type: "number",
+            description: "Variable cost per enrollment (optional, default 0)"
+          }
+        },
+        required: ["totalCost", "revenuePerUnit"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "rank_items",
+      description: "Rank a list of items by a metric. Returns top N or bottom N. Use for leaderboards or identifying best/worst performers.",
+      parameters: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                value: { type: "number" }
+              }
+            },
+            description: "Array of items with name and value"
+          },
+          order: {
+            type: "string",
+            enum: ["top", "bottom"],
+            description: "Return top (highest) or bottom (lowest) items"
+          },
+          limit: {
+            type: "number",
+            description: "Number of items to return (default 5)"
+          },
+          metric: {
+            type: "string",
+            description: "Name of the metric being ranked"
+          }
+        },
+        required: ["items"]
+      }
+    }
+  },
+  // ============================================================================
+  // UTILITY TOOLS
+  // ============================================================================
+  {
+    type: "function" as const,
+    function: {
+      name: "get_date_range",
+      description: "Get predefined date ranges. Use to quickly get dates for common periods like 'last month', 'this quarter', 'YTD'.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: {
+            type: "string",
+            enum: [
+              "today", "yesterday", "this_week", "last_week",
+              "this_month", "last_month", "last_30_days", "last_90_days",
+              "this_quarter", "last_quarter", "this_year", "last_year", "ytd"
+            ],
+            description: "Predefined period"
+          }
+        },
+        required: ["period"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_current_datetime",
+      description: "Get current date and time. Use when you need to know today's date for calculations or context.",
+      parameters: {
+        type: "object",
+        properties: {}
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "format_currency",
+      description: "Format a number as currency (Euro). Use for clean output formatting.",
+      parameters: {
+        type: "object",
+        properties: {
+          value: {
+            type: "number",
+            description: "Number to format"
+          },
+          decimals: {
+            type: "number",
+            description: "Decimal places (default 2)"
+          }
+        },
+        required: ["value"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "format_percentage",
+      description: "Format a number as percentage. Use for clean output formatting.",
+      parameters: {
+        type: "object",
+        properties: {
+          value: {
+            type: "number",
+            description: "Number to format (e.g., 0.15 for 15% or 15 for 15%)"
+          },
+          isDecimal: {
+            type: "boolean",
+            description: "True if value is decimal (0.15), false if already percentage (15)"
+          },
+          decimals: {
+            type: "number",
+            description: "Decimal places (default 1)"
+          }
+        },
+        required: ["value"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "summarize_data",
+      description: "Calculate summary statistics for an array of numbers. Returns min, max, average, median, sum, count.",
+      parameters: {
+        type: "object",
+        properties: {
+          values: {
+            type: "array",
+            items: { type: "number" },
+            description: "Array of numbers to summarize"
+          },
+          label: {
+            type: "string",
+            description: "Label for the data being summarized"
+          }
+        },
+        required: ["values"]
+      }
+    }
   }
 ];
 
@@ -404,6 +1025,7 @@ export const TOOL_DEFINITIONS = [
 // ============================================================================
 
 export type ToolName = 
+  // Core data tools
   | "get_lead_stats"
   | "get_spend_data"
   | "get_revenue_data"
@@ -414,7 +1036,34 @@ export type ToolName =
   | "get_recent_leads"
   | "get_courses"
   | "calculate"
-  | "compare_periods";
+  | "compare_periods"
+  // User & team tools
+  | "get_users"
+  | "get_goals"
+  | "get_tasks"
+  // Advanced analysis tools
+  | "get_funnel_analysis"
+  | "get_platform_comparison"
+  | "get_lead_quality_analysis"
+  | "get_response_time_analysis"
+  | "get_enrollment_timeline"
+  | "get_daily_activity"
+  | "get_lost_leads_analysis"
+  // Advanced math tools
+  | "calculate_cpl"
+  | "calculate_conversion_rate"
+  | "calculate_growth_rate"
+  | "calculate_forecast"
+  | "calculate_weighted_average"
+  | "calculate_cagr"
+  | "calculate_break_even"
+  | "rank_items"
+  // Utility tools
+  | "get_date_range"
+  | "get_current_datetime"
+  | "format_currency"
+  | "format_percentage"
+  | "summarize_data";
 
 export interface ToolResult {
   success: boolean;
@@ -428,6 +1077,7 @@ export interface ToolResult {
 export async function executeTool(name: ToolName, args: Record<string, unknown>): Promise<ToolResult> {
   try {
     switch (name) {
+      // Core data tools
       case "get_lead_stats":
         return { success: true, data: await getLeadStats(args) };
       case "get_spend_data":
@@ -450,6 +1100,56 @@ export async function executeTool(name: ToolName, args: Record<string, unknown>)
         return { success: true, data: calculate(args) };
       case "compare_periods":
         return { success: true, data: await comparePeriods(args) };
+      // User & team tools
+      case "get_users":
+        return { success: true, data: await getUsers(args) };
+      case "get_goals":
+        return { success: true, data: await getGoals(args) };
+      case "get_tasks":
+        return { success: true, data: await getTasks(args) };
+      // Advanced analysis tools
+      case "get_funnel_analysis":
+        return { success: true, data: await getFunnelAnalysis(args) };
+      case "get_platform_comparison":
+        return { success: true, data: await getPlatformComparison(args) };
+      case "get_lead_quality_analysis":
+        return { success: true, data: await getLeadQualityAnalysis(args) };
+      case "get_response_time_analysis":
+        return { success: true, data: await getResponseTimeAnalysis(args) };
+      case "get_enrollment_timeline":
+        return { success: true, data: await getEnrollmentTimeline(args) };
+      case "get_daily_activity":
+        return { success: true, data: await getDailyActivity(args) };
+      case "get_lost_leads_analysis":
+        return { success: true, data: await getLostLeadsAnalysis(args) };
+      // Advanced math tools
+      case "calculate_cpl":
+        return { success: true, data: calculateCPL(args) };
+      case "calculate_conversion_rate":
+        return { success: true, data: calculateConversionRate(args) };
+      case "calculate_growth_rate":
+        return { success: true, data: calculateGrowthRate(args) };
+      case "calculate_forecast":
+        return { success: true, data: calculateForecast(args) };
+      case "calculate_weighted_average":
+        return { success: true, data: calculateWeightedAverage(args) };
+      case "calculate_cagr":
+        return { success: true, data: calculateCAGR(args) };
+      case "calculate_break_even":
+        return { success: true, data: calculateBreakEven(args) };
+      case "rank_items":
+        return { success: true, data: rankItems(args) };
+      // Utility tools
+      case "get_date_range":
+        return { success: true, data: getDateRange(args) };
+      case "get_current_datetime":
+        return { success: true, data: getCurrentDatetime() };
+      case "format_currency":
+        return { success: true, data: formatCurrency(args) };
+      case "format_percentage":
+        return { success: true, data: formatPercentage(args) };
+      case "summarize_data":
+        return { success: true, data: summarizeData(args) };
       default:
         return { success: false, error: `Unknown tool: ${name}` };
     }
@@ -1550,6 +2250,1283 @@ async function comparePeriods(args: Record<string, unknown>) {
     filtri: {
       piattaforma: args.platform || "tutte",
       corso: args.courseId || "tutti"
+    }
+  };
+}
+
+// ============================================================================
+// USER & TEAM TOOLS
+// ============================================================================
+
+async function getUsers(args: Record<string, unknown>) {
+  type UserRoleType = "ADMIN" | "COMMERCIAL" | "MARKETING";
+  
+  const whereClause: { role?: UserRoleType } = {};
+  if (args.role) {
+    whereClause.role = args.role as UserRoleType;
+  }
+
+  const users = await prisma.user.findMany({
+    where: whereClause,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      createdAt: true,
+      _count: args.includeStats ? {
+        select: {
+          assignedLeads: true,
+          contactedLeads: true,
+          activities: true
+        }
+      } : undefined
+    },
+    orderBy: { name: "asc" }
+  });
+
+  return {
+    filtri: { ruolo: args.role || "tutti" },
+    utenti: users.map(u => ({
+      id: u.id,
+      nome: u.name,
+      email: u.email,
+      ruolo: u.role,
+      creatoIl: u.createdAt.toISOString().split('T')[0],
+      ...(args.includeStats && u._count ? {
+        stats: {
+          leadAssegnati: u._count.assignedLeads,
+          leadContattati: u._count.contactedLeads,
+          attivita: u._count.activities
+        }
+      } : {})
+    })),
+    totale: users.length
+  };
+}
+
+async function getGoals(args: Record<string, unknown>) {
+  const now = new Date();
+  const month = (args.month as number) || now.getMonth() + 1;
+  const year = (args.year as number) || now.getFullYear();
+  const includeProgress = args.includeProgress !== false;
+
+  const whereClause: { month: number; year: number; userId?: string } = { month, year };
+  if (args.userId) {
+    whereClause.userId = args.userId as string;
+  }
+
+  const goals = await prisma.goal.findMany({
+    where: whereClause,
+    include: {
+      user: { select: { name: true, email: true } }
+    }
+  });
+
+  // Get actual progress if requested
+  let progress: Map<string, { leads: number; enrolled: number; calls: number; revenue: number }> = new Map();
+  
+  if (includeProgress && goals.length > 0) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+    
+    for (const goal of goals) {
+      const [leadCount, enrolledCount, callCount, revenueData] = await Promise.all([
+        prisma.lead.count({
+          where: {
+            contactedById: goal.userId,
+            contactedAt: { gte: startDate, lte: endDate }
+          }
+        }),
+        prisma.lead.count({
+          where: {
+            contactedById: goal.userId,
+            status: "ISCRITTO",
+            enrolledAt: { gte: startDate, lte: endDate }
+          }
+        }),
+        prisma.leadActivity.count({
+          where: {
+            userId: goal.userId,
+            type: "CALL",
+            createdAt: { gte: startDate, lte: endDate }
+          }
+        }),
+        prisma.$queryRaw<[{ revenue: number }]>`
+          SELECT COALESCE(SUM(co.price), 0)::float as revenue
+          FROM "Lead" l
+          JOIN "Course" co ON l."courseId" = co.id
+          WHERE l."contactedById" = ${goal.userId}
+            AND l.status = 'ISCRITTO'
+            AND l."enrolledAt" >= ${startDate} AND l."enrolledAt" <= ${endDate}
+        `
+      ]);
+      
+      progress.set(goal.userId, {
+        leads: leadCount,
+        enrolled: enrolledCount,
+        calls: callCount,
+        revenue: revenueData[0]?.revenue || 0
+      });
+    }
+  }
+
+  return {
+    mese: month,
+    anno: year,
+    obiettivi: goals.map(g => {
+      const p = progress.get(g.userId);
+      return {
+        id: g.id,
+        utente: g.user.name,
+        obiettivi: {
+          leadTarget: g.targetLeads,
+          iscrittiTarget: g.targetEnrolled,
+          chiamateTarget: g.targetCalls,
+          ricavoTarget: Number(g.targetRevenue)
+        },
+        ...(includeProgress && p ? {
+          progresso: {
+            lead: p.leads,
+            iscritti: p.enrolled,
+            chiamate: p.calls,
+            ricavo: p.revenue
+          },
+          percentualeCompletamento: {
+            lead: g.targetLeads > 0 ? ((p.leads / g.targetLeads) * 100).toFixed(1) + "%" : "N/A",
+            iscritti: g.targetEnrolled > 0 ? ((p.enrolled / g.targetEnrolled) * 100).toFixed(1) + "%" : "N/A",
+            chiamate: g.targetCalls > 0 ? ((p.calls / g.targetCalls) * 100).toFixed(1) + "%" : "N/A",
+            ricavo: Number(g.targetRevenue) > 0 ? ((p.revenue / Number(g.targetRevenue)) * 100).toFixed(1) + "%" : "N/A"
+          }
+        } : {})
+      };
+    })
+  };
+}
+
+async function getTasks(args: Record<string, unknown>) {
+  type TaskPriorityType = "HIGH" | "MEDIUM" | "LOW";
+  
+  const limit = Math.min((args.limit as number) || 20, 100);
+  
+  const whereClause: {
+    userId?: string;
+    completed?: boolean;
+    priority?: TaskPriorityType;
+    dueDate?: { lte: Date };
+  } = {};
+  
+  if (args.userId) whereClause.userId = args.userId as string;
+  if (args.completed !== undefined) whereClause.completed = args.completed as boolean;
+  if (args.priority) whereClause.priority = args.priority as TaskPriorityType;
+  if (args.dueBefore) whereClause.dueDate = { lte: new Date(args.dueBefore as string) };
+
+  const tasks = await prisma.task.findMany({
+    where: whereClause,
+    include: {
+      user: { select: { name: true } },
+      lead: { select: { name: true, phone: true } }
+    },
+    orderBy: [
+      { completed: "asc" },
+      { dueDate: "asc" },
+      { priority: "desc" }
+    ],
+    take: limit
+  });
+
+  const now = new Date();
+  
+  return {
+    filtri: {
+      utente: args.userId || "tutti",
+      completato: args.completed !== undefined ? args.completed : "tutti",
+      priorita: args.priority || "tutte"
+    },
+    tasks: tasks.map(t => ({
+      id: t.id,
+      titolo: t.title,
+      descrizione: t.description,
+      utente: t.user.name,
+      lead: t.lead ? { nome: t.lead.name, telefono: t.lead.phone } : null,
+      scadenza: t.dueDate.toISOString().split('T')[0],
+      scaduto: t.dueDate < now && !t.completed,
+      priorita: t.priority,
+      completato: t.completed,
+      completatoIl: t.completedAt?.toISOString().split('T')[0] || null
+    })),
+    riepilogo: {
+      totale: tasks.length,
+      completati: tasks.filter(t => t.completed).length,
+      inSospeso: tasks.filter(t => !t.completed).length,
+      scaduti: tasks.filter(t => t.dueDate < now && !t.completed).length
+    }
+  };
+}
+
+// ============================================================================
+// ADVANCED ANALYSIS TOOLS
+// ============================================================================
+
+async function getFunnelAnalysis(args: Record<string, unknown>) {
+  const startDate = new Date(args.startDate as string);
+  const endDate = new Date(args.endDate as string);
+  endDate.setHours(23, 59, 59, 999);
+
+  // Build filters
+  const platformFilterSql = args.platform 
+    ? Prisma.sql`AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+  const courseFilterSql = args.courseId 
+    ? Prisma.sql`AND l."courseId" = ${args.courseId as string}` 
+    : Prisma.empty;
+  const commercialFilterSql = args.commercialId 
+    ? Prisma.sql`AND (l."assignedToId" = ${args.commercialId as string} OR l."contactedById" = ${args.commercialId as string})` 
+    : Prisma.empty;
+  const platformJoinSql = args.platform 
+    ? Prisma.sql`JOIN "Campaign" c ON l."campaignId" = c.id` 
+    : Prisma.empty;
+
+  const funnelData = await prisma.$queryRaw<{
+    status: string;
+    count: number;
+  }[]>`
+    SELECT l.status, COUNT(*)::int as count
+    FROM "Lead" l
+    ${platformJoinSql}
+    WHERE l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+    ${platformFilterSql}
+    ${courseFilterSql}
+    ${commercialFilterSql}
+    GROUP BY l.status
+  `;
+
+  const statusOrder = ["NUOVO", "CONTATTATO", "IN_TRATTATIVA", "ISCRITTO", "PERSO"];
+  const counts: Record<string, number> = {};
+  for (const s of statusOrder) {
+    counts[s] = funnelData.find(f => f.status === s)?.count || 0;
+  }
+
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const inFunnel = total - counts["PERSO"]; // Active funnel excludes lost
+
+  return {
+    periodo: { inizio: startDate.toISOString().split('T')[0], fine: endDate.toISOString().split('T')[0] },
+    filtri: {
+      piattaforma: args.platform || "tutte",
+      corso: args.courseId || "tutti",
+      commerciale: args.commercialId || "tutti"
+    },
+    funnel: [
+      {
+        fase: "NUOVO",
+        descrizione: "Lead appena arrivati",
+        conteggio: counts["NUOVO"],
+        percentualeTotale: total > 0 ? ((counts["NUOVO"] / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      {
+        fase: "CONTATTATO",
+        descrizione: "Lead contattati",
+        conteggio: counts["CONTATTATO"],
+        percentualeTotale: total > 0 ? ((counts["CONTATTATO"] / total) * 100).toFixed(1) + "%" : "0%",
+        conversioneDaFasePrecedente: counts["NUOVO"] > 0 
+          ? (((counts["CONTATTATO"] + counts["IN_TRATTATIVA"] + counts["ISCRITTO"]) / (counts["NUOVO"] + counts["CONTATTATO"] + counts["IN_TRATTATIVA"] + counts["ISCRITTO"])) * 100).toFixed(1) + "%"
+          : "N/A"
+      },
+      {
+        fase: "IN_TRATTATIVA",
+        descrizione: "Lead interessati (target)",
+        conteggio: counts["IN_TRATTATIVA"],
+        percentualeTotale: total > 0 ? ((counts["IN_TRATTATIVA"] / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      {
+        fase: "ISCRITTO",
+        descrizione: "Lead convertiti",
+        conteggio: counts["ISCRITTO"],
+        percentualeTotale: total > 0 ? ((counts["ISCRITTO"] / total) * 100).toFixed(1) + "%" : "0%",
+        tassoConversioneFinale: total > 0 ? ((counts["ISCRITTO"] / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      {
+        fase: "PERSO",
+        descrizione: "Lead persi",
+        conteggio: counts["PERSO"],
+        percentualeTotale: total > 0 ? ((counts["PERSO"] / total) * 100).toFixed(1) + "%" : "0%"
+      }
+    ],
+    metriche: {
+      totaleLeads: total,
+      leadAttiviFunnel: inFunnel,
+      tassoConversione: total > 0 ? ((counts["ISCRITTO"] / total) * 100).toFixed(2) + "%" : "0%",
+      tassoPerdita: total > 0 ? ((counts["PERSO"] / total) * 100).toFixed(2) + "%" : "0%"
+    }
+  };
+}
+
+async function getPlatformComparison(args: Record<string, unknown>) {
+  const startDate = new Date(args.startDate as string);
+  const endDate = new Date(args.endDate as string);
+  endDate.setHours(23, 59, 59, 999);
+
+  const courseFilterSql = args.courseId 
+    ? Prisma.sql`AND l."courseId" = ${args.courseId as string}` 
+    : Prisma.empty;
+  const courseFilterSpendSql = args.courseId 
+    ? Prisma.sql`AND c."courseId" = ${args.courseId as string}` 
+    : Prisma.empty;
+
+  const platforms = ["META", "GOOGLE_ADS", "LINKEDIN", "TIKTOK"];
+  const results = [];
+
+  for (const platform of platforms) {
+    const [leadsData, enrollmentsData, spendData, revenueData] = await Promise.all([
+      prisma.$queryRaw<[{ count: number }]>`
+        SELECT COUNT(*)::int as count FROM "Lead" l
+        JOIN "Campaign" c ON l."campaignId" = c.id
+        WHERE c.platform = ${platform}
+          AND l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+          ${courseFilterSql}
+      `.then(r => r[0]),
+      prisma.$queryRaw<[{ count: number }]>`
+        SELECT COUNT(*)::int as count FROM "Lead" l
+        JOIN "Campaign" c ON l."campaignId" = c.id
+        WHERE c.platform = ${platform}
+          AND l.status = 'ISCRITTO'
+          AND l."enrolledAt" >= ${startDate} AND l."enrolledAt" <= ${endDate}
+          ${courseFilterSql}
+      `.then(r => r[0]),
+      prisma.$queryRaw<[{ total: number }]>`
+        SELECT COALESCE(SUM(cs.amount), 0)::float as total 
+        FROM "CampaignSpend" cs
+        JOIN "Campaign" c ON cs."campaignId" = c.id
+        WHERE c.platform = ${platform}
+          AND cs."startDate" <= ${endDate} 
+          AND (cs."endDate" >= ${startDate} OR cs."endDate" IS NULL)
+          ${courseFilterSpendSql}
+      `.then(r => r[0]),
+      prisma.$queryRaw<[{ total: number }]>`
+        SELECT COALESCE(SUM(co.price), 0)::float as total 
+        FROM "Lead" l
+        JOIN "Campaign" c ON l."campaignId" = c.id
+        JOIN "Course" co ON l."courseId" = co.id
+        WHERE c.platform = ${platform}
+          AND l.status = 'ISCRITTO'
+          AND l."enrolledAt" >= ${startDate} AND l."enrolledAt" <= ${endDate}
+          ${courseFilterSql}
+      `.then(r => r[0])
+    ]);
+
+    const leads = leadsData.count;
+    const enrollments = enrollmentsData.count;
+    const spend = spendData.total;
+    const revenue = revenueData.total;
+
+    results.push({
+      piattaforma: platform,
+      leads,
+      iscrizioni: enrollments,
+      spesa: spend.toFixed(2),
+      ricavo: revenue.toFixed(2),
+      cpl: leads > 0 ? (spend / leads).toFixed(2) : "N/A",
+      tassoConversione: leads > 0 ? ((enrollments / leads) * 100).toFixed(2) + "%" : "N/A",
+      costoPerIscrizione: enrollments > 0 ? (spend / enrollments).toFixed(2) : "N/A",
+      roi: spend > 0 ? (((revenue - spend) / spend) * 100).toFixed(1) + "%" : "N/A",
+      profitto: (revenue - spend).toFixed(2)
+    });
+  }
+
+  // Sort by ROI (best first)
+  results.sort((a, b) => {
+    const roiA = parseFloat(a.roi.replace('%', '')) || -Infinity;
+    const roiB = parseFloat(b.roi.replace('%', '')) || -Infinity;
+    return roiB - roiA;
+  });
+
+  return {
+    periodo: { inizio: startDate.toISOString().split('T')[0], fine: endDate.toISOString().split('T')[0] },
+    filtri: { corso: args.courseId || "tutti" },
+    confronto: results,
+    classifiche: {
+      migliorROI: results[0]?.piattaforma || "N/A",
+      piuLeads: [...results].sort((a, b) => b.leads - a.leads)[0]?.piattaforma || "N/A",
+      migliorCPL: [...results].filter(r => r.cpl !== "N/A").sort((a, b) => parseFloat(a.cpl) - parseFloat(b.cpl))[0]?.piattaforma || "N/A",
+      migliorConversione: [...results].filter(r => r.tassoConversione !== "N/A").sort((a, b) => parseFloat(b.tassoConversione) - parseFloat(a.tassoConversione))[0]?.piattaforma || "N/A"
+    }
+  };
+}
+
+async function getLeadQualityAnalysis(args: Record<string, unknown>) {
+  const startDate = new Date(args.startDate as string);
+  const endDate = new Date(args.endDate as string);
+  endDate.setHours(23, 59, 59, 999);
+  const groupBy = (args.groupBy as string) || "platform";
+
+  let query;
+  let groupField: string;
+
+  switch (groupBy) {
+    case "platform":
+      groupField = "c.platform";
+      query = prisma.$queryRaw<{
+        group_value: string;
+        total_leads: number;
+        contacted: number;
+        enrolled: number;
+        lost: number;
+        avg_days_to_contact: number;
+        avg_days_to_enroll: number;
+        avg_call_attempts: number;
+      }[]>`
+        SELECT 
+          c.platform as group_value,
+          COUNT(*)::int as total_leads,
+          COUNT(CASE WHEN l.contacted = true THEN 1 END)::int as contacted,
+          COUNT(CASE WHEN l.status = 'ISCRITTO' THEN 1 END)::int as enrolled,
+          COUNT(CASE WHEN l.status = 'PERSO' THEN 1 END)::int as lost,
+          AVG(EXTRACT(EPOCH FROM (l."contactedAt" - l."createdAt"))/86400)::float as avg_days_to_contact,
+          AVG(CASE WHEN l.status = 'ISCRITTO' THEN EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400 END)::float as avg_days_to_enroll,
+          AVG(l."callAttempts")::float as avg_call_attempts
+        FROM "Lead" l
+        JOIN "Campaign" c ON l."campaignId" = c.id
+        WHERE l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+        GROUP BY c.platform
+        ORDER BY enrolled DESC
+      `;
+      break;
+    case "course":
+      groupField = "co.name";
+      query = prisma.$queryRaw<{
+        group_value: string;
+        total_leads: number;
+        contacted: number;
+        enrolled: number;
+        lost: number;
+        avg_days_to_contact: number;
+        avg_days_to_enroll: number;
+        avg_call_attempts: number;
+      }[]>`
+        SELECT 
+          co.name as group_value,
+          COUNT(*)::int as total_leads,
+          COUNT(CASE WHEN l.contacted = true THEN 1 END)::int as contacted,
+          COUNT(CASE WHEN l.status = 'ISCRITTO' THEN 1 END)::int as enrolled,
+          COUNT(CASE WHEN l.status = 'PERSO' THEN 1 END)::int as lost,
+          AVG(EXTRACT(EPOCH FROM (l."contactedAt" - l."createdAt"))/86400)::float as avg_days_to_contact,
+          AVG(CASE WHEN l.status = 'ISCRITTO' THEN EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400 END)::float as avg_days_to_enroll,
+          AVG(l."callAttempts")::float as avg_call_attempts
+        FROM "Lead" l
+        JOIN "Course" co ON l."courseId" = co.id
+        WHERE l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+        GROUP BY co.name
+        ORDER BY enrolled DESC
+      `;
+      break;
+    default:
+      return { error: `Group by '${groupBy}' not supported` };
+  }
+
+  const data = await query;
+
+  return {
+    periodo: { inizio: startDate.toISOString().split('T')[0], fine: endDate.toISOString().split('T')[0] },
+    raggruppamento: groupBy,
+    analisi: data.map(d => ({
+      gruppo: d.group_value,
+      leadTotali: d.total_leads,
+      contattati: d.contacted,
+      iscritti: d.enrolled,
+      persi: d.lost,
+      tassoContatto: d.total_leads > 0 ? ((d.contacted / d.total_leads) * 100).toFixed(1) + "%" : "N/A",
+      tassoConversione: d.total_leads > 0 ? ((d.enrolled / d.total_leads) * 100).toFixed(1) + "%" : "N/A",
+      tassoPerdita: d.total_leads > 0 ? ((d.lost / d.total_leads) * 100).toFixed(1) + "%" : "N/A",
+      giorniMediPerContatto: d.avg_days_to_contact?.toFixed(1) || "N/A",
+      giorniMediPerIscrizione: d.avg_days_to_enroll?.toFixed(1) || "N/A",
+      tentativiMediChiamata: d.avg_call_attempts?.toFixed(1) || "N/A"
+    }))
+  };
+}
+
+async function getResponseTimeAnalysis(args: Record<string, unknown>) {
+  const startDate = new Date(args.startDate as string);
+  const endDate = new Date(args.endDate as string);
+  endDate.setHours(23, 59, 59, 999);
+
+  const commercialFilterSql = args.commercialId 
+    ? Prisma.sql`AND l."contactedById" = ${args.commercialId as string}` 
+    : Prisma.empty;
+  const platformFilterSql = args.platform 
+    ? Prisma.sql`AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+  const platformJoinSql = args.platform 
+    ? Prisma.sql`JOIN "Campaign" c ON l."campaignId" = c.id` 
+    : Prisma.empty;
+
+  const data = await prisma.$queryRaw<{
+    total_contacted: number;
+    contacted_same_day: number;
+    contacted_within_24h: number;
+    contacted_within_48h: number;
+    contacted_within_week: number;
+    contacted_later: number;
+    avg_response_hours: number;
+    enrolled_same_day: number;
+    enrolled_within_24h: number;
+    enrolled_within_48h: number;
+  }[]>`
+    SELECT 
+      COUNT(*)::int as total_contacted,
+      COUNT(CASE WHEN DATE(l."contactedAt") = DATE(l."createdAt") THEN 1 END)::int as contacted_same_day,
+      COUNT(CASE WHEN l."contactedAt" - l."createdAt" <= interval '24 hours' THEN 1 END)::int as contacted_within_24h,
+      COUNT(CASE WHEN l."contactedAt" - l."createdAt" <= interval '48 hours' THEN 1 END)::int as contacted_within_48h,
+      COUNT(CASE WHEN l."contactedAt" - l."createdAt" <= interval '7 days' THEN 1 END)::int as contacted_within_week,
+      COUNT(CASE WHEN l."contactedAt" - l."createdAt" > interval '7 days' THEN 1 END)::int as contacted_later,
+      AVG(EXTRACT(EPOCH FROM (l."contactedAt" - l."createdAt"))/3600)::float as avg_response_hours,
+      COUNT(CASE WHEN l.status = 'ISCRITTO' AND DATE(l."contactedAt") = DATE(l."createdAt") THEN 1 END)::int as enrolled_same_day,
+      COUNT(CASE WHEN l.status = 'ISCRITTO' AND l."contactedAt" - l."createdAt" <= interval '24 hours' THEN 1 END)::int as enrolled_within_24h,
+      COUNT(CASE WHEN l.status = 'ISCRITTO' AND l."contactedAt" - l."createdAt" <= interval '48 hours' THEN 1 END)::int as enrolled_within_48h
+    FROM "Lead" l
+    ${platformJoinSql}
+    WHERE l."contactedAt" IS NOT NULL
+      AND l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+      ${commercialFilterSql}
+      ${platformFilterSql}
+  `;
+
+  const d = data[0];
+  const total = d.total_contacted;
+
+  return {
+    periodo: { inizio: startDate.toISOString().split('T')[0], fine: endDate.toISOString().split('T')[0] },
+    filtri: {
+      commerciale: args.commercialId || "tutti",
+      piattaforma: args.platform || "tutte"
+    },
+    leadContattati: total,
+    tempoRispostaMedio: d.avg_response_hours ? `${d.avg_response_hours.toFixed(1)} ore` : "N/A",
+    distribuzione: {
+      stessoGiorno: {
+        conteggio: d.contacted_same_day,
+        percentuale: total > 0 ? ((d.contacted_same_day / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      entro24ore: {
+        conteggio: d.contacted_within_24h,
+        percentuale: total > 0 ? ((d.contacted_within_24h / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      entro48ore: {
+        conteggio: d.contacted_within_48h,
+        percentuale: total > 0 ? ((d.contacted_within_48h / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      entroSettimana: {
+        conteggio: d.contacted_within_week,
+        percentuale: total > 0 ? ((d.contacted_within_week / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      piuDiSettimana: {
+        conteggio: d.contacted_later,
+        percentuale: total > 0 ? ((d.contacted_later / total) * 100).toFixed(1) + "%" : "0%"
+      }
+    },
+    conversionePerVelocita: {
+      contattatoStessoGiorno: d.contacted_same_day > 0 
+        ? ((d.enrolled_same_day / d.contacted_same_day) * 100).toFixed(1) + "%" 
+        : "N/A",
+      contattatoEntro24ore: d.contacted_within_24h > 0 
+        ? ((d.enrolled_within_24h / d.contacted_within_24h) * 100).toFixed(1) + "%" 
+        : "N/A",
+      contattatoEntro48ore: d.contacted_within_48h > 0 
+        ? ((d.enrolled_within_48h / d.contacted_within_48h) * 100).toFixed(1) + "%" 
+        : "N/A"
+    },
+    insight: d.avg_response_hours && d.avg_response_hours > 24 
+      ? "Il tempo di risposta medio è superiore a 24 ore. Rispondere più rapidamente potrebbe migliorare le conversioni."
+      : "Buon tempo di risposta!"
+  };
+}
+
+async function getEnrollmentTimeline(args: Record<string, unknown>) {
+  const startDate = new Date(args.startDate as string);
+  const endDate = new Date(args.endDate as string);
+  endDate.setHours(23, 59, 59, 999);
+
+  const platformFilterSql = args.platform 
+    ? Prisma.sql`AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+  const courseFilterSql = args.courseId 
+    ? Prisma.sql`AND l."courseId" = ${args.courseId as string}` 
+    : Prisma.empty;
+  const platformJoinSql = (args.platform) 
+    ? Prisma.sql`JOIN "Campaign" c ON l."campaignId" = c.id` 
+    : Prisma.empty;
+
+  const data = await prisma.$queryRaw<{
+    total_enrolled: number;
+    within_7_days: number;
+    within_14_days: number;
+    within_30_days: number;
+    within_60_days: number;
+    over_60_days: number;
+    avg_days: number;
+    min_days: number;
+    max_days: number;
+  }[]>`
+    SELECT 
+      COUNT(*)::int as total_enrolled,
+      COUNT(CASE WHEN EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400 <= 7 THEN 1 END)::int as within_7_days,
+      COUNT(CASE WHEN EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400 <= 14 THEN 1 END)::int as within_14_days,
+      COUNT(CASE WHEN EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400 <= 30 THEN 1 END)::int as within_30_days,
+      COUNT(CASE WHEN EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400 <= 60 THEN 1 END)::int as within_60_days,
+      COUNT(CASE WHEN EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400 > 60 THEN 1 END)::int as over_60_days,
+      AVG(EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400)::float as avg_days,
+      MIN(EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400)::float as min_days,
+      MAX(EXTRACT(EPOCH FROM (l."enrolledAt" - l."createdAt"))/86400)::float as max_days
+    FROM "Lead" l
+    ${platformJoinSql}
+    WHERE l.status = 'ISCRITTO'
+      AND l."enrolledAt" IS NOT NULL
+      AND l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+      ${platformFilterSql}
+      ${courseFilterSql}
+  `;
+
+  const d = data[0];
+  const total = d.total_enrolled;
+
+  return {
+    periodo: { inizio: startDate.toISOString().split('T')[0], fine: endDate.toISOString().split('T')[0] },
+    filtri: {
+      piattaforma: args.platform || "tutte",
+      corso: args.courseId || "tutti"
+    },
+    iscrizioniTotali: total,
+    tempoMedioConversione: d.avg_days ? `${d.avg_days.toFixed(1)} giorni` : "N/A",
+    tempoMinimo: d.min_days ? `${d.min_days.toFixed(1)} giorni` : "N/A",
+    tempoMassimo: d.max_days ? `${d.max_days.toFixed(1)} giorni` : "N/A",
+    distribuzione: {
+      entro7giorni: {
+        conteggio: d.within_7_days,
+        percentuale: total > 0 ? ((d.within_7_days / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      entro14giorni: {
+        conteggio: d.within_14_days,
+        percentuale: total > 0 ? ((d.within_14_days / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      entro30giorni: {
+        conteggio: d.within_30_days,
+        percentuale: total > 0 ? ((d.within_30_days / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      entro60giorni: {
+        conteggio: d.within_60_days,
+        percentuale: total > 0 ? ((d.within_60_days / total) * 100).toFixed(1) + "%" : "0%"
+      },
+      oltre60giorni: {
+        conteggio: d.over_60_days,
+        percentuale: total > 0 ? ((d.over_60_days / total) * 100).toFixed(1) + "%" : "0%"
+      }
+    }
+  };
+}
+
+async function getDailyActivity(args: Record<string, unknown>) {
+  const startDate = new Date(args.startDate as string);
+  const endDate = new Date(args.endDate as string);
+  endDate.setHours(23, 59, 59, 999);
+
+  const commercialFilterSql = args.commercialId 
+    ? Prisma.sql`AND l."contactedById" = ${args.commercialId as string}` 
+    : Prisma.empty;
+  const commercialFilterActivitySql = args.commercialId 
+    ? Prisma.sql`AND la."userId" = ${args.commercialId as string}` 
+    : Prisma.empty;
+
+  const [leadsPerDay, callsPerDay, enrollmentsPerDay, contactsPerDay] = await Promise.all([
+    prisma.$queryRaw<{ date: Date; count: number }[]>`
+      SELECT DATE(l."createdAt") as date, COUNT(*)::int as count
+      FROM "Lead" l
+      WHERE l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+      GROUP BY DATE(l."createdAt")
+      ORDER BY date
+    `,
+    prisma.$queryRaw<{ date: Date; count: number }[]>`
+      SELECT DATE(la."createdAt") as date, COUNT(*)::int as count
+      FROM "LeadActivity" la
+      WHERE la.type = 'CALL'
+        AND la."createdAt" >= ${startDate} AND la."createdAt" <= ${endDate}
+        ${commercialFilterActivitySql}
+      GROUP BY DATE(la."createdAt")
+      ORDER BY date
+    `,
+    prisma.$queryRaw<{ date: Date; count: number }[]>`
+      SELECT DATE(l."enrolledAt") as date, COUNT(*)::int as count
+      FROM "Lead" l
+      WHERE l.status = 'ISCRITTO'
+        AND l."enrolledAt" >= ${startDate} AND l."enrolledAt" <= ${endDate}
+        ${commercialFilterSql}
+      GROUP BY DATE(l."enrolledAt")
+      ORDER BY date
+    `,
+    prisma.$queryRaw<{ date: Date; count: number }[]>`
+      SELECT DATE(l."contactedAt") as date, COUNT(*)::int as count
+      FROM "Lead" l
+      WHERE l."contactedAt" >= ${startDate} AND l."contactedAt" <= ${endDate}
+        ${commercialFilterSql}
+      GROUP BY DATE(l."contactedAt")
+      ORDER BY date
+    `
+  ]);
+
+  // Merge all data by date
+  const dateMap = new Map<string, { leads: number; calls: number; enrollments: number; contacts: number }>();
+  
+  for (const l of leadsPerDay) {
+    const key = l.date.toISOString().split('T')[0];
+    dateMap.set(key, { ...(dateMap.get(key) || { leads: 0, calls: 0, enrollments: 0, contacts: 0 }), leads: l.count });
+  }
+  for (const c of callsPerDay) {
+    const key = c.date.toISOString().split('T')[0];
+    dateMap.set(key, { ...(dateMap.get(key) || { leads: 0, calls: 0, enrollments: 0, contacts: 0 }), calls: c.count });
+  }
+  for (const e of enrollmentsPerDay) {
+    const key = e.date.toISOString().split('T')[0];
+    dateMap.set(key, { ...(dateMap.get(key) || { leads: 0, calls: 0, enrollments: 0, contacts: 0 }), enrollments: e.count });
+  }
+  for (const c of contactsPerDay) {
+    const key = c.date.toISOString().split('T')[0];
+    dateMap.set(key, { ...(dateMap.get(key) || { leads: 0, calls: 0, enrollments: 0, contacts: 0 }), contacts: c.count });
+  }
+
+  const dailyData = Array.from(dateMap.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, data]) => ({
+      data: date,
+      leads: data.leads,
+      chiamate: data.calls,
+      iscrizioni: data.enrollments,
+      contatti: data.contacts
+    }));
+
+  const totals = dailyData.reduce((acc, d) => ({
+    leads: acc.leads + d.leads,
+    calls: acc.calls + d.chiamate,
+    enrollments: acc.enrollments + d.iscrizioni,
+    contacts: acc.contacts + d.contatti
+  }), { leads: 0, calls: 0, enrollments: 0, contacts: 0 });
+
+  return {
+    periodo: { inizio: startDate.toISOString().split('T')[0], fine: endDate.toISOString().split('T')[0] },
+    filtri: { commerciale: args.commercialId || "tutti" },
+    giornaliero: dailyData,
+    totali: {
+      leads: totals.leads,
+      chiamate: totals.calls,
+      iscrizioni: totals.enrollments,
+      contatti: totals.contacts
+    },
+    medie: {
+      leadsGiorno: dailyData.length > 0 ? (totals.leads / dailyData.length).toFixed(1) : "0",
+      chiamateGiorno: dailyData.length > 0 ? (totals.calls / dailyData.length).toFixed(1) : "0",
+      iscrizioniGiorno: dailyData.length > 0 ? (totals.enrollments / dailyData.length).toFixed(1) : "0",
+      contattiGiorno: dailyData.length > 0 ? (totals.contacts / dailyData.length).toFixed(1) : "0"
+    }
+  };
+}
+
+async function getLostLeadsAnalysis(args: Record<string, unknown>) {
+  const startDate = new Date(args.startDate as string);
+  const endDate = new Date(args.endDate as string);
+  endDate.setHours(23, 59, 59, 999);
+
+  const platformFilterSql = args.platform 
+    ? Prisma.sql`AND c.platform = ${args.platform as string}` 
+    : Prisma.empty;
+  const courseFilterSql = args.courseId 
+    ? Prisma.sql`AND l."courseId" = ${args.courseId as string}` 
+    : Prisma.empty;
+  const platformJoinSql = args.platform 
+    ? Prisma.sql`JOIN "Campaign" c ON l."campaignId" = c.id` 
+    : Prisma.empty;
+
+  const [lostByOutcome, lostByAttempts, lostByPlatform, totalLost, totalLeads] = await Promise.all([
+    prisma.$queryRaw<{ outcome: string; count: number }[]>`
+      SELECT l."callOutcome" as outcome, COUNT(*)::int as count
+      FROM "Lead" l
+      ${platformJoinSql}
+      WHERE l.status = 'PERSO'
+        AND l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+        ${platformFilterSql}
+        ${courseFilterSql}
+      GROUP BY l."callOutcome"
+    `,
+    prisma.$queryRaw<{ attempts: number; count: number }[]>`
+      SELECT l."callAttempts" as attempts, COUNT(*)::int as count
+      FROM "Lead" l
+      ${platformJoinSql}
+      WHERE l.status = 'PERSO'
+        AND l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+        ${platformFilterSql}
+        ${courseFilterSql}
+      GROUP BY l."callAttempts"
+      ORDER BY attempts
+    `,
+    prisma.$queryRaw<{ platform: string; count: number }[]>`
+      SELECT c.platform, COUNT(*)::int as count
+      FROM "Lead" l
+      JOIN "Campaign" c ON l."campaignId" = c.id
+      WHERE l.status = 'PERSO'
+        AND l."createdAt" >= ${startDate} AND l."createdAt" <= ${endDate}
+        ${platformFilterSql}
+        ${courseFilterSql}
+      GROUP BY c.platform
+      ORDER BY count DESC
+    `,
+    prisma.lead.count({
+      where: {
+        status: "PERSO",
+        createdAt: { gte: startDate, lte: endDate }
+      }
+    }),
+    prisma.lead.count({
+      where: {
+        createdAt: { gte: startDate, lte: endDate }
+      }
+    })
+  ]);
+
+  return {
+    periodo: { inizio: startDate.toISOString().split('T')[0], fine: endDate.toISOString().split('T')[0] },
+    filtri: {
+      piattaforma: args.platform || "tutte",
+      corso: args.courseId || "tutti"
+    },
+    leadPersi: totalLost,
+    leadTotali: totalLeads,
+    tassoPerdita: totalLeads > 0 ? ((totalLost / totalLeads) * 100).toFixed(2) + "%" : "0%",
+    perEsitoChiamata: lostByOutcome.map(o => ({
+      esito: o.outcome || "Mai chiamato",
+      conteggio: o.count,
+      percentuale: totalLost > 0 ? ((o.count / totalLost) * 100).toFixed(1) + "%" : "0%"
+    })),
+    perTentativiChiamata: lostByAttempts.map(a => ({
+      tentativi: a.attempts,
+      conteggio: a.count,
+      percentuale: totalLost > 0 ? ((a.count / totalLost) * 100).toFixed(1) + "%" : "0%"
+    })),
+    perPiattaforma: lostByPlatform.map(p => ({
+      piattaforma: p.platform,
+      persi: p.count,
+      percentuale: totalLost > 0 ? ((p.count / totalLost) * 100).toFixed(1) + "%" : "0%"
+    })),
+    insight: lostByOutcome.find(o => o.outcome === null && o.count > totalLost * 0.3)
+      ? "Molti lead sono persi senza essere mai stati chiamati. Migliorare il follow-up potrebbe ridurre le perdite."
+      : lostByAttempts.find(a => a.attempts >= 8 && a.count > totalLost * 0.2)
+        ? "Molti lead sono persi dopo 8 tentativi. Considerare strategie alternative per questi contatti difficili."
+        : "Distribuzione normale delle perdite."
+  };
+}
+
+// ============================================================================
+// ADVANCED MATH TOOLS
+// ============================================================================
+
+function calculateCPL(args: Record<string, unknown>) {
+  const spend = args.spend as number;
+  const leads = args.leads as number;
+
+  if (leads === 0) {
+    return { error: "Impossibile calcolare CPL: 0 lead" };
+  }
+
+  const cpl = spend / leads;
+
+  return {
+    spesa: spend,
+    leads: leads,
+    cpl: cpl,
+    cplFormattato: `€${cpl.toFixed(2)}`,
+    formula: `${spend} / ${leads} = ${cpl.toFixed(2)}`
+  };
+}
+
+function calculateConversionRate(args: Record<string, unknown>) {
+  const converted = args.converted as number;
+  const total = args.total as number;
+  const label = args.label as string | undefined;
+
+  if (total === 0) {
+    return { error: "Impossibile calcolare: divisione per zero" };
+  }
+
+  const rate = (converted / total) * 100;
+
+  return {
+    convertiti: converted,
+    totale: total,
+    tassoConversione: rate,
+    formattato: `${rate.toFixed(2)}%`,
+    formula: `(${converted} / ${total}) × 100 = ${rate.toFixed(2)}%`,
+    etichetta: label || "Tasso di conversione"
+  };
+}
+
+function calculateGrowthRate(args: Record<string, unknown>) {
+  const previousValue = args.previousValue as number;
+  const currentValue = args.currentValue as number;
+  const label = args.label as string | undefined;
+
+  if (previousValue === 0) {
+    return {
+      valorePrecedente: previousValue,
+      valoreAttuale: currentValue,
+      crescita: currentValue > 0 ? "∞" : "0%",
+      direzione: currentValue > 0 ? "aumento" : "invariato",
+      etichetta: label || "Crescita"
+    };
+  }
+
+  const growth = ((currentValue - previousValue) / previousValue) * 100;
+  const direction = growth > 0 ? "aumento" : growth < 0 ? "diminuzione" : "invariato";
+
+  return {
+    valorePrecedente: previousValue,
+    valoreAttuale: currentValue,
+    crescita: `${growth >= 0 ? '+' : ''}${growth.toFixed(2)}%`,
+    crescitaNumerica: growth,
+    variazioneAssoluta: currentValue - previousValue,
+    direzione: direction,
+    formula: `((${currentValue} - ${previousValue}) / ${previousValue}) × 100 = ${growth.toFixed(2)}%`,
+    etichetta: label || "Crescita"
+  };
+}
+
+function calculateForecast(args: Record<string, unknown>) {
+  const values = args.historicalValues as number[];
+  const periodsToForecast = (args.periodsToForecast as number) || 3;
+  const label = args.label as string | undefined;
+
+  if (!values || values.length < 2) {
+    return { error: "Servono almeno 2 valori storici per prevedere" };
+  }
+
+  // Simple linear regression
+  const n = values.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  
+  for (let i = 0; i < n; i++) {
+    sumX += i;
+    sumY += values[i];
+    sumXY += i * values[i];
+    sumX2 += i * i;
+  }
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+
+  // Generate forecasts
+  const forecasts = [];
+  for (let i = 0; i < periodsToForecast; i++) {
+    const forecastPeriod = n + i;
+    const forecastValue = intercept + slope * forecastPeriod;
+    forecasts.push({
+      periodo: forecastPeriod + 1,
+      valore: Math.max(0, forecastValue), // Don't allow negative
+      valoreFormattato: Math.max(0, forecastValue).toFixed(2)
+    });
+  }
+
+  // Calculate trend
+  const trend = slope > 0 ? "crescente" : slope < 0 ? "decrescente" : "stabile";
+  const avgGrowth = values.length > 1 
+    ? ((values[values.length - 1] - values[0]) / values[0] / (values.length - 1) * 100).toFixed(1) + "%"
+    : "N/A";
+
+  return {
+    valoriStorici: values,
+    previsioni: forecasts,
+    trend: trend,
+    pendenza: slope.toFixed(4),
+    crescitaMediaPeriodo: avgGrowth,
+    etichetta: label || "Previsione",
+    nota: "Previsione basata su regressione lineare semplice. Usare come stima indicativa."
+  };
+}
+
+function calculateWeightedAverage(args: Record<string, unknown>) {
+  const values = args.values as number[];
+  const weights = args.weights as number[];
+  const label = args.label as string | undefined;
+
+  if (!values || !weights || values.length !== weights.length) {
+    return { error: "Valori e pesi devono avere la stessa lunghezza" };
+  }
+
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  if (totalWeight === 0) {
+    return { error: "Somma dei pesi non può essere zero" };
+  }
+
+  let weightedSum = 0;
+  for (let i = 0; i < values.length; i++) {
+    weightedSum += values[i] * weights[i];
+  }
+
+  const weightedAvg = weightedSum / totalWeight;
+
+  return {
+    valori: values,
+    pesi: weights,
+    mediaPonderata: weightedAvg,
+    formattato: weightedAvg.toFixed(2),
+    formula: `(${values.map((v, i) => `${v}×${weights[i]}`).join(' + ')}) / ${totalWeight} = ${weightedAvg.toFixed(2)}`,
+    etichetta: label || "Media ponderata"
+  };
+}
+
+function calculateCAGR(args: Record<string, unknown>) {
+  const startValue = args.startValue as number;
+  const endValue = args.endValue as number;
+  const periods = args.periods as number;
+  const periodType = (args.periodType as string) || "years";
+
+  if (startValue <= 0) {
+    return { error: "Il valore iniziale deve essere maggiore di zero" };
+  }
+  if (periods <= 0) {
+    return { error: "Il numero di periodi deve essere maggiore di zero" };
+  }
+
+  const cagr = (Math.pow(endValue / startValue, 1 / periods) - 1) * 100;
+
+  const periodLabel = periodType === "years" ? "anni" : periodType === "months" ? "mesi" : "trimestri";
+
+  return {
+    valoreIniziale: startValue,
+    valoreFinale: endValue,
+    periodi: periods,
+    tipoPeriodo: periodLabel,
+    cagr: cagr,
+    formattato: `${cagr.toFixed(2)}%`,
+    formula: `((${endValue}/${startValue})^(1/${periods}) - 1) × 100 = ${cagr.toFixed(2)}%`,
+    interpretazione: `Crescita media del ${cagr.toFixed(2)}% per ${periodLabel === "anni" ? "anno" : periodLabel === "mesi" ? "mese" : "trimestre"}`
+  };
+}
+
+function calculateBreakEven(args: Record<string, unknown>) {
+  const totalCost = args.totalCost as number;
+  const revenuePerUnit = args.revenuePerUnit as number;
+  const costPerUnit = (args.costPerUnit as number) || 0;
+
+  const marginPerUnit = revenuePerUnit - costPerUnit;
+  
+  if (marginPerUnit <= 0) {
+    return { error: "Il margine per unità deve essere positivo (ricavo > costo per unità)" };
+  }
+
+  const breakEvenUnits = totalCost / marginPerUnit;
+  const breakEvenRevenue = breakEvenUnits * revenuePerUnit;
+
+  return {
+    costoTotale: totalCost,
+    ricavoPerUnita: revenuePerUnit,
+    costoPerUnita: costPerUnit,
+    marginePerUnita: marginPerUnit,
+    breakEvenUnita: Math.ceil(breakEvenUnits),
+    breakEvenRicavo: breakEvenRevenue.toFixed(2),
+    formula: `${totalCost} / (${revenuePerUnit} - ${costPerUnit}) = ${breakEvenUnits.toFixed(2)} unità`,
+    interpretazione: `Servono ${Math.ceil(breakEvenUnits)} iscrizioni per coprire i costi`
+  };
+}
+
+function rankItems(args: Record<string, unknown>) {
+  const items = args.items as { name: string; value: number }[];
+  const order = (args.order as string) || "top";
+  const limit = (args.limit as number) || 5;
+  const metric = (args.metric as string) || "valore";
+
+  if (!items || items.length === 0) {
+    return { error: "Nessun elemento da classificare" };
+  }
+
+  const sorted = [...items].sort((a, b) => 
+    order === "top" ? b.value - a.value : a.value - b.value
+  );
+
+  const ranked = sorted.slice(0, limit).map((item, index) => ({
+    posizione: index + 1,
+    nome: item.name,
+    valore: item.value,
+    valoreFormattato: typeof item.value === 'number' 
+      ? (Number.isInteger(item.value) ? item.value.toString() : item.value.toFixed(2))
+      : item.value
+  }));
+
+  return {
+    classifica: order === "top" ? "migliori" : "peggiori",
+    metrica: metric,
+    limite: limit,
+    risultati: ranked,
+    totaleElementi: items.length
+  };
+}
+
+// ============================================================================
+// UTILITY TOOLS
+// ============================================================================
+
+function getDateRange(args: Record<string, unknown>) {
+  const period = args.period as string;
+  const now = new Date();
+  let startDate: Date;
+  let endDate: Date = new Date(now);
+
+  switch (period) {
+    case "today":
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      break;
+    case "yesterday":
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59);
+      break;
+    case "this_week":
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+      break;
+    case "last_week":
+      const lastWeekEnd = new Date(now);
+      const lastDayOfWeek = lastWeekEnd.getDay();
+      const lastMondayOffset = lastDayOfWeek === 0 ? -6 : 1 - lastDayOfWeek;
+      endDate = new Date(lastWeekEnd.getFullYear(), lastWeekEnd.getMonth(), lastWeekEnd.getDate() + lastMondayOffset - 1, 23, 59, 59);
+      startDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - 6);
+      break;
+    case "this_month":
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case "last_month":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      break;
+    case "last_30_days":
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+      break;
+    case "last_90_days":
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90);
+      break;
+    case "this_quarter":
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
+      break;
+    case "last_quarter":
+      const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
+      const lastQuarterYear = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const adjustedLastQuarter = lastQuarter < 0 ? 3 : lastQuarter;
+      startDate = new Date(lastQuarterYear, adjustedLastQuarter * 3, 1);
+      endDate = new Date(lastQuarterYear, (adjustedLastQuarter + 1) * 3, 0, 23, 59, 59);
+      break;
+    case "this_year":
+      startDate = new Date(now.getFullYear(), 0, 1);
+      break;
+    case "last_year":
+      startDate = new Date(now.getFullYear() - 1, 0, 1);
+      endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+      break;
+    case "ytd":
+      startDate = new Date(now.getFullYear(), 0, 1);
+      break;
+    default:
+      return { error: `Periodo '${period}' non riconosciuto` };
+  }
+
+  return {
+    periodo: period,
+    inizio: startDate.toISOString().split('T')[0],
+    fine: endDate.toISOString().split('T')[0],
+    giorniInclusi: Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  };
+}
+
+function getCurrentDatetime() {
+  const now = new Date();
+  const dayNames = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
+  const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", 
+                       "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+
+  return {
+    data: now.toISOString().split('T')[0],
+    ora: now.toTimeString().split(' ')[0],
+    timestamp: now.toISOString(),
+    giorno: now.getDate(),
+    mese: now.getMonth() + 1,
+    anno: now.getFullYear(),
+    giornoSettimana: dayNames[now.getDay()],
+    nomeMese: monthNames[now.getMonth()],
+    trimestre: Math.floor(now.getMonth() / 3) + 1,
+    settimanaAnno: Math.ceil((((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)
+  };
+}
+
+function formatCurrency(args: Record<string, unknown>) {
+  const value = args.value as number;
+  const decimals = (args.decimals as number) ?? 2;
+
+  return {
+    valoreOriginale: value,
+    formattato: `€${value.toFixed(decimals)}`,
+    formattatoConMigliaia: `€${value.toLocaleString('it-IT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`
+  };
+}
+
+function formatPercentage(args: Record<string, unknown>) {
+  const value = args.value as number;
+  const isDecimal = (args.isDecimal as boolean) ?? (value >= -1 && value <= 1);
+  const decimals = (args.decimals as number) ?? 1;
+
+  const percentValue = isDecimal ? value * 100 : value;
+
+  return {
+    valoreOriginale: value,
+    percentuale: percentValue,
+    formattato: `${percentValue.toFixed(decimals)}%`,
+    conSegno: `${percentValue >= 0 ? '+' : ''}${percentValue.toFixed(decimals)}%`
+  };
+}
+
+function summarizeData(args: Record<string, unknown>) {
+  const values = args.values as number[];
+  const label = args.label as string | undefined;
+
+  if (!values || values.length === 0) {
+    return { error: "Nessun valore da analizzare" };
+  }
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const sum = values.reduce((a, b) => a + b, 0);
+  const avg = sum / values.length;
+  const min = sorted[0];
+  const max = sorted[sorted.length - 1];
+  
+  // Calculate median
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 === 0 
+    ? (sorted[mid - 1] + sorted[mid]) / 2 
+    : sorted[mid];
+
+  // Calculate standard deviation
+  const squaredDiffs = values.map(v => Math.pow(v - avg, 2));
+  const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
+  const stdDev = Math.sqrt(avgSquaredDiff);
+
+  return {
+    etichetta: label || "Statistiche",
+    conteggio: values.length,
+    somma: sum,
+    media: avg,
+    mediana: median,
+    minimo: min,
+    massimo: max,
+    range: max - min,
+    deviazioneStandard: stdDev,
+    formattato: {
+      somma: sum.toFixed(2),
+      media: avg.toFixed(2),
+      mediana: median.toFixed(2),
+      deviazioneStandard: stdDev.toFixed(2)
     }
   };
 }
