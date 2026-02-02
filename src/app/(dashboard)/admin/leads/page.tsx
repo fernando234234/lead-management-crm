@@ -27,6 +27,7 @@ import {
   ArrowUpDown,
   AlertTriangle,
   Target,
+  RefreshCw,
 } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import ExportButton from "@/components/ui/ExportButton";
@@ -44,6 +45,7 @@ import BulkDeleteModal from "@/components/ui/BulkDeleteModal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { getPlatformLabel } from "@/lib/platforms";
 import LeadFormModal from "@/components/ui/LeadFormModal";
+import RecoverLeadModal from "@/components/ui/RecoverLeadModal";
 
 interface Lead {
   id: string;
@@ -65,6 +67,9 @@ interface Lead {
   lastAttemptAt: string | null;
   callOutcome: string | null;
   outcomeNotes: string | null;
+  // Lost reason fields
+  lostReason?: string | null;
+  lostAt?: string | null;
   // Other fields
   acquisitionCost?: number | null;
   createdAt: string;
@@ -162,6 +167,11 @@ export default function AdminLeadsPage() {
   
   // Bulk Delete Modal State
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  
+  // Recovery Modal State
+  const [showRecoverModal, setShowRecoverModal] = useState(false);
+  const [pendingRecoverLead, setPendingRecoverLead] = useState<Lead | null>(null);
+  const [isRecovering, setIsRecovering] = useState(false);
   
   // Filters
   const [search, setSearch] = useState("");
@@ -554,10 +564,91 @@ export default function AdminLeadsPage() {
     }
   };
 
+  // Open recovery modal for a PERSO lead
+  const handleOpenRecoverModal = (lead: Lead) => {
+    if (lead.status !== 'PERSO') {
+      return;
+    }
+    setPendingRecoverLead(lead);
+    setShowRecoverModal(true);
+  };
+
+  // Handle lead recovery
+  const handleRecoverLead = async (notes?: string) => {
+    if (!pendingRecoverLead) return;
+
+    const leadId = pendingRecoverLead.id;
+    const previousLeads = [...leads];
+    setIsRecovering(true);
+
+    // Optimistic update
+    const optimisticUpdate: Partial<Lead> = {
+      status: 'CONTATTATO',
+      callOutcome: null,
+      callAttempts: 0,
+      lostReason: null,
+      lostAt: null,
+    };
+
+    setLeads(prev => prev.map(lead => 
+      lead.id === leadId ? { ...lead, ...optimisticUpdate } : lead
+    ));
+
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recoverLead: true,
+          recoveryNotes: notes || null,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to recover");
+
+      toast.success(`Lead "${pendingRecoverLead.name}" recuperato con successo! 🎉`);
+      
+      // Refetch to get accurate data from server
+      fetchLeadsOnly();
+    } catch (error) {
+      console.error("Failed to recover lead:", error);
+      // Rollback on error
+      setLeads(previousLeads);
+      toast.error("Errore nel recupero del lead");
+    } finally {
+      setIsRecovering(false);
+      setShowRecoverModal(false);
+      setPendingRecoverLead(null);
+    }
+  };
+
   // Open call outcome modal
   const handleLogCall = (lead: Lead) => {
+    // For PERSO leads, guide them to recovery instead of blocking
     if (lead.status === 'PERSO') {
-      toast.error("Questo lead è già PERSO");
+      toast((t) => (
+        <div className="flex flex-col gap-2">
+          <p className="font-medium">Questo lead è PERSO</p>
+          <p className="text-sm text-gray-600">Vuoi recuperarlo per riprendere a lavorarlo?</p>
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                handleOpenRecoverModal(lead);
+              }}
+              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+            >
+              Recupera Lead
+            </button>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      ), { duration: 10000 });
       return;
     }
     if (lead.enrolled) {
@@ -641,7 +732,8 @@ export default function AdminLeadsPage() {
   // Handle set target
   const handleSetTarget = async (lead: Lead, value: boolean) => {
     if (lead.status === 'PERSO') {
-      toast.error("Non puoi modificare un lead PERSO");
+      // Guide to recovery instead of blocking
+      handleOpenRecoverModal(lead);
       return;
     }
     
@@ -667,7 +759,8 @@ export default function AdminLeadsPage() {
   // Handle enrollment
   const handleSetEnrolled = (lead: Lead) => {
     if (lead.status === 'PERSO') {
-      toast.error("Non puoi iscrivere un lead PERSO");
+      // Guide to recovery instead of blocking
+      handleOpenRecoverModal(lead);
       return;
     }
     if (!lead.contacted || lead.callOutcome !== 'POSITIVO') {
@@ -971,10 +1064,14 @@ export default function AdminLeadsPage() {
                   <div className="flex flex-col items-center gap-1">
                     {/* Call button or status */}
                     {lead.status === 'PERSO' ? (
-                      <Tooltip content="Lead perso - non modificabile" position="top">
-                        <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">
-                          PERSO
-                        </span>
+                      <Tooltip content="Clicca per recuperare questo lead" position="top">
+                        <button
+                          onClick={() => handleOpenRecoverModal(lead)}
+                          className="px-3 py-1.5 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition flex items-center gap-1.5 font-medium"
+                        >
+                          <RefreshCw size={12} />
+                          Recupera
+                        </button>
                       </Tooltip>
                     ) : lead.enrolled ? (
                       <Tooltip content="Lead iscritto!" position="top">
@@ -1064,7 +1161,7 @@ export default function AdminLeadsPage() {
                 <td className="p-4 text-center">
                   <Tooltip 
                     content={lead.status === 'PERSO' 
-                      ? "Non modificabile - lead perso" 
+                      ? "Clicca per opzioni di recupero" 
                       : lead.isTarget 
                         ? "🎯 Lead prioritario - clicca per rimuovere" 
                         : "Clicca per segnare come prioritario"
@@ -1072,11 +1169,16 @@ export default function AdminLeadsPage() {
                     position="top"
                   >
                     <button
-                      onClick={() => lead.status !== 'PERSO' && handleSetTarget(lead, !lead.isTarget)}
-                      disabled={lead.status === 'PERSO'}
+                      onClick={() => {
+                        if (lead.status === 'PERSO') {
+                          handleOpenRecoverModal(lead);
+                        } else {
+                          handleSetTarget(lead, !lead.isTarget);
+                        }
+                      }}
                       className={`p-1 rounded-lg transition ${
                         lead.status === 'PERSO' 
-                          ? 'opacity-50 cursor-not-allowed' 
+                          ? 'opacity-50 hover:opacity-100 hover:bg-green-50 cursor-pointer' 
                           : 'hover:bg-yellow-50 cursor-pointer'
                       }`}
                     >
@@ -1095,7 +1197,7 @@ export default function AdminLeadsPage() {
                       lead.enrolled 
                         ? "✅ Lead iscritto!"
                         : lead.status === 'PERSO'
-                          ? "❌ Lead perso - non può essere iscritto"
+                          ? "🔄 Clicca per opzioni di recupero"
                           : lead.callOutcome === 'POSITIVO'
                             ? "🎯 Clicca per iscrivere questo lead"
                             : "⚠️ Richiede esito 'Interessato' prima dell'iscrizione"
@@ -1108,14 +1210,18 @@ export default function AdminLeadsPage() {
                           toast.error("Non puoi rimuovere l'iscrizione da qui");
                           return;
                         }
+                        if (lead.status === 'PERSO') {
+                          handleOpenRecoverModal(lead);
+                          return;
+                        }
                         handleSetEnrolled(lead);
                       }}
-                      disabled={lead.enrolled || lead.status === 'PERSO'}
+                      disabled={lead.enrolled}
                       className={`p-1 rounded-lg transition ${
                         lead.enrolled
                           ? 'cursor-default'
                           : lead.status === 'PERSO'
-                            ? 'opacity-50 cursor-not-allowed'
+                            ? 'opacity-50 hover:opacity-100 hover:bg-green-50 cursor-pointer'
                             : lead.callOutcome === 'POSITIVO'
                               ? 'hover:bg-green-50 cursor-pointer'
                               : 'opacity-60 cursor-pointer hover:bg-gray-50'
@@ -1142,6 +1248,7 @@ export default function AdminLeadsPage() {
                       onLogCall={() => handleLogCall(lead)}
                       onSetTarget={(value) => handleSetTarget(lead, value)}
                       onSetEnrolled={() => handleSetEnrolled(lead)}
+                      onRecover={lead.status === 'PERSO' ? () => handleOpenRecoverModal(lead) : undefined}
                     />
                     <button
                       onClick={() => setDetailLead(lead)}
@@ -1290,6 +1397,20 @@ export default function AdminLeadsPage() {
           onCancel={handleBulkDeleteCancel}
         />
       )}
+
+      {/* Recovery Modal */}
+      <RecoverLeadModal
+        isOpen={showRecoverModal && !!pendingRecoverLead}
+        onClose={() => {
+          setShowRecoverModal(false);
+          setPendingRecoverLead(null);
+        }}
+        onConfirm={handleRecoverLead}
+        leadName={pendingRecoverLead?.name || ''}
+        lostReason={pendingRecoverLead?.lostReason}
+        lostAt={pendingRecoverLead?.lostAt}
+        isSubmitting={isRecovering}
+      />
     </div>
   );
 }
