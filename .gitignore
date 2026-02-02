@@ -50,3 +50,7 @@ test-results/
 
 .vercel
 .env*.local
+
+# Credentials - DO NOT COMMIT
+credentials/
+
