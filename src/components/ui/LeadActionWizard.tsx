@@ -34,6 +34,8 @@ interface Lead {
   lastAttemptAt: string | null;
   status: string;
   course?: { name: string } | null;
+  lostReason?: string | null;
+  lostAt?: string | null;
 }
 
 interface LeadActionWizardProps {
@@ -41,6 +43,7 @@ interface LeadActionWizardProps {
   onLogCall: () => void;
   onSetTarget: (value: boolean) => void;
   onSetEnrolled: () => void;
+  onRecover?: () => void;
 }
 
 export default function LeadActionWizard({
@@ -48,6 +51,7 @@ export default function LeadActionWizard({
   onLogCall,
   onSetTarget,
   onSetEnrolled,
+  onRecover,
 }: LeadActionWizardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [animateIn, setAnimateIn] = useState(false);
@@ -246,8 +250,16 @@ export default function LeadActionWizard({
       );
     }
 
-    // CASE 2: PERSO - Explanation
+    // CASE 2: PERSO - Can recover!
     if (isPerso) {
+      const formattedLostAt = lead.lostAt 
+        ? new Date(lead.lostAt).toLocaleDateString("it-IT", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : null;
+
       return (
         <div className="flex-1 p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -256,14 +268,30 @@ export default function LeadActionWizard({
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Lead Perso</h2>
-              <p className="text-sm text-gray-500">Questo lead non può più essere modificato</p>
+              <p className="text-sm text-gray-500">Ma puoi recuperarlo se necessario!</p>
             </div>
           </div>
 
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-            <h3 className="font-medium text-red-800 mb-3">Perché è successo?</h3>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+            <h3 className="font-medium text-red-800 mb-3">Perché è stato segnato PERSO?</h3>
+            
+            {/* Show specific lostReason if available */}
+            {lead.lostReason && (
+              <div className="flex items-start gap-2 text-sm text-red-700 mb-3 p-2 bg-red-100 rounded-lg">
+                <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Motivo:</strong> {lead.lostReason}
+                  {formattedLostAt && (
+                    <span className="block text-xs text-red-600 mt-1">
+                      Segnato il {formattedLostAt}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <ul className="space-y-2">
-              {isNegativo && (
+              {isNegativo && !lead.lostReason && (
                 <li className="flex items-start gap-2 text-sm text-red-700">
                   <XCircle size={16} className="flex-shrink-0 mt-0.5" />
                   <span>Il lead ha dichiarato di <strong>non essere interessato</strong></span>
@@ -275,7 +303,7 @@ export default function LeadActionWizard({
                   <span>Hai raggiunto il <strong>massimo di 8 tentativi</strong> di chiamata</span>
                 </li>
               )}
-              {!isNegativo && lead.callAttempts < 8 && (
+              {!isNegativo && lead.callAttempts < 8 && !lead.lostReason && (
                 <li className="flex items-start gap-2 text-sm text-red-700">
                   <Calendar size={16} className="flex-shrink-0 mt-0.5" />
                   <span>Sono passati <strong>più di 15 giorni</strong> dall'ultima chiamata</span>
@@ -284,12 +312,44 @@ export default function LeadActionWizard({
             </ul>
           </div>
 
-          <button
-            onClick={() => setIsOpen(false)}
-            className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-          >
-            Ho capito
-          </button>
+          {/* Recovery info box */}
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+            <h3 className="font-medium text-green-800 mb-2 flex items-center gap-2">
+              <TrendingUp size={16} />
+              Vuoi recuperare questo lead?
+            </h3>
+            <p className="text-sm text-green-700">
+              Se il lead ti ha ricontattato o vuole essere richiamato, puoi recuperarlo 
+              e riprendere a lavorarlo. Il contatore delle chiamate verrà azzerato.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {/* Primary: Recover lead */}
+            {onRecover && (
+              <button
+                onClick={() => handleAction(onRecover)}
+                className="w-full flex items-center gap-4 p-4 bg-green-600 text-white rounded-xl hover:bg-green-700 transition group"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition">
+                  <TrendingUp size={24} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold text-lg">Recupera Lead</p>
+                  <p className="text-sm opacity-90">Riporta il lead in lavorazione</p>
+                </div>
+                <ArrowRight size={20} className="opacity-50 group-hover:translate-x-1 transition" />
+              </button>
+            )}
+
+            {/* Secondary: Close */}
+            <button
+              onClick={() => setIsOpen(false)}
+              className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+            >
+              Ho capito
+            </button>
+          </div>
         </div>
       );
     }

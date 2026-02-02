@@ -113,6 +113,13 @@ model Lead {
   firstAttemptAt    DateTime?
   lastAttemptAt     DateTime?
   status            LeadStatus     @default(NUOVO)
+  // Lost lead tracking
+  lostReason        String?        // Why the lead was lost (e.g., "Non interessato", "Numero sbagliato")
+  lostAt            DateTime?      // When the lead was marked as PERSO
+  // Recovery tracking
+  recoveredAt       DateTime?      // If/when the lead was recovered from PERSO
+  recoveredById     String?        // Who recovered the lead
+  recoveredBy       User?          @relation("RecoveredBy", fields: [recoveredById], references: [id])
   assignedTo        User?          @relation("AssignedTo", fields: [assignedToId], references: [id])
   campaign          Campaign?      @relation(fields: [campaignId], references: [id])
   contactedBy       User?          @relation("ContactedBy", fields: [contactedById], references: [id])
@@ -134,6 +141,8 @@ model Lead {
   @@index([enrolledAt])
   @@index([lastAttemptAt])
   @@index([contactedAt])
+  @@index([recoveredById])
+  @@index([lostAt])
 }
 
 model LeadActivity {
@@ -250,6 +259,7 @@ model User {
   assignedLeads      Lead[]         @relation("AssignedTo")
   contactedLeads     Lead[]         @relation("ContactedBy")
   createdLeads       Lead[]         @relation("CreatedBy")
+  recoveredLeads     Lead[]         @relation("RecoveredBy")
   activities         LeadActivity[]
   notifications      Notification[]
   tasks              Task[]
@@ -264,6 +274,7 @@ enum ActivityType {
   ENROLLMENT
   LEAD_CREATED
   CONTACT
+  RECOVERY       // Lead recovered from PERSO status
 }
 
 // Call outcomes: Only POSITIVO, RICHIAMARE, NEGATIVO are used in UI

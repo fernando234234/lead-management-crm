@@ -26,7 +26,7 @@ function computeLeadStatus(lead: {
   contacted: boolean;
   callOutcome: string | null;
   callAttempts: number;
-  firstAttemptAt: Date | null;
+  lastAttemptAt: Date | null;
 }): ComputedStatus {
   // 1. Enrolled = ISCRITTO (highest priority, terminal state)
   if (lead.enrolled) {
@@ -43,12 +43,13 @@ function computeLeadStatus(lead: {
     return "PERSO";
   }
   
-  // 4. 15+ days since first attempt = PERSO (stale lead)
-  if (lead.firstAttemptAt) {
-    const daysSinceFirst = Math.floor(
-      (new Date().getTime() - new Date(lead.firstAttemptAt).getTime()) / (1000 * 60 * 60 * 24)
+  // 4. 15+ days since LAST attempt = PERSO (inactive lead)
+  // Timer resets with each call attempt - only becomes PERSO if no contact for 15 days
+  if (lead.lastAttemptAt) {
+    const daysSinceLast = Math.floor(
+      (new Date().getTime() - new Date(lead.lastAttemptAt).getTime()) / (1000 * 60 * 60 * 24)
     );
-    if (daysSinceFirst >= 15 && !lead.enrolled && lead.callOutcome !== "POSITIVO") {
+    if (daysSinceLast >= 15 && !lead.enrolled && lead.callOutcome !== "POSITIVO") {
       return "PERSO";
     }
   }
@@ -123,8 +124,64 @@ export async function PUT(
         firstAttemptAt: true,
         lastAttemptAt: true,
         callOutcome: true,
+        lostReason: true,
+        lostAt: true,
       },
     });
+
+    // ========================================================================
+    // RECOVERY ACTION - Reset a PERSO lead back to active state
+    // ========================================================================
+    if (body.recoverLead === true) {
+      if (currentLead?.status !== 'PERSO') {
+        return NextResponse.json(
+          { error: 'Solo i lead PERSO possono essere recuperati' },
+          { status: 400 }
+        );
+      }
+      
+      // Reset the lead to CONTATTATO state
+      const recoveredLead = await prisma.lead.update({
+        where: { id },
+        data: {
+          status: 'CONTATTATO',
+          callOutcome: null,
+          callAttempts: 0,
+          firstAttemptAt: null,
+          lastAttemptAt: null,
+          lostReason: null,
+          lostAt: null,
+          recoveredAt: new Date(),
+          recoveredById: session?.user?.id || null,
+          // Keep contacted = true since they were previously contacted
+          contacted: true,
+        },
+        include: {
+          course: { select: { id: true, name: true } },
+          campaign: { select: { id: true, name: true } },
+          assignedTo: { select: { id: true, name: true } },
+        },
+      });
+
+      // Log the recovery activity
+      if (session?.user?.id) {
+        await prisma.leadActivity.create({
+          data: {
+            leadId: id,
+            userId: session.user.id,
+            type: 'RECOVERY',
+            description: `Lead recuperato da PERSO${body.recoveryNotes ? `: ${body.recoveryNotes}` : ''}`,
+            metadata: { 
+              previousLostReason: currentLead.lostReason,
+              previousLostAt: currentLead.lostAt,
+              recoveryNotes: body.recoveryNotes,
+            },
+          },
+        });
+      }
+
+      return NextResponse.json(recoveredLead);
+    }
 
     // Build update data
     const updateData: Record<string, unknown> = {};
@@ -166,7 +223,7 @@ export async function PUT(
     const VALID_CALL_OUTCOMES = ['POSITIVO', 'RICHIAMARE', 'NEGATIVO'] as const;
     let newCallOutcome = currentLead?.callOutcome;
     let newCallAttempts = currentLead?.callAttempts || 0;
-    let newFirstAttemptAt = currentLead?.firstAttemptAt;
+    let newLastAttemptAt = currentLead?.lastAttemptAt;
     let newContacted = body.contacted !== undefined ? body.contacted : currentLead?.contacted;
     let newEnrolled = body.enrolled !== undefined ? body.enrolled : currentLead?.enrolled;
     
@@ -183,9 +240,9 @@ export async function PUT(
       newCallAttempts = (currentLead?.callAttempts || 0) + 1;
       updateData.callAttempts = newCallAttempts;
       updateData.lastAttemptAt = new Date();
+      newLastAttemptAt = new Date();
       if (!currentLead?.firstAttemptAt) {
         updateData.firstAttemptAt = new Date();
-        newFirstAttemptAt = new Date();
       }
       
       // POSITIVO = mark as contacted if not already
@@ -217,11 +274,34 @@ export async function PUT(
       contacted: newContacted || false,
       callOutcome: newCallOutcome || null,
       callAttempts: newCallAttempts,
-      firstAttemptAt: newFirstAttemptAt || null,
+      lastAttemptAt: newLastAttemptAt || null,
     });
     
     // Always set the computed status
     updateData.status = computedStatus;
+    
+    // ========================================================================
+    // LOST REASON TRACKING - Set when transitioning to PERSO
+    // ========================================================================
+    if (computedStatus === 'PERSO' && currentLead?.status !== 'PERSO') {
+      // Set lostAt timestamp
+      updateData.lostAt = new Date();
+      
+      // Set lostReason - use provided reason or infer from outcome
+      if (body.lostReason) {
+        updateData.lostReason = body.lostReason;
+      } else if (body.callOutcome === 'NEGATIVO') {
+        updateData.lostReason = body.outcomeNotes || 'Non interessato';
+      } else if (newCallAttempts >= 8) {
+        updateData.lostReason = 'Massimo tentativi raggiunto (8 chiamate)';
+      } else {
+        updateData.lostReason = 'Nessuna risposta prolungata';
+      }
+      
+      // Clear any previous recovery data
+      updateData.recoveredAt = null;
+      updateData.recoveredById = null;
+    }
     
     // Acquisition cost tracking (for Marketing)
     if (body.acquisitionCost !== undefined) {

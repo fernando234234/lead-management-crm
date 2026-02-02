@@ -21,7 +21,7 @@ interface CallHistory {
 interface CallOutcomeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { callOutcome: string; outcomeNotes: string }) => Promise<void>;
+  onSubmit: (data: { callOutcome: string; outcomeNotes: string; lostReason?: string }) => Promise<void>;
   leadName: string;
   callAttempts: number;
   lastAttemptAt: string | null;
@@ -31,6 +31,17 @@ interface CallOutcomeModalProps {
   // What triggered opening this modal - affects messaging
   trigger?: 'button' | 'contattato' | 'target' | 'enrolled';
 }
+
+// Predefined lost reasons
+const LOST_REASONS = [
+  { value: 'non_interessato', label: 'Non interessato', description: 'Il lead ha detto che non è interessato' },
+  { value: 'numero_sbagliato', label: 'Numero sbagliato/inesistente', description: 'Il numero non è valido o non esiste' },
+  { value: 'non_contattabile', label: 'Non contattabile', description: 'Impossibile raggiungere (numero falso, blocco, etc.)' },
+  { value: 'gia_iscritto_altrove', label: 'Già iscritto altrove', description: 'Si è già iscritto presso un altro ente' },
+  { value: 'budget_insufficiente', label: 'Budget insufficiente', description: 'Non può permettersi il corso' },
+  { value: 'tempistiche_incompatibili', label: 'Tempistiche incompatibili', description: 'Le date del corso non vanno bene' },
+  { value: 'altro', label: 'Altro motivo', description: 'Specificare nelle note' },
+] as const;
 
 export default function CallOutcomeModal({
   isOpen,
@@ -48,6 +59,7 @@ export default function CallOutcomeModal({
   const [outcomeNotes, setOutcomeNotes] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [showNegativoConfirm, setShowNegativoConfirm] = useState(false);
+  const [lostReason, setLostReason] = useState("");
 
   if (!isOpen) return null;
 
@@ -79,20 +91,25 @@ export default function CallOutcomeModal({
   };
   
   const handleConfirmNegativo = async () => {
-    await onSubmit({ callOutcome: "NEGATIVO", outcomeNotes });
+    // Get the label for the selected reason
+    const reasonLabel = LOST_REASONS.find(r => r.value === lostReason)?.label || lostReason;
+    await onSubmit({ callOutcome: "NEGATIVO", outcomeNotes, lostReason: reasonLabel });
     setCallOutcome("");
     setOutcomeNotes("");
+    setLostReason("");
     setShowNegativoConfirm(false);
   };
   
   const handleCancelNegativo = () => {
     setShowNegativoConfirm(false);
+    setLostReason("");
     setCallOutcome("");
   };
 
   const handleClose = () => {
     setCallOutcome("");
     setOutcomeNotes("");
+    setLostReason("");
     setShowHistory(false);
     setShowNegativoConfirm(false);
     onClose();
@@ -411,45 +428,95 @@ export default function CallOutcomeModal({
           </div>
         </form>
         
-        {/* NEGATIVO Confirmation Overlay */}
+        {/* NEGATIVO Confirmation Overlay with Reason Selection */}
         {showNegativoConfirm && (
-          <div className="absolute inset-0 bg-white/95 flex items-center justify-center p-6 rounded-xl">
-            <div className="text-center max-w-sm">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle size={32} className="text-red-600" />
+          <div className="absolute inset-0 bg-white flex flex-col rounded-xl overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b bg-red-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle size={20} className="text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Segna come PERSO</h3>
+                  <p className="text-sm text-gray-600">{leadName}</p>
+                </div>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                Conferma: Lead Non Interessato
-              </h3>
-              <p className="text-sm text-gray-600 mb-6">
-                Stai per segnare <strong>{leadName}</strong> come <strong className="text-red-600">NON INTERESSATO</strong>.
-                <br /><br />
-                Questa azione lo marcherà come <strong className="text-red-600">PERSO</strong> e non potrà essere facilmente annullata.
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <p className="text-sm text-gray-600 mb-4">
+                <strong>Seleziona il motivo</strong> per cui questo lead è perso:
               </p>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancelNegativo}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmNegativo}
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <XCircle size={18} />
-                      Conferma PERSO
-                    </>
-                  )}
-                </button>
+              
+              {/* Reason Selection */}
+              <div className="space-y-2 mb-4">
+                {LOST_REASONS.map((reason) => (
+                  <button
+                    key={reason.value}
+                    type="button"
+                    onClick={() => setLostReason(reason.value)}
+                    className={`w-full p-3 rounded-lg border-2 transition text-left ${
+                      lostReason === reason.value
+                        ? 'border-red-500 bg-red-50 ring-2 ring-red-500 ring-offset-1'
+                        : 'border-gray-200 hover:border-red-300'
+                    }`}
+                  >
+                    <p className="font-medium text-gray-900">{reason.label}</p>
+                    <p className="text-xs text-gray-500">{reason.description}</p>
+                  </button>
+                ))}
               </div>
+              
+              {/* Notes for "Altro" */}
+              {lostReason === 'altro' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Specifica il motivo <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={outcomeNotes}
+                    onChange={(e) => setOutcomeNotes(e.target.value)}
+                    rows={2}
+                    placeholder="Descrivi il motivo..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                  />
+                </div>
+              )}
+              
+              {/* Warning */}
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-xs text-yellow-700">
+                  <strong>Nota:</strong> Il lead potrà essere recuperato in seguito se necessario (es. risponde alla mail).
+                </p>
+              </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="p-4 border-t bg-gray-50 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelNegativo}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-medium"
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmNegativo}
+                disabled={isSubmitting || !lostReason || (lostReason === 'altro' && !outcomeNotes.trim())}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <XCircle size={18} />
+                    Conferma PERSO
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}
