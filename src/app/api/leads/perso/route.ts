@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     // Search filters
     const search = searchParams.get("search");
     const courseId = searchParams.get("courseId");
+    const assignedToId = searchParams.get("assignedToId"); // Filter by previous owner
     
     // Pagination
     const page = parseInt(searchParams.get("page") || "1");
@@ -48,6 +49,11 @@ export async function GET(request: NextRequest) {
     // Filter by course
     if (courseId) {
       where.courseId = courseId;
+    }
+
+    // Filter by previous assignee (commercial)
+    if (assignedToId) {
+      where.assignedToId = assignedToId;
     }
 
     // Get total count for pagination
@@ -80,6 +86,34 @@ export async function GET(request: NextRequest) {
     // Calculate pagination info
     const totalPages = Math.ceil(totalCount / pageSize);
 
+    // Get list of commercials who have PERSO leads (for filter dropdown)
+    // Only fetch this on first page to avoid repeated queries
+    let commercialsWithPersoLeads: Array<{ id: string; name: string; count: number }> = [];
+    if (page === 1) {
+      const commercialStats = await prisma.lead.groupBy({
+        by: ['assignedToId'],
+        where: { status: 'PERSO', assignedToId: { not: null } },
+        _count: { id: true },
+      });
+
+      if (commercialStats.length > 0) {
+        const commercialIds = commercialStats
+          .map(s => s.assignedToId)
+          .filter((id): id is string => id !== null);
+        
+        const commercials = await prisma.user.findMany({
+          where: { id: { in: commercialIds } },
+          select: { id: true, name: true },
+        });
+
+        commercialsWithPersoLeads = commercials.map(c => ({
+          id: c.id,
+          name: c.name,
+          count: commercialStats.find(s => s.assignedToId === c.id)?._count.id || 0,
+        })).sort((a, b) => b.count - a.count); // Sort by count descending
+      }
+    }
+
     return NextResponse.json({
       leads,
       pagination: {
@@ -89,6 +123,7 @@ export async function GET(request: NextRequest) {
         totalPages,
         hasMore: page < totalPages,
       },
+      commercials: commercialsWithPersoLeads,
     });
   } catch (error) {
     console.error("Error fetching PERSO leads:", error);

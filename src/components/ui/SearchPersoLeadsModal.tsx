@@ -15,6 +15,9 @@ import {
   Inbox,
   BookOpen,
   Loader2,
+  Users,
+  HelpCircle,
+  CheckCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -34,6 +37,12 @@ interface PersoLead {
 interface Course {
   id: string;
   name: string;
+}
+
+interface Commercial {
+  id: string;
+  name: string;
+  count: number;
 }
 
 interface PaginationInfo {
@@ -61,11 +70,14 @@ export default function SearchPersoLeadsModal({
 }: SearchPersoLeadsModalProps) {
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
+  const [commercialFilter, setCommercialFilter] = useState("");
   const [leads, setLeads] = useState<PersoLead[]>([]);
+  const [commercials, setCommercials] = useState<Commercial[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [claimingLeadId, setClaimingLeadId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -85,6 +97,7 @@ export default function SearchPersoLeadsModal({
       const params = new URLSearchParams();
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (courseFilter) params.set("courseId", courseFilter);
+      if (commercialFilter) params.set("assignedToId", commercialFilter);
       params.set("page", currentPage.toString());
       params.set("pageSize", "8");
 
@@ -94,13 +107,18 @@ export default function SearchPersoLeadsModal({
       const data = await response.json();
       setLeads(data.leads);
       setPagination(data.pagination);
+      
+      // Only update commercials list on first page (it comes with page 1 response)
+      if (data.commercials && currentPage === 1) {
+        setCommercials(data.commercials);
+      }
     } catch (error) {
       console.error("Failed to fetch PERSO leads:", error);
       toast.error("Errore nel caricamento dei lead PERSO");
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, courseFilter, currentPage]);
+  }, [debouncedSearch, courseFilter, commercialFilter, currentPage]);
 
   // Fetch when modal opens or filters change
   useEffect(() => {
@@ -114,9 +132,12 @@ export default function SearchPersoLeadsModal({
     if (!isOpen) {
       setSearch("");
       setCourseFilter("");
+      setCommercialFilter("");
       setCurrentPage(1);
       setLeads([]);
+      setCommercials([]);
       setPagination(null);
+      setShowHelp(false);
     }
   }, [isOpen]);
 
@@ -191,22 +212,82 @@ export default function SearchPersoLeadsModal({
                 Recupera Lead Perso
               </h2>
               <p className="text-sm text-gray-500">
-                Cerca e recupera lead PERSO di altri commerciali
+                Cerca e recupera lead PERSO da altri commerciali
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className={`p-2 rounded-lg transition ${showHelp ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-500'}`}
+              title="Come funziona?"
+            >
+              <HelpCircle size={20} />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
+
+        {/* Help Section (collapsible) */}
+        {showHelp && (
+          <div className="p-4 bg-blue-50 border-b border-blue-100 space-y-3">
+            <h3 className="font-semibold text-blue-900 flex items-center gap-2">
+              <HelpCircle size={18} />
+              Come funziona il recupero lead?
+            </h3>
+            <div className="grid md:grid-cols-2 gap-3 text-sm">
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="font-medium text-blue-800 mb-1">Cosa sono i lead PERSO?</p>
+                <p className="text-gray-600">
+                  Sono lead che altri commerciali non sono riusciti a convertire 
+                  (non interessato, troppi tentativi, inattività).
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="font-medium text-blue-800 mb-1">Perché recuperarli?</p>
+                <p className="text-gray-600">
+                  A volte un lead &quot;freddo&quot; può essere riattivato con un approccio diverso 
+                  o semplicemente in un momento migliore.
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="font-medium text-blue-800 mb-1">Cosa succede quando recuperi?</p>
+                <ul className="text-gray-600 space-y-1">
+                  <li className="flex items-start gap-1">
+                    <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                    Il lead diventa tuo (riassegnato a te)
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                    Lo stato torna a CONTATTATO
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                    Hai 8 nuovi tentativi di chiamata
+                  </li>
+                </ul>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="font-medium text-blue-800 mb-1">Il commerciale precedente?</p>
+                <p className="text-gray-600">
+                  Riceverà una notifica automatica che il lead è stato recuperato da te. 
+                  Non può più lavorarlo.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Search & Filters */}
         <div className="p-4 border-b bg-gray-50 space-y-3">
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
+          <div className="flex flex-wrap gap-3">
+            {/* Search input */}
+            <div className="flex-1 min-w-[200px] relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 size={18}
@@ -220,13 +301,15 @@ export default function SearchPersoLeadsModal({
                 autoFocus
               />
             </div>
+            
+            {/* Course filter */}
             <select
               value={courseFilter}
               onChange={(e) => {
                 setCourseFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 min-w-[180px]"
+              className="px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 min-w-[160px]"
             >
               <option value="">Tutti i corsi</option>
               {courses.map((course) => (
@@ -235,16 +318,56 @@ export default function SearchPersoLeadsModal({
                 </option>
               ))}
             </select>
+
+            {/* Commercial filter */}
+            <select
+              value={commercialFilter}
+              onChange={(e) => {
+                setCommercialFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 min-w-[180px]"
+            >
+              <option value="">Tutti i commerciali</option>
+              {commercials.map((commercial) => (
+                <option key={commercial.id} value={commercial.id}>
+                  {commercial.name} ({commercial.count})
+                </option>
+              ))}
+            </select>
           </div>
           
-          {pagination && (
+          {/* Results count and active filters */}
+          <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              {pagination.totalCount === 0 
-                ? "Nessun lead PERSO trovato"
-                : `${pagination.totalCount} lead PERSO ${pagination.totalCount === 1 ? "trovato" : "trovati"}`
-              }
+              {loading ? (
+                "Caricamento..."
+              ) : pagination?.totalCount === 0 ? (
+                "Nessun lead PERSO trovato"
+              ) : (
+                <>
+                  <span className="font-medium text-gray-700">{pagination?.totalCount}</span>
+                  {" "}lead PERSO {pagination?.totalCount === 1 ? "disponibile" : "disponibili"}
+                </>
+              )}
             </p>
-          )}
+            
+            {/* Clear filters button */}
+            {(search || courseFilter || commercialFilter) && (
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setCourseFilter("");
+                  setCommercialFilter("");
+                  setCurrentPage(1);
+                }}
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+              >
+                <X size={14} />
+                Rimuovi filtri
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Results */}
@@ -256,11 +379,11 @@ export default function SearchPersoLeadsModal({
           ) : leads.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-400">
               <Inbox size={48} className="mb-3" />
-              <p className="font-medium">Nessun lead PERSO disponibile</p>
-              <p className="text-sm mt-1">
-                {debouncedSearch || courseFilter 
+              <p className="font-medium text-gray-600">Nessun lead PERSO disponibile</p>
+              <p className="text-sm mt-1 text-center max-w-md">
+                {debouncedSearch || courseFilter || commercialFilter
                   ? "Prova a modificare i filtri di ricerca"
-                  : "Non ci sono lead PERSO nel sistema"
+                  : "Non ci sono lead PERSO nel sistema al momento. Torneranno disponibili quando altri commerciali avranno lead che diventano PERSO."
                 }
               </p>
             </div>
@@ -309,14 +432,14 @@ export default function SearchPersoLeadsModal({
                         )}
                         {lead.assignedTo && (
                           <span className="flex items-center gap-1 text-gray-500">
-                            <User size={14} />
+                            <Users size={14} className="text-orange-500" />
                             <span className="text-gray-400">Ex:</span> {lead.assignedTo.name}
                           </span>
                         )}
                         {lead.lostAt && (
                           <span className="flex items-center gap-1 text-gray-500">
                             <Calendar size={14} />
-                            PERSO: {formatDate(lead.lostAt)}
+                            PERSO il {formatDate(lead.lostAt)}
                           </span>
                         )}
                       </div>
@@ -333,7 +456,7 @@ export default function SearchPersoLeadsModal({
                     {/* Claim Button */}
                     <button
                       onClick={() => handleClaimLead(lead)}
-                      disabled={claimingLeadId === lead.id}
+                      disabled={claimingLeadId === lead.id || lead.assignedTo?.id === currentUserId}
                       className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition flex-shrink-0 ${
                         lead.assignedTo?.id === currentUserId
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -392,10 +515,19 @@ export default function SearchPersoLeadsModal({
         )}
 
         {/* Info Footer */}
-        <div className="p-3 border-t bg-blue-50 text-xs text-blue-700">
-          <strong>Nota:</strong> Quando recuperi un lead, diventerai automaticamente l&apos;assegnatario. 
-          Il commerciale precedente riceverà una notifica.
-        </div>
+        {!showHelp && (
+          <div className="p-3 border-t bg-blue-50 text-xs text-blue-700 flex items-center justify-between">
+            <span>
+              <strong>Suggerimento:</strong> Quando recuperi un lead, diventi l&apos;assegnatario e hai 8 nuovi tentativi.
+            </span>
+            <button 
+              onClick={() => setShowHelp(true)}
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              Scopri di più
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
