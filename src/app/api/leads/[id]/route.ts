@@ -131,6 +131,9 @@ export async function PUT(
 
     // ========================================================================
     // RECOVERY ACTION - Reset a PERSO lead back to active state
+    // Supports two modes:
+    // 1. recoverLead=true only: User recovers their own lead (no reassignment)
+    // 2. recoverLead=true + claimLead=true: User claims AND recovers another's lead
     // ========================================================================
     if (body.recoverLead === true) {
       if (currentLead?.status !== 'PERSO') {
@@ -139,23 +142,56 @@ export async function PUT(
           { status: 400 }
         );
       }
-      
-      // Reset the lead to CONTATTATO state
-      const recoveredLead = await prisma.lead.update({
-        where: { id },
-        data: {
-          status: 'CONTATTATO',
-          callOutcome: null,
-          callAttempts: 0,
-          firstAttemptAt: null,
-          lastAttemptAt: null,
-          lostReason: null,
-          lostAt: null,
-          recoveredAt: new Date(),
-          recoveredById: session?.user?.id || null,
-          // Keep contacted = true since they were previously contacted
-          contacted: true,
+
+      const userId = session?.user?.id;
+      const isClaimingFromPool = body.claimLead === true;
+      const previousAssigneeId = currentLead.assignedToId;
+      const previousAssigneeName = currentLead.assignedToId ? 
+        (await prisma.user.findUnique({ where: { id: currentLead.assignedToId }, select: { name: true } }))?.name : null;
+
+      // ========================================================================
+      // CONCURRENCY GUARD - Use updateMany with status check to prevent race conditions
+      // If another user claimed this lead between our read and write, this returns count=0
+      // ========================================================================
+      const recoveryData: Record<string, unknown> = {
+        status: 'CONTATTATO',
+        callOutcome: null,
+        callAttempts: 0,
+        firstAttemptAt: null,
+        lastAttemptAt: null,
+        lostReason: null,
+        lostAt: null,
+        recoveredAt: new Date(),
+        recoveredById: userId || null,
+        // Keep contacted = true since they were previously contacted
+        contacted: true,
+      };
+
+      // If claiming from pool, also reassign to the claimer
+      if (isClaimingFromPool && userId) {
+        recoveryData.assignedToId = userId;
+      }
+
+      // Use updateMany with status check for concurrency safety
+      const updateResult = await prisma.lead.updateMany({
+        where: { 
+          id, 
+          status: 'PERSO', // Only update if STILL PERSO (concurrency guard)
         },
+        data: recoveryData,
+      });
+
+      // If no rows were updated, someone else got there first
+      if (updateResult.count === 0) {
+        return NextResponse.json(
+          { error: 'Questo lead è già stato recuperato da qualcun altro' },
+          { status: 409 }
+        );
+      }
+
+      // Fetch the updated lead to return
+      const recoveredLead = await prisma.lead.findUnique({
+        where: { id },
         include: {
           course: { select: { id: true, name: true } },
           campaign: { select: { id: true, name: true } },
@@ -163,21 +199,57 @@ export async function PUT(
         },
       });
 
-      // Log the recovery activity
-      if (session?.user?.id) {
-        await prisma.leadActivity.create({
-          data: {
-            leadId: id,
-            userId: session.user.id,
-            type: 'RECOVERY',
-            description: `Lead recuperato da PERSO${body.recoveryNotes ? `: ${body.recoveryNotes}` : ''}`,
-            metadata: { 
-              previousLostReason: currentLead.lostReason,
-              previousLostAt: currentLead.lostAt,
-              recoveryNotes: body.recoveryNotes,
-            },
+      // Log activities and notifications
+      if (userId) {
+        const activities: Array<{ leadId: string; userId: string; type: ActivityType; description: string; metadata?: object }> = [];
+
+        // Log RECOVERY activity
+        activities.push({
+          leadId: id,
+          userId,
+          type: 'RECOVERY' as ActivityType,
+          description: isClaimingFromPool 
+            ? `Lead recuperato da PERSO e riassegnato${body.recoveryNotes ? `: ${body.recoveryNotes}` : ''}`
+            : `Lead recuperato da PERSO${body.recoveryNotes ? `: ${body.recoveryNotes}` : ''}`,
+          metadata: { 
+            previousLostReason: currentLead.lostReason,
+            previousLostAt: currentLead.lostAt,
+            recoveryNotes: body.recoveryNotes,
+            claimedFromPool: isClaimingFromPool,
+            previousAssigneeId,
           },
         });
+
+        // Log ASSIGNMENT activity if claiming from pool
+        if (isClaimingFromPool && previousAssigneeId !== userId) {
+          activities.push({
+            leadId: id,
+            userId,
+            type: 'ASSIGNMENT' as ActivityType,
+            description: `Lead riassegnato da ${previousAssigneeName || 'nessuno'} a ${session?.user?.name || 'N/A'} (recupero da pool PERSO)`,
+            metadata: { 
+              oldAssignedToId: previousAssigneeId, 
+              newAssignedToId: userId,
+              reason: 'claimed_from_perso_pool',
+            },
+          });
+        }
+
+        // Create all activities
+        if (activities.length > 0) {
+          await prisma.leadActivity.createMany({ data: activities });
+        }
+
+        // Notify previous assignee if claiming from another user
+        if (isClaimingFromPool && previousAssigneeId && previousAssigneeId !== userId) {
+          await createNotification(
+            previousAssigneeId,
+            "SYSTEM",
+            "Lead recuperato",
+            `Il tuo lead PERSO "${currentLead.name}" è stato recuperato da ${session?.user?.name || 'un altro commerciale'}`,
+            undefined // No link - just informative
+          );
+        }
       }
 
       return NextResponse.json(recoveredLead);

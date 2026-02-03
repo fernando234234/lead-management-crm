@@ -39,6 +39,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import LeadFormModal from "@/components/ui/LeadFormModal";
 import RecoverLeadModal from "@/components/ui/RecoverLeadModal";
+import SearchPersoLeadsModal from "@/components/ui/SearchPersoLeadsModal";
 
 // Boolean display helpers
 const booleanConfig = {
@@ -126,10 +127,13 @@ export default function CommercialLeadsPage() {
   // Help modal
   const [showHelpModal, setShowHelpModal] = useState(false);
 
-  // Recovery modal
+  // Recovery modal (for own leads)
   const [showRecoverModal, setShowRecoverModal] = useState(false);
   const [pendingRecoverLead, setPendingRecoverLead] = useState<Lead | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
+
+  // Search PERSO leads modal (for claiming others' leads)
+  const [showSearchPersoModal, setShowSearchPersoModal] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -736,6 +740,13 @@ export default function CommercialLeadsPage() {
             filename="i_miei_lead_export"
           />
           <button
+            onClick={() => setShowSearchPersoModal(true)}
+            className="flex items-center gap-2 px-4 py-2 border-2 border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition font-medium"
+          >
+            <RefreshCw size={18} />
+            Recupera Lead Perso
+          </button>
+          <button
             onClick={openCreateModal}
             className="flex items-center gap-2 px-4 py-2 bg-commercial text-white rounded-lg hover:opacity-90 transition font-medium"
           >
@@ -1195,7 +1206,7 @@ export default function CommercialLeadsPage() {
         trigger={callModalTrigger}
       />
 
-      {/* Recovery Modal */}
+      {/* Recovery Modal (for own leads) */}
       <RecoverLeadModal
         isOpen={showRecoverModal && !!pendingRecoverLead}
         onClose={() => {
@@ -1207,6 +1218,15 @@ export default function CommercialLeadsPage() {
         lostReason={pendingRecoverLead?.lostReason}
         lostAt={pendingRecoverLead?.lostAt}
         isSubmitting={isRecovering}
+      />
+
+      {/* Search PERSO Leads Modal (for claiming others' leads) */}
+      <SearchPersoLeadsModal
+        isOpen={showSearchPersoModal}
+        onClose={() => setShowSearchPersoModal(false)}
+        onClaimSuccess={fetchLeadsOnly}
+        courses={courses}
+        currentUserId={session?.user?.id || ''}
       />
 
       {/* Floating Help Button */}
