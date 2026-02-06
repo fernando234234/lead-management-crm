@@ -11,6 +11,7 @@ interface SpendRecordModalProps {
   onSave: (data: SpendRecordFormData) => Promise<void>;
   record?: SpendRecord | null;
   isLoading?: boolean;
+  accent?: "admin" | "marketing";
 }
 
 export default function SpendRecordModal({
@@ -19,6 +20,7 @@ export default function SpendRecordModal({
   onSave,
   record,
   isLoading = false,
+  accent = "marketing",
 }: SpendRecordModalProps) {
   // Handle ESC key to close
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function SpendRecordModal({
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Chiudi modal spesa"
           >
             <X size={20} />
           </button>
@@ -78,6 +81,7 @@ export default function SpendRecordModal({
             onSubmit={handleSave}
             onCancel={onClose}
             isLoading={isLoading}
+            accent={accent}
           />
         </div>
       </div>

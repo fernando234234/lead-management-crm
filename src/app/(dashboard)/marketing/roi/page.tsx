@@ -641,6 +641,7 @@ export default function MarketingROIPage() {
             startDate={startDate}
             endDate={endDate}
             onChange={handleDateChange}
+            accent="marketing"
           />
         </div>
         

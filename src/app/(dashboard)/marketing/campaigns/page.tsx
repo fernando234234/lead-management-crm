@@ -786,6 +786,7 @@ export default function MarketingCampaignsPage() {
         }}
         onSave={handleSaveSpendRecord}
         record={editingSpendRecord}
+        accent="marketing"
       />
     </div>
   );

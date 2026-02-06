@@ -675,6 +675,7 @@ export default function ReportsPage() {
             endDate={endDate}
             onChange={handleDateChange}
             presets
+            accent="admin"
           />
           {(startDate || endDate) && (
             <div className="flex items-center gap-2 text-xs text-admin bg-admin/5 px-3 py-1.5 rounded-full">

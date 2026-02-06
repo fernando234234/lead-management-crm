@@ -156,6 +156,7 @@ export default function MarketingDashboard() {
               setStartDate(start);
               setEndDate(end);
             }}
+            accent="marketing"
           />
           {(startDate || endDate) && (
             <span className="text-sm text-marketing font-medium">

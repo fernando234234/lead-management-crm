@@ -10,12 +10,12 @@ import {
   DollarSign,
   Target,
   Filter,
-  Calendar,
   ChevronDown,
   ChevronUp,
   Loader2,
   Info,
 } from "lucide-react";
+import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import {
   PLATFORMS,
   PLATFORM_OPTIONS,
@@ -88,8 +88,8 @@ export default function PlatformAnalyticsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filterStartDate) params.set("startDate", filterStartDate);
-      if (filterEndDate) params.set("endDate", filterEndDate);
+      if (filterStartDate) params.set("spendStartDate", filterStartDate);
+      if (filterEndDate) params.set("spendEndDate", filterEndDate);
 
       const [campaignsRes, coursesRes] = await Promise.all([
         fetch(`/api/campaigns?${params.toString()}`),
@@ -235,7 +235,7 @@ export default function PlatformAnalyticsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-marketing" />
+        <Loader2 className="w-8 h-8 animate-spin text-admin" />
       </div>
     );
   }
@@ -269,7 +269,7 @@ export default function PlatformAnalyticsPage() {
           <select
             value={filterCourse}
             onChange={(e) => setFilterCourse(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-admin"
           >
             <option value="">Tutti i corsi</option>
             {courses.map((course) => (
@@ -282,7 +282,7 @@ export default function PlatformAnalyticsPage() {
           <select
             value={filterPlatform}
             onChange={(e) => setFilterPlatform(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-admin"
           >
             <option value="">Tutte le piattaforme</option>
             {PLATFORM_OPTIONS.map((opt) => (
@@ -292,22 +292,16 @@ export default function PlatformAnalyticsPage() {
             ))}
           </select>
 
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            <input
-              type="date"
-              value={filterStartDate}
-              onChange={(e) => setFilterStartDate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
-            <span className="text-gray-400">-</span>
-            <input
-              type="date"
-              value={filterEndDate}
-              onChange={(e) => setFilterEndDate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
-          </div>
+          <DateRangeFilter
+            startDate={filterStartDate || null}
+            endDate={filterEndDate || null}
+            onChange={(start, end) => {
+              setFilterStartDate(start || "");
+              setFilterEndDate(end || "");
+            }}
+            presets
+            accent="admin"
+          />
         </div>
       </div>
 

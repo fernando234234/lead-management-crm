@@ -303,6 +303,7 @@ export default function MarketingCostsPage() {
             startDate={startDate}
             endDate={endDate}
             onChange={handleDateChange}
+            accent="marketing"
           />
         </div>
         

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { Plus, Pencil, Trash2, BookOpen } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
+import { DateInputField } from "@/components/ui/DateInputField";
 
 interface Course {
   id: string;
@@ -289,28 +290,19 @@ export default function AdminCoursesPage() {
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data Inizio
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:border-admin"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data Fine
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-admin focus:border-admin"
-                  />
-                </div>
+                <DateInputField
+                  label="Data Inizio"
+                  value={formData.startDate}
+                  onChange={(value) => setFormData({ ...formData, startDate: value })}
+                  accent="admin"
+                />
+                <DateInputField
+                  label="Data Fine"
+                  value={formData.endDate}
+                  onChange={(value) => setFormData({ ...formData, endDate: value })}
+                  min={formData.startDate || undefined}
+                  accent="admin"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <input

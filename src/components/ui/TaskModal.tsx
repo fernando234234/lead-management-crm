@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import {
   X,
   Calendar,
@@ -10,6 +10,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DateInputField } from "@/components/ui/DateInputField";
+import { formatDateForInput } from "@/lib/date";
 
 interface Lead {
   id: string;
@@ -33,6 +35,7 @@ interface TaskModalProps {
   task?: Task | null;
   leads?: Lead[];
   preselectedLeadId?: string | null;
+  accent?: "admin" | "commercial" | "marketing";
 }
 
 const priorityOptions = [
@@ -48,6 +51,7 @@ export default function TaskModal({
   task,
   leads = [],
   preselectedLeadId,
+  accent = "commercial",
 }: TaskModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -56,6 +60,27 @@ export default function TaskModal({
   const [leadId, setLeadId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const dueDateId = useId();
+  const leadIdField = useId();
+
+  const accentStyles = {
+    admin: {
+      input: "focus:ring-admin focus:border-admin",
+      primaryButton: "bg-admin hover:bg-admin/90",
+    },
+    commercial: {
+      input: "focus:ring-commercial focus:border-commercial",
+      primaryButton: "bg-commercial hover:bg-commercial/90",
+    },
+    marketing: {
+      input: "focus:ring-marketing focus:border-marketing",
+      primaryButton: "bg-marketing hover:bg-marketing/90",
+    },
+  };
+
+  const currentAccent = accentStyles[accent];
 
   useEffect(() => {
     if (isOpen) {
@@ -71,7 +96,7 @@ export default function TaskModal({
         // Default to tomorrow
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        setDueDate(tomorrow.toISOString().split("T")[0]);
+        setDueDate(formatDateForInput(tomorrow));
         setPriority("MEDIUM");
         setLeadId(preselectedLeadId || null);
       }
@@ -99,7 +124,7 @@ export default function TaskModal({
       await onSave({
         title: title.trim(),
         description: description.trim() || null,
-        dueDate: new Date(dueDate).toISOString(),
+        dueDate: new Date(`${dueDate}T00:00:00.000Z`).toISOString(),
         priority,
         leadId,
       });
@@ -115,8 +140,8 @@ export default function TaskModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
+    <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 sm:p-6 overflow-y-auto">
+      <div className="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -125,13 +150,14 @@ export default function TaskModal({
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Chiudi modal promemoria"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
               {error}
@@ -140,54 +166,53 @@ export default function TaskModal({
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor={titleId} className="block text-sm font-medium text-gray-700 mb-1">
               <FileText size={14} className="inline mr-1" />
               Titolo *
             </label>
             <input
+              id={titleId}
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Es: Richiamare per preventivo"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={cn("w-full px-3 py-2 border rounded-lg focus:ring-2", currentAccent.input)}
               autoFocus
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor={descriptionId} className="block text-sm font-medium text-gray-700 mb-1">
               Descrizione
             </label>
             <textarea
+              id={descriptionId}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Dettagli aggiuntivi..."
               rows={3}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={cn("w-full px-3 py-2 border rounded-lg focus:ring-2", currentAccent.input)}
             />
           </div>
 
           {/* Due Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Calendar size={14} className="inline mr-1" />
-              Data Scadenza *
-            </label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+          <DateInputField
+            id={dueDateId}
+            label="Data Scadenza *"
+            value={dueDate}
+            onChange={setDueDate}
+            required
+            accent={accent}
+            labelIcon={<Calendar size={14} className="inline mr-1" />}
+          />
 
           {/* Priority */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <p className="block text-sm font-medium text-gray-700 mb-2">
               <Flag size={14} className="inline mr-1" />
               Priorita
-            </label>
+            </p>
             <div className="flex gap-2">
               {priorityOptions.map((option) => (
                 <button
@@ -209,14 +234,15 @@ export default function TaskModal({
 
           {/* Lead Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor={leadIdField} className="block text-sm font-medium text-gray-700 mb-1">
               <User size={14} className="inline mr-1" />
               Lead Collegato
             </label>
             <select
+              id={leadIdField}
               value={leadId || ""}
               onChange={(e) => setLeadId(e.target.value || null)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={cn("w-full px-3 py-2 border rounded-lg focus:ring-2", currentAccent.input)}
             >
               <option value="">Nessun lead</option>
               {leads.map((lead) => (
@@ -239,7 +265,10 @@ export default function TaskModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
+              className={cn(
+                "flex-1 px-4 py-2 text-white rounded-lg disabled:opacity-50 transition flex items-center justify-center gap-2",
+                currentAccent.primaryButton
+              )}
             >
               {isSubmitting ? (
                 <>

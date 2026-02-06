@@ -1274,6 +1274,7 @@ export default function AdminCampaignsPage() {
         }}
         onSave={handleSaveSpendRecord}
         record={editingSpendRecord}
+        accent="admin"
       />
     </div>
   );

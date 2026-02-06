@@ -530,6 +530,7 @@ export default function DashboardCommercialePage() {
             endDate={endDate}
             onChange={handleDateChange}
             presets
+            accent="admin"
           />
         </div>
       </div>

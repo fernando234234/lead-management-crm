@@ -311,6 +311,7 @@ export default function CommercialDashboard() {
             endDate={endDate}
             onChange={handleDateChange}
             presets
+            accent="commercial"
           />
         </div>
       </div>

@@ -712,6 +712,7 @@ export default function LeadDetailModal({
         onSave={handleCreateTask}
         preselectedLeadId={lead.id}
         leads={[{ id: lead.id, name: lead.name, status: localLead.contacted ? "Contattato" : "Nuovo" }]}
+        accent={accentColor === "admin" || accentColor === "marketing" || accentColor === "commercial" ? accentColor : "commercial"}
       />
       
       {/* Call Outcome Modal */}

@@ -217,6 +217,7 @@ export default function AdminDashboard() {
             endDate={endDate}
             onChange={handleDateChange}
             presets
+            accent="admin"
           />
           {(startDate || endDate) && (
             <p className="text-xs text-admin">

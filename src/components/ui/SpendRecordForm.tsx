@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { Calendar, Euro, FileText, Loader2 } from "lucide-react";
 import type { SpendRecord } from "./SpendRecordList";
+import { DateInputField } from "@/components/ui/DateInputField";
+import { formatDateForInput } from "@/lib/date";
 
 export interface SpendRecordFormData {
   startDate: string;
@@ -16,6 +18,7 @@ interface SpendRecordFormProps {
   onSubmit: (data: SpendRecordFormData) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
+  accent?: "admin" | "marketing";
 }
 
 export default function SpendRecordForm({
@@ -23,6 +26,7 @@ export default function SpendRecordForm({
   onSubmit,
   onCancel,
   isLoading = false,
+  accent = "marketing",
 }: SpendRecordFormProps) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -30,6 +34,23 @@ export default function SpendRecordForm({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const amountId = useId();
+  const notesId = useId();
+
+  const accentStyles = {
+    admin: {
+      input: "focus:ring-admin focus:border-admin",
+      primaryButton: "bg-admin hover:bg-admin/90",
+      date: "admin" as const,
+    },
+    marketing: {
+      input: "focus:ring-marketing focus:border-marketing",
+      primaryButton: "bg-marketing hover:bg-marketing/90",
+      date: "marketing" as const,
+    },
+  };
+
+  const currentAccent = accentStyles[accent];
 
   useEffect(() => {
     if (initialData) {
@@ -46,8 +67,8 @@ export default function SpendRecordForm({
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      setStartDate(firstDay.toISOString().split("T")[0]);
-      setEndDate(lastDay.toISOString().split("T")[0]);
+      setStartDate(formatDateForInput(firstDay));
+      setEndDate(formatDateForInput(lastDay));
       setAmount("");
       setNotes("");
     }
@@ -104,42 +125,34 @@ export default function SpendRecordForm({
 
       {/* Date Range */}
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            <Calendar size={14} className="inline mr-1" />
-            Data Inizio *
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            disabled={disabled}
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            <Calendar size={14} className="inline mr-1" />
-            Data Fine
-          </label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            disabled={disabled}
-            min={startDate}
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100"
-          />
-        </div>
+        <DateInputField
+          label="Data Inizio *"
+          value={startDate}
+          onChange={setStartDate}
+          disabled={disabled}
+          required
+          accent={currentAccent.date}
+          labelIcon={<Calendar size={14} className="inline mr-1" />}
+        />
+        <DateInputField
+          label="Data Fine"
+          value={endDate}
+          onChange={setEndDate}
+          disabled={disabled}
+          min={startDate}
+          accent={currentAccent.date}
+          labelIcon={<Calendar size={14} className="inline mr-1" />}
+        />
       </div>
 
       {/* Amount */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor={amountId} className="block text-sm font-medium text-gray-700 mb-1">
           <Euro size={14} className="inline mr-1" />
           Importo (€) *
         </label>
         <input
+          id={amountId}
           type="number"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
@@ -147,23 +160,24 @@ export default function SpendRecordForm({
           step="0.01"
           min="0"
           disabled={disabled}
-          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100"
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 disabled:bg-gray-100 ${currentAccent.input}`}
         />
       </div>
 
       {/* Notes */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor={notesId} className="block text-sm font-medium text-gray-700 mb-1">
           <FileText size={14} className="inline mr-1" />
           Note
         </label>
         <textarea
+          id={notesId}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Es: Spesa Meta Ads Gennaio..."
           rows={2}
           disabled={disabled}
-          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100"
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 disabled:bg-gray-100 ${currentAccent.input}`}
         />
       </div>
 
@@ -180,7 +194,7 @@ export default function SpendRecordForm({
         <button
           type="submit"
           disabled={disabled}
-          className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
+          className={`flex-1 px-4 py-2 text-white rounded-lg disabled:opacity-50 transition flex items-center justify-center gap-2 ${currentAccent.primaryButton}`}
         >
           {isSubmitting ? (
             <>

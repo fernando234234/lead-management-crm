@@ -257,6 +257,7 @@ export default function TasksPage() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveTask}
         leads={leads}
+        accent="commercial"
       />
     </div>
   );
